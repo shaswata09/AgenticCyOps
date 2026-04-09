@@ -68,22 +68,41 @@ class BaseAgent:
         domain: str,
         config: str = "agenticcyops",
         llm_url: str = "http://localhost:8000/v1",
+        llm_provider: str = "openai",
+        llm_model: Optional[str] = None,
         manifest: Optional[dict] = None,
         tool_schemas: Optional[list[dict]] = None,
         all_tool_schemas: Optional[list[dict]] = None,
         logger: Optional[ExperimentLogger] = None,
     ):
+        """
+        Args:
+            llm_provider: "openai" for vLLM/OpenAI-compatible, "anthropic" for Claude API
+            llm_model: Model name override (e.g. "claude-sonnet-4-20250514")
+        """
         self.phase = phase
         self.domain = domain
         self.config = config
         self.llm_url = llm_url
+        self.llm_provider = llm_provider
         self.manifest = manifest or {}
         self.tool_schemas = tool_schemas or []
         self.all_tool_schemas = all_tool_schemas or []
         self.logger = logger
 
-        self._client = OpenAI(base_url=llm_url, api_key="unused")
-        self._model_name = None  # auto-detected from vLLM
+        if llm_provider == "anthropic":
+            import os
+            from anthropic import Anthropic
+            from config import load_env
+            load_env()
+            self._anthropic_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+            self._model_name = llm_model or "claude-sonnet-4-20250514"
+            self._client = None
+        else:
+            self._client = OpenAI(base_url=llm_url, api_key="unused")
+            self._model_name = llm_model
+            self._anthropic_client = None
+
         self._system_prompt = self._load_prompt()
 
     def _load_prompt(self) -> str:
@@ -103,11 +122,21 @@ class BaseAgent:
             if self._model_name is None:
                 self._model_name = "default"
 
-    def switch_model(self, url: str):
-        """Switch LLM endpoint (for diversity checks)."""
-        self.llm_url = url
-        self._client = OpenAI(base_url=url, api_key="unused")
-        self._model_name = None
+    def switch_model(self, url: str = None, provider: str = "openai", model: str = None):
+        """Switch LLM endpoint or provider (for diversity checks)."""
+        self.llm_provider = provider
+        if provider == "anthropic":
+            import os
+            from anthropic import Anthropic
+            from config import load_env
+            load_env()
+            self._anthropic_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+            self._model_name = model or "claude-sonnet-4-20250514"
+            self._client = None
+        else:
+            self.llm_url = url or self.llm_url
+            self._client = OpenAI(base_url=self.llm_url, api_key="unused")
+            self._model_name = model
 
     def _format_context(self, context: dict) -> str:
         """Build user message from incident context and prior phase outputs."""
@@ -149,6 +178,39 @@ class BaseAgent:
         user_message = self._format_context(context)
         tools = self.get_tools_for_llm()
 
+        start = time.perf_counter()
+
+        if self.llm_provider == "anthropic":
+            result, tokens_prompt, tokens_completion = self._call_anthropic(user_message, tools)
+        else:
+            result, tokens_prompt, tokens_completion = self._call_openai(user_message, tools)
+
+        latency_ms = (time.perf_counter() - start) * 1000
+
+        if self.logger:
+            self.logger.log(
+                source=f"{self.phase}_agent",
+                destination="llm",
+                action="llm_call",
+                auth_decision="allow",
+                latency_ms=latency_ms,
+                tokens_prompt=tokens_prompt,
+                tokens_completion=tokens_completion,
+                extra={
+                    "model": self._model_name,
+                    "provider": self.llm_provider,
+                    "tools_visible": len(tools) if tools else 0,
+                    "config": self.config,
+                },
+            )
+
+        result.latency_ms = latency_ms
+        result.tokens_prompt = tokens_prompt
+        result.tokens_completion = tokens_completion
+        return result
+
+    def _call_openai(self, user_message: str, tools) -> tuple:
+        """Call OpenAI-compatible API (vLLM, GPT-4o)."""
         kwargs = {
             "model": self._model_name,
             "messages": [
@@ -162,38 +224,70 @@ class BaseAgent:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = "auto"
 
-        start = time.perf_counter()
         response = self._client.chat.completions.create(**kwargs)
-        latency_ms = (time.perf_counter() - start) * 1000
 
-        # Extract token usage
-        tokens_prompt = 0
-        tokens_completion = 0
-        if response.usage:
-            tokens_prompt = response.usage.prompt_tokens or 0
-            tokens_completion = response.usage.completion_tokens or 0
+        tokens_prompt = response.usage.prompt_tokens or 0 if response.usage else 0
+        tokens_completion = response.usage.completion_tokens or 0 if response.usage else 0
 
-        # Log the LLM call
-        if self.logger:
-            self.logger.log(
-                source=f"{self.phase}_agent",
-                destination="llm",
-                action="llm_call",
-                auth_decision="allow",
-                latency_ms=latency_ms,
-                tokens_prompt=tokens_prompt,
-                tokens_completion=tokens_completion,
-                extra={
-                    "model": self._model_name,
-                    "tools_visible": len(tools) if tools else 0,
-                    "config": self.config,
-                },
-            )
+        return self._parse_response(response), tokens_prompt, tokens_completion
 
-        result = self._parse_response(response)
-        result.latency_ms = latency_ms
-        result.tokens_prompt = tokens_prompt
-        result.tokens_completion = tokens_completion
+    def _call_anthropic(self, user_message: str, tools) -> tuple:
+        """Call Anthropic Claude API with tool use support."""
+        # Convert OpenAI tool schemas to Anthropic format
+        anthropic_tools = []
+        if tools:
+            for t in tools:
+                func = t.get("function", t)
+                anthropic_tools.append({
+                    "name": func["name"],
+                    "description": func.get("description", ""),
+                    "input_schema": func.get("parameters", {}),
+                })
+
+        kwargs = {
+            "model": self._model_name,
+            "system": self._system_prompt,
+            "messages": [{"role": "user", "content": user_message}],
+            "temperature": 0.0,
+            "max_tokens": 4096,
+        }
+        if anthropic_tools:
+            kwargs["tools"] = anthropic_tools
+
+        response = self._anthropic_client.messages.create(**kwargs)
+
+        tokens_prompt = response.usage.input_tokens or 0
+        tokens_completion = response.usage.output_tokens or 0
+
+        return self._parse_anthropic_response(response), tokens_prompt, tokens_completion
+
+    def _parse_anthropic_response(self, response) -> AgentResult:
+        """Parse Anthropic response into AgentResult."""
+        result = AgentResult(phase=self.phase)
+
+        for block in response.content:
+            if block.type == "text":
+                result.reasoning += block.text
+                try:
+                    parsed = json.loads(block.text)
+                    result.summary = parsed.get("triage_summary",
+                                     parsed.get("response_summary",
+                                     parsed.get("summary", block.text[:200])))
+                except (json.JSONDecodeError, TypeError):
+                    result.summary = block.text[:200]
+
+            elif block.type == "tool_use":
+                result.proposed_tool_calls.append(
+                    ToolCallProposal(
+                        tool_id=block.name,
+                        arguments=block.input or {},
+                        justification=f"Claude proposed: {block.name}",
+                    )
+                )
+
+        if not result.summary:
+            result.summary = result.reasoning[:200] if result.reasoning else "No content"
+
         return result
 
     def _parse_response(self, response) -> AgentResult:

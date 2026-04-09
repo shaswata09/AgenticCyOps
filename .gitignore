@@ -212,7 +212,6 @@ __marimo__/
 .vscode/
 .env
 logs/
-results/
 __pycache__/
 *.pyc
 

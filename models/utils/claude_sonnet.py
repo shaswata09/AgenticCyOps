@@ -62,8 +62,11 @@ class ClaudeSonnet:
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            "top_p": top_p,
         }
+        # Claude doesn't allow temperature + top_p together
+        if top_p != 1.0:
+            del kwargs["temperature"]
+            kwargs["top_p"] = top_p
         if system:
             kwargs["system"] = system
         if stop_sequences:

@@ -27,31 +27,52 @@ validators:
     model: "gpt-4o"
     type: "openai_api"
 
-# Default consensus: 3 families (2 local + 1 API)
-# Needs 2 of 3 to approve — one rejection won't block legitimate actions
+# ---- Default consensus configs ----
+
+# Default: 2 local + 2 API = 4 validators, threshold 3/4
+# Maximum diversity: Qwen, DeepSeek, OpenAI, Anthropic (4 families)
 default_consensus:
+  validators: ["V1_qwen", "V2_deepseek", "V6_gpt4o", "V4_claude"]
+  threshold: 3
+
+# Without Claude (if no ANTHROPIC_API_KEY)
+default_no_claude:
   validators: ["V1_qwen", "V2_deepseek", "V6_gpt4o"]
   threshold: 2
 
-# Local only (no API key needed)
+# Local only (no API keys needed)
 local_only:
   validators: ["V1_qwen", "V2_deepseek"]
   threshold: 2
 
-# With Claude (requires ANTHROPIC_API_KEY in .env)
-default_with_claude:
-  validators: ["V1_qwen", "V2_deepseek", "V4_claude"]
-  threshold: 2
+# ---- Validator diversity experiment configs ----
 
-# Validator diversity experiment configs
+# Same family: all Qwen (tests correlated failure)
 same_family:
   validators: ["V1_qwen", "V1_qwen", "V1_qwen"]
   threshold: 2
 
+# All local diverse: 3 different OSS families
 all_local_diverse:
   validators: ["V1_qwen", "V2_deepseek", "V3_llama"]
   threshold: 2
 
-mixed_local_api:
+# Mixed local + Claude: 3 families (Qwen, DeepSeek, Anthropic)
+mixed_with_claude:
   validators: ["V1_qwen", "V2_deepseek", "V4_claude"]
   threshold: 2
+
+# Mixed local + GPT-4o: 3 families (Qwen, DeepSeek, OpenAI)
+mixed_with_gpt4o:
+  validators: ["V1_qwen", "V2_deepseek", "V6_gpt4o"]
+  threshold: 2
+
+# With Mistral: V1 + V5 + V4 + V6 (for Group E)
+with_mistral:
+  validators: ["V1_qwen", "V5_mistral", "V6_gpt4o", "V4_claude"]
+  threshold: 3
+
+# Full diversity: all 5 local + 2 API = 7 validators
+full_diversity:
+  validators: ["V1_qwen", "V2_deepseek", "V3_llama", "V5_mistral", "V6_gpt4o", "V4_claude"]
+  threshold: 4
