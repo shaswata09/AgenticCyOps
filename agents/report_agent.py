@@ -4,5 +4,5 @@ from agents.base_agent import BaseAgent
 
 
 class ReportAgent(BaseAgent):
-    def __init__(self, domain: str, **kwargs):
-        super().__init__(phase="report", domain=domain, **kwargs)
+    def __init__(self, domain: str, config: str = "agenticcyops", **kwargs):
+        super().__init__(phase="report", domain=domain, config=config, **kwargs)

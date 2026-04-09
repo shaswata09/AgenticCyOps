@@ -60,16 +60,20 @@ class BaseAgent:
         self,
         phase: str,
         domain: str,
+        config: str = "agenticcyops",
         llm_url: str = "http://localhost:8000/v1",
         manifest: Optional[dict] = None,
         tool_schemas: Optional[list[dict]] = None,
+        all_tool_schemas: Optional[list[dict]] = None,
         logger: Optional[ExperimentLogger] = None,
     ):
         self.phase = phase
         self.domain = domain
+        self.config = config
         self.llm_url = llm_url
         self.manifest = manifest or {}
         self.tool_schemas = tool_schemas or []
+        self.all_tool_schemas = all_tool_schemas or []
         self.logger = logger
 
         self._client = OpenAI(base_url=llm_url, api_key="unused")
@@ -119,12 +123,24 @@ class BaseAgent:
 
         return "\n\n".join(parts)
 
+    def get_tools_for_llm(self) -> Optional[list[dict]]:
+        """Return tool schemas based on config.
+
+        CRITICAL: This controls what the agent can even TRY to call.
+        - flat/acl_hardened: Agent sees ALL tools (can attempt out-of-scope calls)
+        - agenticcyops: Agent sees ONLY manifest tools (doesn't know others exist)
+        """
+        if self.config in ("flat", "acl_hardened"):
+            return self.all_tool_schemas or self.tool_schemas or None
+        else:
+            return self.tool_schemas or None
+
     async def execute(self, context: dict) -> AgentResult:
         """Reason about the task and propose tool calls."""
         self._detect_model()
 
         user_message = self._format_context(context)
-        tools = self.tool_schemas if self.tool_schemas else None
+        tools = self.get_tools_for_llm()
 
         kwargs = {
             "model": self._model_name,

@@ -113,8 +113,23 @@ class SOARHost:
         """Process a tool call with config-appropriate enforcement."""
         tool_id = tc.tool_id
 
-        # P2: Manifest check (skip for flat config)
-        if self.config in ("acl_hardened", "agenticcyops"):
+        # Config-specific enforcement
+        if self.config == "acl_hardened":
+            # ACL: Enforce at "network layer" — agent was still manipulated into trying
+            allowed, reason = self.enforcer.validate_tool_call(phase, tool_id)
+            if not allowed:
+                if self.logger:
+                    self.logger.log_tool_call(
+                        agent=f"{phase}_agent",
+                        tool=tool_id,
+                        auth_decision="deny",
+                        mechanism="acl_network_layer",
+                        interception_step=2,
+                    )
+                return {"status": "denied", "tool_id": tool_id, "reason": f"403: {reason}"}
+
+        elif self.config == "agenticcyops":
+            # P2: Application-layer manifest enforcement (agent shouldn't even try this)
             allowed, reason = self.enforcer.validate_tool_call(phase, tool_id)
             if not allowed:
                 if self.logger:
@@ -199,6 +214,7 @@ class SOARHost:
                 return {"status": "mma_unreachable"}
 
         elif self.config == "acl_hardened":
+            # ACL: Check access but NO write-boundary filtering (P4 absent)
             allowed, reason = self.enforcer.validate_memory_write(phase, store_id)
             if not allowed:
                 if self.logger:
@@ -206,16 +222,16 @@ class SOARHost:
                         agent=f"{phase}_agent",
                         store=store_id,
                         auth_decision="deny",
-                        mechanism="P5_access_control",
+                        mechanism="acl_network_layer",
                     )
-                return {"status": "denied", "reason": reason}
+                return {"status": "denied", "reason": f"403: {reason}"}
 
-        # flat config or allowed — write directly (would use ChromaDB directly in real impl)
+        # flat config or acl_hardened allowed — write directly (no P4 filtering)
         if self.logger:
             self.logger.log_memory_write(
                 agent=f"{phase}_agent",
                 store=store_id,
                 auth_decision="allow",
-                mechanism="none" if self.config == "flat" else "P5_access_control",
+                mechanism="none" if self.config == "flat" else "acl_network_layer",
             )
         return {"status": "written"}
