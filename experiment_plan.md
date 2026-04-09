@@ -153,6 +153,45 @@ Case management and legal research pipeline.
 | Tool Stubs | Template **identical** | Tool names + responses differ |
 | ChromaDB Setup | **Identical** code | Collection names + seed data differ |
 
+
+### 2.6 Baseline Verification Protocol
+
+Before any attack runs, each domain must pass benign end-to-end workflows in all three configurations. This establishes that:
+
+1. **Flat MAS** — pipeline functions (tools respond, memory reads/writes work, agents produce output)
+2. **ACL-Hardened** — ACLs are active (out-of-scope calls return 403) without breaking legitimate flow
+3. **AgenticCyOps** — all P1–P5 are active and don't false-block legitimate operations
+
+#### Per-Domain Verification
+
+| Check | Flat MAS | ACL-Hardened | AgenticCyOps |
+|-------|----------|-------------|-------------|
+| Benign incident completes E2E | ✓ | ✓ | ✓ |
+| In-scope tool calls succeed | ✓ | ✓ | ✓ |
+| Out-of-scope tool call succeeds | ✓ (no restrictions) | ✗ (HTTP 403) | ✗ (P2 manifest rejection) |
+| Memory read (in-scope) works | ✓ | ✓ | ✓ |
+| Memory write (out-of-scope) succeeds | ✓ (no restrictions) | ✗ (ACL block) | ✗ (P5 MMA rejection) |
+| Consensus approves legitimate action | N/A | N/A | ✓ |
+| Write-filter accepts legitimate write | N/A | N/A | ✓ |
+| P1–P5 log entries present | N/A | N/A | ✓ |
+
+#### Readiness Gate
+
+| Domain | Flat ✓ | ACL ✓ | AgenticCyOps ✓ | Ready |
+|--------|--------|-------|----------------|-------|
+| CyberOps | ☐ | ☐ | ☐ | ☐ |
+| Healthcare | ☐ | ☐ | ☐ | ☐ |
+| Finance | ☐ | ☐ | ☐ | ☐ |
+| Legal | ☐ | ☐ | ☐ | ☐ |
+
+**All 12 cells must pass before attack evaluations (Eval A, Eval F) begin.**
+
+Failure diagnosis:
+- Flat fails → tool stub or memory seed issue (fix tool/seed)
+- ACL fails → ACL config wrong (fix `acl_config.yaml`)
+- AgenticCyOps fails → false-blocking (tune validator prompts or write-filter threshold)
+
+
 **Implementation effort per adapter domain: ~4 hours** (manifests + tool stubs + attack payloads + seed data).
 
 ---
@@ -200,6 +239,7 @@ The same Host, agent framework, consensus module, and MMA gateway code used in C
 
 | Component | Per Domain |
 |-----------|-----------|
+| **Baseline verification** | **1 benign E2E × 3 configs = 3 runs (must pass before attacks)** |
 | Tool stubs | 10–13 minimal FastAPI servers (~20 lines each) |
 | Manifests | 4 JSON files (one per phase) |
 | Memory collections | 6–8 ChromaDB collections, 10–20 seed entries each |

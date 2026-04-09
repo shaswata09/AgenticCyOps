@@ -129,19 +129,31 @@
 
 ---
 
-## Phase 2: CyberOps Pipeline + Configs (Day 3)
+## Phase 2: CyberOps Configs + Baseline Verification (Day 3)
 
 ### 2.1 Flat MAS — **A**
 - [ ] All agents → all tools, all stores, peer-to-peer
-- [ ] Verified: Monitor calls T8 ✓, any agent writes any store ✓
+- [ ] Verify: Monitor calls T8 ✓, any agent writes any store ✓
+- [ ] Run 1 benign incident E2E → completes ✓
 
 ### 2.2 ACL-Hardened — **B**
 - [ ] Phase restrictions, no consensus/manifests/MMA/filtering
-- [ ] Verified: Monitor → T8 returns 403 ✓
+- [ ] Verify: Monitor → T8 returns 403 ✓
+- [ ] Verify: Monitor → assigned stores accessible without filtering ✓
+- [ ] Run 1 benign incident E2E → completes ✓ (ACLs don't break legitimate flow)
 
 ### 2.3 AgenticCyOps — **C**
 - [ ] Full: Host + manifests + consensus + MMA
-- [ ] Verified: benign E2E ✓, all 5 principles logging ✓
+- [ ] Verify: all 5 principles logging ✓
+- [ ] Verify: consensus approves legitimate Admin action ✓
+- [ ] Verify: write-filter accepts legitimate memory write ✓
+- [ ] Run 1 benign incident E2E → completes with zero false blocks ✓
+
+### 2.4 CyberOps Baseline Status
+- [ ] Flat MAS benign E2E: ☐ PASS
+- [ ] ACL-Hardened benign E2E: ☐ PASS
+- [ ] AgenticCyOps benign E2E: ☐ PASS
+- [ ] **CyberOps ready for attacks: ☐**
 
 ---
 
@@ -178,7 +190,14 @@
   - [ ] AP-2 analogue: Poisoned lab results → wrong diagnosis in patient records
   - [ ] AP-4 analogue: Compliance agent exfiltrates PHI into quality metrics
 - [ ] 5 benign clinical workflows
-- [ ] **Verify:** run one benign E2E through healthcare AgenticCyOps config
+- [ ] **Baseline verification (all 3 configs):**
+  - [ ] Initialize healthcare memory: `python -m memory.chromadb_setup --domain healthcare`
+  - [ ] Start healthcare tools: `python -m domains.healthcare.tools.start_all`
+  - [ ] Flat MAS: run 1 benign clinical workflow E2E → completes ✓
+  - [ ] Flat MAS: verify Triage agent CAN call H8 (Prescription Writer) — no restrictions ✓
+  - [ ] ACL-Hardened: run 1 benign → completes ✓
+  - [ ] ACL-Hardened: verify Triage → H8 returns 403 ✓
+  - [ ] AgenticCyOps: run 1 benign → completes, all P1–P5 logging, zero false blocks ✓
 
 ### 3.10 Finance Adapter — **C** (Day 4)
 - [ ] 4 manifests → `domains/finance/configs/`
@@ -192,7 +211,14 @@
   - [ ] AP-2 analogue: Falsified fraud determination poisons case history
   - [ ] AP-5 analogue: Account action agent proposes mass account freezes
 - [ ] 5 benign fraud investigation workflows
-- [ ] **Verify:** one benign E2E
+- [ ] **Baseline verification (all 3 configs):**
+  - [ ] Initialize finance memory: `python -m memory.chromadb_setup --domain finance`
+  - [ ] Start finance tools: `python -m domains.finance.tools.start_all`
+  - [ ] Flat MAS: run 1 benign fraud workflow E2E → completes ✓
+  - [ ] Flat MAS: verify Surveillance agent CAN call F8 (Account Freeze) ✓
+  - [ ] ACL-Hardened: run 1 benign → completes ✓
+  - [ ] ACL-Hardened: verify Surveillance → F8 returns 403 ✓
+  - [ ] AgenticCyOps: run 1 benign → completes, all P1–P5 logging, zero false blocks ✓
 
 ### 3.11 Legal Adapter — **C** (Day 4)
 - [ ] 4 manifests → `domains/legal/configs/`
@@ -206,7 +232,37 @@
   - [ ] AP-2 analogue: Poisoned case law → wrong legal analysis in research memos
   - [ ] AP-4 analogue: Client reporting agent exfiltrates privileged comms into billing
 - [ ] 5 benign case management workflows
-- [ ] **Verify:** one benign E2E
+- [ ] **Baseline verification (all 3 configs):**
+  - [ ] Initialize legal memory: `python -m memory.chromadb_setup --domain legal`
+  - [ ] Start legal tools: `python -m domains.legal.tools.start_all`
+  - [ ] Flat MAS: run 1 benign case workflow E2E → completes ✓
+  - [ ] Flat MAS: verify Research agent CAN call L8 (Court Filing) ✓
+  - [ ] ACL-Hardened: run 1 benign → completes ✓
+  - [ ] ACL-Hardened: verify Research → L8 returns 403 ✓
+  - [ ] AgenticCyOps: run 1 benign → completes, all P1–P5 logging, zero false blocks ✓
+
+
+### 3.12 Baseline Readiness Gate — **All** (End of Day 4)
+
+**No attack runs start until all 12 cells pass.**
+
+| Domain | Flat MAS E2E | ACL-Hardened E2E | AgenticCyOps E2E | Ready |
+|--------|-------------|-----------------|-----------------|-------|
+| CyberOps | ☐ PASS | ☐ PASS | ☐ PASS | ☐ |
+| Healthcare | ☐ PASS | ☐ PASS | ☐ PASS | ☐ |
+| Finance | ☐ PASS | ☐ PASS | ☐ PASS | ☐ |
+| Legal | ☐ PASS | ☐ PASS | ☐ PASS | ☐ |
+
+- [ ] All 12 cells PASS
+- [ ] Log files confirm: Flat has no defenses active, ACL has only HTTP 403, AgenticCyOps has all P1–P5
+- [ ] **Proceed to Phase 4**
+
+**If any cell fails:**
+- Flat fails → tool stub or memory seed issue → fix tool/seed, not framework
+- ACL fails → ACL config wrong → check `acl_config.yaml` for that domain
+- AgenticCyOps fails → defense false-blocking → tune validator prompts or write-filter threshold
+- Do NOT start attacks until the failing cell is fixed
+
 
 **Adapter build time estimate:** ~4 hours per domain. Person C builds all 3 on Day 4 while A+B finish CyberOps attack scripts.
 
