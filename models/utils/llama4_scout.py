@@ -20,7 +20,7 @@ from openai import OpenAI
 MODELS_DIR = Path(__file__).resolve().parent.parent
 MODEL_PATH = str(MODELS_DIR / "meta-llama" / "Llama-4-Scout-17B-16E-Instruct")
 DEFAULT_PORT = 8004
-DEFAULT_GPUS = "5"
+DEFAULT_GPUS = "4,5"
 
 
 class Llama4Scout:
@@ -45,8 +45,8 @@ class Llama4Scout:
 
     def serve(
         self,
-        tensor_parallel_size: int = 1,
-        gpu_memory_utilization: float = 0.85,
+        tensor_parallel_size: int = 2,
+        gpu_memory_utilization: float = 0.9,
         max_model_len: Optional[int] = None,
         dtype: str = "bfloat16",
         quantization: Optional[str] = None,
@@ -57,7 +57,7 @@ class Llama4Scout:
         """Start vLLM server with full configuration control.
 
         Llama 4 Scout uses the 'llama3_json' tool-call parser.
-        Default gpu_memory_utilization=0.85 for dedicated GPU 5.
+        Default TP=2 on NVLink pair — model is 203GB at BF16, requires 2× H200.
         Default enable_tool_choice=False — validators primarily do structured validation, not tool calling.
         """
         cmd = [

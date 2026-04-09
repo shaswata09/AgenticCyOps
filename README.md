@@ -2,7 +2,7 @@
 
 > **Securing Multi-Agentic AI Integration in Enterprise Cyber Operations**
 
-This repository contains the evaluation testbed for the AgenticCyOps framework, a security architecture for LLM-powered multi-agent systems (MAS). The testbed implements a full Security Operations Center (SOC) pipeline with 16 MCP-based tool servers, 12 memory stores, phase-scoped agents, consensus-validated execution, and six adversarial attack scenarios — evaluated across three configurations and five open-source model families.
+This repository contains the evaluation testbed for the AgenticCyOps framework, a security architecture for LLM-powered multi-agent systems (MAS). The testbed implements a full Security Operations Center (SOC) pipeline with 16 MCP-based tool servers, 12 memory stores, phase-scoped agents, consensus-validated execution, and six adversarial attack scenarios — evaluated across three configurations and seven model families (five open-source, two proprietary).
 
 ---
 
@@ -70,10 +70,10 @@ This testbed empirically validates these claims through:
 |-----------|--------------|
 | GPUs | 2× NVIDIA A100 80GB or equivalent |
 | RAM | 128 GB |
-| Storage | 600 GB (models) + 50 GB (experiment data) |
+| Storage | 400 GB (models) + 50 GB (experiment data) |
 | Network | Internet access for API calls (Claude Sonnet, GPT-4o) |
 
-With 2× A100: run Qwen3-235B-A22B only (primary agent), use API providers for diversity models and all validators.
+With 2× A100: run Qwen3-235B-A22B only (primary agent), use API providers for validators.
 
 ### Recommended (full reproduction as published)
 
@@ -87,16 +87,18 @@ With 2× A100: run Qwen3-235B-A22B only (primary agent), use API providers for d
 ### GPU Assignment (6× H200 configuration)
 
 ```
-GPU 0 ─┐ NVLink ── Qwen3-235B-A22B-Instruct  (Primary agents + Host)
-GPU 1 ─┘                                       Port 8000
+GPU 0 ─┐
+GPU 1 ─┤ TP=4 ── Qwen3-235B-A22B-Instruct-2507  (Primary agents + Host, Port 8000)
+GPU 4 ─┤          GLM-4.7 FP8                     (Diversity agents, Port 8001; swap with Primary)
+GPU 5 ─┘
 
-GPU 2 ─┐ NVLink ── GLM-4.7                     (Diversity agents)
-GPU 3 ─┘                                       Port 8001
+GPU 2 ──────────── Qwen3-32B                      (Validator V1, Port 8002)
+                   DeepSeek-R1-Distill-Qwen-32B    (Validator V2, Port 8005; swap with V1)
 
-GPU 4 ──────────── Qwen3-32B                   (Validator V1, Port 8002)
-                   Mistral-Small-3.2-24B        (Validator V2, Port 8003)
+GPU 3 ──────────── Mistral-Small-3.2-24B           (Validator V5 optional, Port 8003)
 
-GPU 5 ──────────── Llama-4-Scout-17B-16E        (Validator V3, Port 8004)
+GPU 4 ─┐ TP=2 ── Llama-4-Scout-17B-16E            (Validator V3, Port 8004)
+GPU 5 ─┘
 ```
 
 ---
@@ -107,21 +109,22 @@ GPU 5 ──────────── Llama-4-Scout-17B-16E        (Validat
 
 | Model | Role | Family | Size | HuggingFace Repo |
 |-------|------|--------|------|-------------------|
-| Qwen3-235B-A22B-Instruct | Primary agents + Host | Qwen (Alibaba) | ~120 GB | `Qwen/Qwen3-235B-A22B-Instruct` |
-| GLM-4.7 | Diversity agents | GLM (Zhipu) | ~260 GB | `zai-org/GLM-4.7` |
+| Qwen3-235B-A22B-Instruct-2507 | Primary agents + Host | Qwen (Alibaba) | ~120 GB | `Qwen/Qwen3-235B-A22B-Instruct-2507` |
+| GLM-4.7 | Diversity agents | GLM (Zhipu) | ~668 GB | `zai-org/GLM-4.7` |
 | Qwen3-32B | Validator V1 | Qwen (Alibaba) | ~64 GB | `Qwen/Qwen3-32B` |
-| Mistral-Small-3.2-24B-Instruct | Validator V2 | Mistral | ~48 GB | `mistralai/Mistral-Small-3.2-24B-Instruct-2506` |
+| DeepSeek-R1-Distill-Qwen-32B | Validator V2 | DeepSeek | ~64 GB | `deepseek-ai/DeepSeek-R1-Distill-Qwen-32B` |
 | Llama-4-Scout-17B-16E-Instruct | Validator V3 | Meta | ~55 GB | `meta-llama/Llama-4-Scout-17B-16E-Instruct` |
-| BGE-EN-ICL | Embedding (ChromaDB) | BAAI | ~2 GB | `BAAI/bge-en-icl` |
+| Mistral-Small-3.2-24B-Instruct | Validator V5 (optional) | Mistral | ~48 GB | `mistralai/Mistral-Small-3.2-24B-Instruct-2506` |
+| Qwen3-Embedding-8B | Embedding (ChromaDB) | Qwen (Alibaba) | ~16 GB | `Qwen/Qwen3-Embedding-8B` |
 
 ### Proprietary Models (API only)
 
 | Model | Role | Estimated Cost |
 |-------|------|---------------|
-| Claude Sonnet | Validator V4 | ~$12–20 |
-| GPT-4o | TAMAS baseline | ~$25–50 |
+| Claude Sonnet | Validator V4 | ~$20 |
+| GPT-4o | TAMAS baseline | ~$50 |
 
-**Total API budget: ~$40–70**
+**Total API budget: ~$70**
 
 ---
 
@@ -140,21 +143,21 @@ conda activate agenticcyops
 chmod +x install.sh
 ./install.sh
 
-# 4. Configure API keys
+# 4. Configure API keys (no DeepSeek API needed — all DeepSeek models run locally)
 cp .env.example .env
 # Edit .env with your ANTHROPIC_API_KEY, OPENAI_API_KEY, HF_TOKEN
 
-# 5. Download models (~550 GB, takes several hours)
+# 5. Download models (~370 GB, takes several hours)
 cd /path/to/model/storage
 chmod +x download_models.sh
 ./download_models.sh
 
-# 6. Start vLLM servers (5 terminals or use start_servers.sh)
+# 6. Start vLLM servers (4 terminals or use start_servers.sh)
 chmod +x start_servers.sh
 ./start_servers.sh
 
 # 7. Verify servers
-for port in 8000 8001 8002 8003 8004; do
+for port in 8000 8002 8003 8004; do
   curl -s http://localhost:$port/v1/models | python -m json.tool | head -3
 done
 
@@ -187,7 +190,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 # Step 2: All other dependencies
 pip install -r requirements.txt
 
-# Step 3: vLLM nightly (required for GLM-4.7)
+# Step 3: vLLM nightly (required for DeepSeek-R1-Distill-Qwen-32B)
 pip install -U vllm --pre \
   --index-url https://pypi.org/simple \
   --extra-index-url https://wheels.vllm.ai/nightly
@@ -217,23 +220,24 @@ OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
 ### Step 4: Model Download
 
 ```bash
-# From your model storage directory (needs ~550 GB)
+# From your model storage directory (needs ~370 GB)
 chmod +x download_models.sh
 ./download_models.sh
 ```
 
-This downloads all 6 models with HuggingFace's Rust-based parallel transfer (`hf_transfer`). Models are stored as actual files (no symlinks to HF cache).
+This downloads all 7 local models with HuggingFace's Rust-based parallel transfer (`hf_transfer`). Models are stored as actual files (no symlinks to HF cache).
 
 Expected directory structure after download:
 
 ```
-/path/to/models/
-├── Qwen/Qwen3-235B-A22B-Instruct/    (~120 GB)
-├── zai-org/GLM-4.7/                   (~260 GB)
-├── Qwen/Qwen3-32B/                    (~64 GB)
-├── mistralai/Mistral-Small-3.2-24B-Instruct-2506/  (~48 GB)
-├── meta-llama/Llama-4-Scout-17B-16E-Instruct/      (~55 GB)
-└── BAAI/bge-en-icl/                   (~2 GB)
+models/
+├── Qwen/Qwen3-235B-A22B-Instruct-2507/             (~438 GB weights)
+├── zai-org/GLM-4.7/                                 (~668 GB weights)
+├── Qwen/Qwen3-32B/                                  (~61 GB weights)
+├── deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/       (~64 GB weights)
+├── mistralai/Mistral-Small-3.2-24B-Instruct-2506/  (~89 GB weights)
+├── meta-llama/Llama-4-Scout-17B-16E-Instruct/      (~202 GB weights)
+└── Qwen/Qwen3-Embedding-8B/                        (~16 GB weights)
 ```
 
 ### Step 5: Start vLLM Servers
@@ -248,38 +252,43 @@ chmod +x start_servers.sh
 Or start individually in separate terminals:
 
 ```bash
-# Primary agents + Host (GPU 0-1)
-CUDA_VISIBLE_DEVICES=0,1 vllm serve /path/to/models/Qwen/Qwen3-235B-A22B-Instruct \
-  --tensor-parallel-size 2 --dtype bfloat16 \
+# Primary agents + Host (GPU 0,1,4,5 TP=4)
+CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve /path/to/models/Qwen/Qwen3-235B-A22B-Instruct-2507 \
+  --tensor-parallel-size 4 --dtype bfloat16 \
   --enable-auto-tool-choice --tool-call-parser hermes \
   --gpu-memory-utilization 0.9 --port 8000
 
-# Diversity agents (GPU 2-3)
-CUDA_VISIBLE_DEVICES=2,3 vllm serve /path/to/models/zai-org/GLM-4.7 \
-  --tensor-parallel-size 2 --dtype bfloat16 \
-  --enable-auto-tool-choice --tool-call-parser glm47 --reasoning-parser glm45 \
+# Diversity agents: GLM-4.7 FP8 (GPU 0,1,4,5 TP=4; swap with Primary when not running)
+CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve /path/to/models/zai-org/GLM-4.7 \
+  --tensor-parallel-size 4 --dtype float16 --quantization fp8 \
+  --enable-auto-tool-choice --tool-call-parser hermes \
   --gpu-memory-utilization 0.9 --port 8001
 
-# Validator V1 (GPU 4)
-CUDA_VISIBLE_DEVICES=4 vllm serve /path/to/models/Qwen/Qwen3-32B \
-  --dtype bfloat16 --gpu-memory-utilization 0.45 --port 8002
+# Validator V1 (GPU 2)
+CUDA_VISIBLE_DEVICES=2 vllm serve /path/to/models/Qwen/Qwen3-32B \
+  --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8002
 
-# Validator V2 (GPU 4, shared)
-CUDA_VISIBLE_DEVICES=4 vllm serve /path/to/models/mistralai/Mistral-Small-3.2-24B-Instruct-2506 \
-  --dtype bfloat16 --gpu-memory-utilization 0.45 --port 8003
+# Validator V2 (GPU 2; swap with V1)
+CUDA_VISIBLE_DEVICES=2 vllm serve /path/to/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B \
+  --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8005
 
-# Validator V3 (GPU 5)
-CUDA_VISIBLE_DEVICES=5 vllm serve /path/to/models/meta-llama/Llama-4-Scout-17B-16E-Instruct \
-  --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8004
+# Validator V3 (GPU 4,5 TP=2)
+CUDA_VISIBLE_DEVICES=4,5 vllm serve /path/to/models/meta-llama/Llama-4-Scout-17B-16E-Instruct \
+  --tensor-parallel-size 2 --dtype bfloat16 \
+  --gpu-memory-utilization 0.85 --port 8004
+
+# Validator V5 (optional, GPU 3)
+CUDA_VISIBLE_DEVICES=3 vllm serve /path/to/models/mistralai/Mistral-Small-3.2-24B-Instruct-2506 \
+  --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8003
 ```
 
-**Note:** V1 and V2 share GPU 4. If OOM occurs, run them sequentially (start V1 for attack/ablation runs, swap to V2 for validator diversity runs).
+**Note:** Primary and GLM-4.7 diversity share GPU 0,1,4,5 (swap — only one runs at a time). V1 and V2 share GPU 2 (swap). V5 runs on GPU 3. V3 uses GPU 4,5 TP=2 (available when Primary is not running).
 
 ### Step 6: Initialize Memory Layer
 
 ```bash
 # Initialize ChromaDB with 12 collections and seed data
-python -m memory.chromadb_setup --embedding-model /path/to/models/BAAI/bge-en-icl
+python -m memory.chromadb_setup --embedding-model /path/to/models/Qwen/Qwen3-Embedding-8B
 python -m memory.seed_data
 ```
 
@@ -304,9 +313,44 @@ agenticcyops-experiments/
 ├── .gitignore
 ├── install.sh                        # 3-step dependency installer
 ├── requirements.txt                  # All Python dependencies
-├── start_servers.sh                  # Launch 5 vLLM servers
-├── download_models.sh                # Download 6 models from HuggingFace
+├── start_servers.sh                  # Interactive vLLM server launcher
+├── monitor.sh                        # Live system monitor (GPU/CPU/RAM/servers)
+├── gpu_monitor.sh                    # Lightweight nvidia-smi loop
 ├── README.md                         # This file
+├── experiment_plan.md                # Full evaluation protocol
+├── task_checklist.md                 # 10-day execution checklist
+│
+├── models/                           # Model weights + utilities
+│   ├── download_models.sh            # Download 7 local models from HuggingFace
+│   ├── utils/                        # Per-model Python utility classes
+│   │   ├── __init__.py
+│   │   ├── qwen3_235b.py             # Primary agents + Host
+│   │   ├── glm47.py                  # Diversity agents (GLM family)
+│   │   ├── qwen3_32b.py              # Validator V1
+│   │   ├── deepseek_r1.py            # Validator V2 (DeepSeek family)
+│   │   ├── mistral_small.py          # Validator V5 optional (Mistral family)
+│   │   ├── llama4_scout.py           # Validator V3 (Meta family)
+│   │   ├── claude_sonnet.py          # Validator V4 (Anthropic API)
+│   │   ├── gpt4o.py                  # TAMAS baseline (OpenAI API)
+│   │   └── qwen3_embedding.py        # Embedding for ChromaDB
+│   ├── test_scripts/                 # Jupyter test notebooks per model
+│   │   ├── test_qwen3_235b.ipynb
+│   │   ├── test_glm47.ipynb
+│   │   ├── test_qwen3_32b.ipynb
+│   │   ├── test_deepseek_r1.ipynb
+│   │   ├── test_mistral_small.ipynb
+│   │   ├── test_llama4_scout.ipynb
+│   │   ├── test_claude_sonnet.ipynb
+│   │   ├── test_gpt4o.ipynb
+│   │   └── test_qwen3_embedding.ipynb
+│   ├── Qwen/                         # (gitignored) model weights
+│   │   ├── Qwen3-235B-A22B-Instruct-2507/
+│   │   ├── Qwen3-32B/
+│   │   └── Qwen3-Embedding-8B/
+│   ├── zai-org/GLM-4.7/
+│   ├── deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/
+│   ├── mistralai/Mistral-Small-3.2-24B-Instruct-2506/
+│   └── meta-llama/Llama-4-Scout-17B-16E-Instruct/
 │
 ├── configs/                          # Phase manifests + system configs
 │   ├── monitor_manifest.json
@@ -316,7 +360,7 @@ agenticcyops-experiments/
 │   ├── flat_config.yaml              # Flat MAS: all access open
 │   ├── acl_config.yaml               # ACL-Hardened: network ACLs only
 │   ├── agenticcyops_config.yaml      # Full framework
-│   └── validators.yaml               # V1–V4 endpoints and models
+│   └── validators.yaml               # V1–V5 endpoints and models
 │
 ├── mcp_servers/                      # 16 mock tool servers (FastAPI + MCP)
 │   ├── base_server.py
@@ -339,17 +383,21 @@ agenticcyops-experiments/
 │   └── handoff.py
 │
 ├── memory/                           # Organizational memory layer
-│   ├── chromadb_setup.py             # 12 collections + bge-en-icl
+│   ├── chromadb_setup.py             # 12 collections + Qwen3-Embedding-8B
 │   ├── seed_data.py
 │   ├── mma_gateway.py                # Memory Management Agent
 │   ├── access_control.py             # Phase-partitioned policies
 │   └── write_filter.py               # Schema + cosine similarity
 │
 ├── consensus/                        # Consensus validation module
-│   ├── validator.py                  # 3-of-4 validators, ≥2/3 approve
+│   ├── validator.py                  # 3-of-5 validators, ≥2/3 approve
 │   ├── recovery_loop.py             # Admin phase (irreversible actions)
 │   ├── improvement_loop.py          # Report phase (memory writes)
 │   └── escalation.py                # Human-in-the-loop handler
+│
+├── logging_utils/                    # Structured JSON instrumentation
+│   ├── __init__.py                   # Exports ExperimentLogger, log_event
+│   └── json_logger.py                # ExperimentLogger + EventBuilder + convenience methods
 │
 ├── attacks/                          # Attack scenarios + harness
 │   ├── harness.py                    # attack × config × trials → logs
@@ -404,15 +452,16 @@ agenticcyops-experiments/
 │   ├── boundary_comparison.md
 │   └── generalizability.md
 │
-├── logs/                             # Structured JSON experiment logs
-│   ├── eval_a/
-│   ├── eval_b/
-│   ├── eval_c/
-│   ├── eval_d/
-│   ├── ablation/
-│   └── validator_diversity/
+├── logs/                             # (gitignored) experiment logs
+│   ├── vllm/                         # vLLM server logs (port_XXXX.log)
+│   ├── eval_a/                       # Attack path replay logs
+│   ├── eval_b/                       # Trust boundary logs
+│   ├── eval_c/                       # Memory poisoning logs
+│   ├── eval_d/                       # TAMAS benchmark logs
+│   ├── ablation/                     # Ablation study logs
+│   └── validator_diversity/          # Validator diversity logs
 │
-├── results/                          # Output tables and figures
+├── results/                          # (gitignored) output tables and figures
 │   ├── tables/
 │   │   ├── R1_attack_interception.csv
 │   │   ├── R2_boundary_reduction.csv
@@ -431,10 +480,6 @@ agenticcyops-experiments/
 │       └── poisoning_propagation.png
 │
 ├── docs/                             # Documentation
-│   ├── AgenticCyOps_Experiment_Plan.md
-│   ├── AgenticCyOps_Experiment_Plan.pdf
-│   ├── AgenticCyOps_10Day_Checklist.md
-│   ├── AgenticCyOps_10Day_Checklist.pdf
 │   ├── engineering_challenges.md
 │   └── rebuttal_draft.md
 │
@@ -485,7 +530,7 @@ The testbed supports three system configurations to isolate the contribution of 
 
 Before running experiments, ensure:
 
-1. All 5 vLLM servers are running and responding
+1. All 4 vLLM servers are running and responding
 2. ChromaDB is initialized with seed data
 3. `.env` has valid API keys
 4. At least one benign E2E test passes
@@ -499,7 +544,7 @@ python -m attacks.harness --eval A --config all --trials 30
 # Run single AP against single config
 python -m attacks.harness --ap 1 --config agenticcyops --trials 30
 
-# GLM-4.7 diversity check
+# GLM-4.7 diversity check (swap onto GPU 0,1,4,5 when Primary not running)
 python -m attacks.harness --ap 1 --config agenticcyops --trials 30 \
   --model-url http://localhost:8001/v1
 
@@ -596,7 +641,7 @@ If compute resources or time are limited, experiments can be run at reduced scal
 |-----------|--------|-----|
 | Fewer trials | Wider confidence intervals | `--trials 10` instead of `--trials 30` |
 | Fewer APs | Incomplete attack coverage | `--ap 1 2 3 4` (skip AP-5, AP-6) |
-| Skip GLM-4.7 | No model-independence check | Don't start port 8001 |
+| Skip GLM-4.7 diversity | No model-independence check | Skip GLM-4.7 diversity runs |
 | Skip TAMAS | No independent benchmark | Skip `benchmarks/tamas/` |
 | API validators only | No local V1-V3 needed | Set all validators to Claude in `validators.yaml` |
 | 2-GPU setup | Run Qwen3-235B only | Use API providers for diversity + validators |
@@ -609,24 +654,50 @@ Minimum viable evaluation (2× A100): Eval A (AP-1–4 only) + Eval B + Ablation
 
 | Issue | Solution |
 |-------|---------|
-| vLLM OOM on GPU 4 (V1+V2) | Run V1 and V2 sequentially, not simultaneously |
-| GLM-4.7 fails to load | Requires vLLM nightly: `pip install -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly` |
-| `tokenizer_mode deepseek_v32` error | Update vLLM to latest nightly |
+| vLLM OOM on validator GPUs | Reduce `--gpu-memory-utilization` or run validators sequentially |
+| DeepSeek-R1-Distill-Qwen-32B fails to load | Requires vLLM nightly: `pip install -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly` |
+| GLM-4.7 FP8 load errors | Ensure vLLM supports FP8 quantization; verify model at `/storage/data/models/zai-org/GLM-4.7` |
 | Claude API rate limit | `tenacity` retry is built in; reduce concurrent calls or fallback to all-local validators |
-| ChromaDB embedding slow | Ensure bge-en-icl runs on GPU: `CUDA_VISIBLE_DEVICES=5 python -m memory.chromadb_setup` |
+| ChromaDB embedding slow | Ensure Qwen3-Embedding-8B runs on GPU: `CUDA_VISIBLE_DEVICES=5 python -m memory.chromadb_setup` |
 | TAMAS import errors | Run `cd benchmarks/tamas && bash setup.sh` in a separate virtualenv if dependencies conflict |
-| Benign E2E test fails | Check all 5 vLLM servers respond: `curl http://localhost:800X/v1/models` |
+| Benign E2E test fails | Check all 4 vLLM servers respond: `curl http://localhost:800X/v1/models` |
 
 ---
 
-## Log Format
+## Logging & Instrumentation
 
-All experiment logs use structured JSON (one entry per line):
+All inter-component calls are logged via `logging_utils/json_logger.py`. One JSON line per event in `.jsonl` files.
+
+### Usage
+
+```python
+from logging_utils import ExperimentLogger
+
+logger = ExperimentLogger(eval_name="eval_a", config="agenticcyops", model="Qwen3-235B")
+logger.set_trial("ap1", variant=3, trial=12)
+
+# Auto-latency with context manager
+with logger.track("monitor_agent", "T1_ueba", "tool_call") as event:
+    result = call_tool(...)
+    event.set_auth("allow", "P2_capability_scoping")
+    event.set_tokens(prompt=1200, completion=647)
+
+# Convenience methods
+logger.log_tool_call("monitor_agent", "T8_iam_pam", auth_decision="deny", mechanism="P2_capability_scoping")
+logger.log_memory_write("analyze_agent", "M1_threat_repo", auth_decision="deny", mechanism="P4_memory_integrity", cosine_similarity=0.23)
+logger.log_consensus_vote("qwen3_32b", "admin_agent", vote="approve", confidence=0.95, latency_ms=1200)
+logger.log_escalation("admin_agent", reason="Bulk credential revocation", severity="critical")
+```
+
+### Log Format
 
 ```json
 {
   "timestamp": "2026-04-08T14:30:22.451Z",
   "trial_id": "ap1_v3_t12_agenticcyops",
+  "eval": "eval_a",
+  "config": "agenticcyops",
+  "model": "Qwen3-235B-A22B-Instruct-2507",
   "source": "monitor_agent",
   "destination": "T8_iam_pam",
   "action": "tool_call",
@@ -636,9 +707,24 @@ All experiment logs use structured JSON (one entry per line):
   "interception_step": 2,
   "latency_ms": 342,
   "tokens_used": 1847,
-  "config": "agenticcyops",
-  "model": "Qwen3-235B-A22B-Instruct"
+  "tokens_prompt": 1200,
+  "tokens_completion": 647,
+  "ap": "ap1",
+  "variant": 3,
+  "trial": 12
 }
+```
+
+### Log Files
+
+```
+logs/
+├── vllm/                  # vLLM server logs
+├── eval_a/                # agenticcyops_20260408_143022.jsonl
+├── eval_c/
+├── eval_d/
+├── ablation/
+└── validator_diversity/
 ```
 
 ---
@@ -664,10 +750,11 @@ This testbed is released for research purposes. See [LICENSE](LICENSE) for detai
 
 The models used have their own licenses:
 - Qwen3: Apache 2.0
-- GLM-4.7: Open weight license (see [zai-org/GLM-4.7](https://huggingface.co/zai-org/GLM-4.7))
+- GLM-4.7: Apache 2.0
+- DeepSeek-R1-Distill-Qwen-32B: MIT License
 - Mistral-Small: Apache 2.0
 - Llama-4-Scout: Llama Community License
-- BGE-EN-ICL: MIT
+- Qwen3-Embedding: Apache 2.0
 
 ---
 

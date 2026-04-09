@@ -21,16 +21,17 @@
 
 | Role | Model | Family | GPU | Port |
 |------|-------|--------|-----|------|
-| Primary agents + Host | Qwen3-235B-A22B-Instruct | Qwen (Alibaba) | 0-1 NVLink | 8000 |
-| Diversity agents | GLM-4.7 | GLM (Zhipu) | 2-3 NVLink | 8001 |
-| Validator V1 | Qwen3-32B | Qwen (Alibaba) | 4 shared | 8002 |
-| Validator V2 | Mistral-Small-3.2-24B | Mistral | 4 shared | 8003 |
-| Validator V3 | Llama-4-Scout-17B-16E | Meta | 5 | 8004 |
+| Primary agents + Host | Qwen3-235B-A22B-Instruct-2507 | Qwen (Alibaba) | 0,1,4,5 TP=4 | 8000 |
+| Diversity agents | GLM-4.7 | GLM (Zhipu) | 0,1,4,5 TP=4 FP8 (swap with Primary) | 8001 |
+| Validator V1 | Qwen3-32B | Qwen (Alibaba) | 2 | 8002 |
+| Validator V2 | DeepSeek-R1-Distill-Qwen-32B | DeepSeek | 2 (swap with V1) | 8005 |
+| Validator V3 | Llama-4-Scout-17B-16E | Meta | 4,5 TP=2 | 8004 |
 | Validator V4 | Claude Sonnet | Anthropic | API | — |
-| Embedding (ChromaDB) | BGE-EN-ICL | BAAI | CPU | — |
+| Validator V5 (optional) | Mistral-Small-3.2-24B | Mistral | 3 | 8003 |
+| Embedding (ChromaDB) | Qwen3-Embedding-8B | Qwen (Alibaba) | CPU/GPU | — |
 | TAMAS baseline | GPT-4o | OpenAI | API | — |
 
-**5 open-source families + 2 proprietary (targeted use only).** Temperature 0.0 for reproducibility. GLM-4.7 diversity checks confirm model-independence.
+**5 open-source families + 2 proprietary (targeted use only). 7 model families total: Qwen, GLM, DeepSeek, Meta, Mistral, Anthropic, OpenAI.** Temperature 0.0 for reproducibility. GLM-4.7 diversity checks (30 trials on local GLM-4.7 FP8, swap onto GPU 0,1,4,5 when Primary not running) confirm model-independence.
 
 ### 1.4 Simulated Tools (16 MCP Servers)
 
@@ -43,13 +44,35 @@
 
 ### 1.5 Memory Layer
 
-- **Vector Store:** ChromaDB with BAAI/bge-en-icl embedding
+- **Vector Store:** ChromaDB with Qwen3-Embedding-8B
 - **12 Collections:** M1–M12 (Threat Repository through BCP/Risk Registry)
 - **Flat:** unrestricted; **ACL-Hardened:** network ACLs; **AgenticCyOps:** MMA-mediated + write-boundary filtering
 
 ### 1.6 Logging
 
-Structured JSON middleware on all inter-component calls: timestamp, source, destination, action, payload_hash, auth_decision, mechanism (P1–P5), latency_ms, tokens_used.
+Structured JSON middleware (`logging_utils/json_logger.py`) on all inter-component calls. Each event is a single JSON line in `.jsonl` files under `logs/{eval_name}/`.
+
+**Event schema:**
+
+| Field | Description |
+|-------|-------------|
+| `timestamp` | ISO 8601 UTC |
+| `trial_id` | `{ap}_v{variant}_t{trial}_{config}` |
+| `eval` | Evaluation identifier (eval_a, eval_c, ablation, etc.) |
+| `config` | System configuration (flat, acl_hardened, agenticcyops) |
+| `model` | Primary model used |
+| `source` | Originator (monitor_agent, consensus_module, etc.) |
+| `destination` | Target (T8_iam_pam, M1_threat_repo, human_analyst, etc.) |
+| `action` | Event type (tool_call, memory_read, memory_write, consensus_vote, escalation, agent_handoff) |
+| `payload_hash` | SHA-256 hash (first 8 chars) of payload for reproducibility |
+| `auth_decision` | allow, deny, or escalate |
+| `mechanism` | Defensive principle (P1–P5) that made the decision |
+| `interception_step` | Step where attack was blocked (1–4) |
+| `latency_ms` | Call duration in milliseconds |
+| `tokens_prompt` | Input tokens consumed |
+| `tokens_completion` | Output tokens consumed |
+
+**Eval E (Consensus Overhead)** is extracted entirely from these logs — no additional runs needed. Per-loop latency, token overhead, and cost per incident are computed from `consensus_vote` and `tool_call` events.
 
 ---
 
@@ -85,7 +108,7 @@ Six attack paths, structural analysis, ablation, validator diversity, and cross-
 - 5 attack variants per AP, 6 trials per variant per config = **90 runs per AP**
 - 6 APs × 90 = **540 attack runs**
 - 20 benign workflows × 3 configs = **60 benign runs**
-- 1 diversity check: AP-1 × 30 trials on GLM-4.7
+- 1 diversity check: AP-1 × 30 trials on GLM-4.7 (local FP8, swap onto GPU 0,1,4,5)
 - **Total Eval A: ~630 runs**
 
 #### AP-5 Variants
@@ -189,8 +212,8 @@ Note: AP-5 added to P2 ablation (tests whether scoping alone prevents bulk actio
 | Config | Validators | Families | Trials (AP-1) |
 |--------|-----------|----------|---------------|
 | Same-family | 3× Qwen3-32B | 1 | 30 |
-| All-local diverse | Qwen3-32B + Mistral + Llama-4-Scout | 3 | 30 |
-| Mixed local+API | Qwen3-32B + Mistral + Claude | 3 | 30 |
+| Default diverse | Qwen3-32B + DeepSeek-R1 + Claude | 3 (Qwen, DeepSeek, Anthropic) | 30 |
+| All-local diverse | Qwen3-32B + DeepSeek-R1 + Llama-4-Scout | 3 (Qwen, DeepSeek, Meta) | 30 |
 
 **Total: 90 runs**
 
@@ -221,7 +244,7 @@ Structural analysis mapping to Financial Fraud Detection — no implementation.
 | Ablation (5 principles) | ~270 | Principle necessity |
 | Validator Diversity | ~90 | Correlated failure |
 | H: Cross-Domain | Structural | Generalizability |
-| **Total** | **~1,570** | **7 models, 5 OSS families** |
+| **Total** | **~1,570** | **8 models, 5 OSS families, 7 families total** |
 
 ---
 
@@ -235,7 +258,7 @@ Structural analysis mapping to Financial Fraud Detection — no implementation.
 | Confidence intervals | 95% |
 | Paired comparison | McNemar's test |
 | Primary backbone | Qwen3-235B at temp 0.0 |
-| Diversity check | GLM-4.7, AP-1 (30 trials) |
+| Diversity check | GLM-4.7 (local FP8), AP-1 (30 trials) |
 
 ---
 
@@ -249,7 +272,7 @@ Structural analysis mapping to Financial Fraud Detection — no implementation.
 | 197A | Trust boundary unclear | Eval B (weighted + enumeration) |
 | 197B | Unweighted edges | Eval B (weighted, sensitivity) |
 | 197B | Conditional edges | Eval B (stress test) |
-| 197B | Prototype? | 16 MCP servers, 12 stores, 5 OSS families, 6× H200 |
+| 197B | Prototype? | 16 MCP servers, 12 stores, 5 OSS families (7 total), 6× H200 |
 | 197B | Correlated validators | Validator diversity (same vs diverse families) |
 | 197B | Worst-case path | AP-4 (partial), AP-6 delayed replay |
 | 197C | No empirical evaluation | ~1,570 instrumented runs |
@@ -269,7 +292,7 @@ The paper was deliberately scoped to the architectural contribution. Empirical v
 
 **Use:**
 - "The submitted paper deliberately focused on the architectural contribution; here we present empirical validation from our evaluation testbed."
-- "Our testbed evaluation — over 1,500 instrumented trial runs across three configurations, five open-source model families, and six attack scenarios — confirms..."
+- "Our testbed evaluation — over 1,500 instrumented trial runs across three configurations, five open-source model families (seven total: Qwen, GLM, DeepSeek, Meta, Mistral, Anthropic, OpenAI), and six attack scenarios — confirms..."
 - "The ACL-Hardened baseline isolates AgenticCyOps' contribution beyond standard access control."
 
 **Avoid:**
@@ -282,6 +305,6 @@ The paper was deliberately scoped to the architectural contribution. Empirical v
 - Reference total infrastructure even when presenting subsets
 - Use "our testbed" (possessive, pre-existing) not "a prototype"
 - Cite "~1,500 runs" prominently
-- Mention "5 open-source model families" explicitly
+- Mention "5 open-source model families (7 total)" explicitly
 - Frame ongoing work as "extended analyses" not "future work"
 - Close with "testbed and data released as open-source upon acceptance"

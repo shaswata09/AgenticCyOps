@@ -1,9 +1,9 @@
 """
 GLM-4.7 (Zhipu AI) — Diversity Agents
 
-Dense model, #1 Chatbot Arena open-source at time of selection.
-GPU assignment: GPU 2-3 (NVLink pair), ~260GB BF16 across 2x H200.
-Role: Second model family for cross-model comparison experiments.
+Dense model, ~668GB BF16 weights.
+GPU assignment: GPU 0,1,4,5 TP=4 with FP8 quantization (~84GB/GPU). Swaps with Primary.
+Role: Second model family for cross-model diversity checks (30 trials).
 Requires vLLM nightly for GLM-4.7 support.
 """
 
@@ -19,9 +19,9 @@ from openai import OpenAI
 
 
 MODELS_DIR = Path(__file__).resolve().parent.parent
-MODEL_PATH = str(MODELS_DIR / "zai-org" / "GLM-4.7")
+MODEL_PATH = str(MODELS_DIR / "zai-org" / "GLM-4.7-FP8")
 DEFAULT_PORT = 8001
-DEFAULT_GPUS = "2,3"
+DEFAULT_GPUS = "0,1,4,5"
 
 
 class GLM47:
@@ -46,9 +46,9 @@ class GLM47:
 
     def serve(
         self,
-        tensor_parallel_size: int = 2,
+        tensor_parallel_size: int = 4,
         gpu_memory_utilization: float = 0.9,
-        max_model_len: Optional[int] = None,
+        max_model_len: Optional[int] = 32768,
         dtype: str = "auto",
         quantization: Optional[str] = None,
         enable_tool_choice: bool = True,

@@ -1,10 +1,10 @@
 """
-Mistral-Small-3.2-24B-Instruct-2506 — Validator 2
+Mistral-Small-3.2-24B-Instruct-2506 — Validator V5 (optional)
 
-Third model family for validator diversity.
-GPU assignment: GPU 4 (shared with Qwen3-32B, ~45% utilization).
-VRAM: ~48GB BF16, single GPU.
-Role: Second validator in multi-validator consensus (Mistral family = different failure mode from Qwen).
+Fifth model family for validator diversity.
+GPU assignment: GPU 3 (swaps with V2 DeepSeek-R1).
+VRAM: ~89GB BF16, single GPU.
+Role: Optional validator, swaps in when testing Mistral family diversity.
 """
 
 import subprocess
@@ -21,7 +21,7 @@ from openai import OpenAI
 MODELS_DIR = Path(__file__).resolve().parent.parent
 MODEL_PATH = str(MODELS_DIR / "mistralai" / "Mistral-Small-3.2-24B-Instruct-2506")
 DEFAULT_PORT = 8003
-DEFAULT_GPUS = "4"
+DEFAULT_GPUS = "3"
 
 
 class MistralSmall:
@@ -47,7 +47,7 @@ class MistralSmall:
     def serve(
         self,
         tensor_parallel_size: int = 1,
-        gpu_memory_utilization: float = 0.45,
+        gpu_memory_utilization: float = 0.35,
         max_model_len: Optional[int] = None,
         dtype: str = "bfloat16",
         quantization: Optional[str] = None,

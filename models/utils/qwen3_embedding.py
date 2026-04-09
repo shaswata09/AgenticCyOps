@@ -88,15 +88,22 @@ class Qwen3Embedding:
     def load_transformers(
         self,
         device: Optional[str] = None,
-        torch_dtype=torch.float16,
+        torch_dtype=torch.bfloat16,
+        attn_implementation: str = "eager",
     ):
-        """Load via raw transformers (for manual pooling / advanced control)."""
+        """Load via raw transformers (for manual pooling / advanced control).
+
+        Uses eager attention by default — cuDNN SDPA has compatibility issues
+        with Qwen3-Embedding on H200 GPUs.
+        """
         device = device or self.device
         self._hf_tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, padding_side="left"
         )
         self._hf_model = AutoModel.from_pretrained(
-            self.model_path, torch_dtype=torch_dtype
+            self.model_path,
+            torch_dtype=torch_dtype,
+            attn_implementation=attn_implementation,
         ).to(device)
         self._hf_model.eval()
         return self._hf_model, self._hf_tokenizer
@@ -240,7 +247,7 @@ class Qwen3Embedding:
         if normalize:
             embeddings = F.normalize(embeddings, p=2, dim=1)
 
-        return embeddings.cpu().numpy()
+        return embeddings.cpu().float().numpy()
 
     # ------------------------------------------------------------------ #
     #  Matryoshka dimension control
@@ -306,30 +313,6 @@ class Qwen3Embedding:
             {"index": int(i), "score": float(scores[i]), "text": documents[i]}
             for i in ranked_indices
         ]
-
-    # ------------------------------------------------------------------ #
-    #  ChromaDB integration
-    # ------------------------------------------------------------------ #
-
-    def get_chromadb_embedding_function(self):
-        """Return a ChromaDB-compatible embedding function.
-
-        Usage:
-            qwen_emb = Qwen3Embedding()
-            qwen_emb.load()
-            collection = chroma_client.get_or_create_collection(
-                name="memory_store",
-                embedding_function=qwen_emb.get_chromadb_embedding_function(),
-            )
-        """
-        parent = self
-
-        class _ChromaEmbeddingFunction:
-            def __call__(self, input: list[str]) -> list[list[float]]:
-                embeddings = parent.encode(input, normalize=True)
-                return embeddings.tolist()
-
-        return _ChromaEmbeddingFunction()
 
     # ------------------------------------------------------------------ #
     #  Metadata

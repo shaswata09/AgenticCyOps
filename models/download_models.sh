@@ -4,8 +4,9 @@
 # ============================================================
 # Run from the directory where you want models stored.
 # Creates: ./Qwen/Qwen3-235B-A22B-Instruct-2507/
-#          ./zai-org/GLM-4.7/
+#          ./zai-org/GLM-4.7-FP8/
 #          ./Qwen/Qwen3-32B/
+#          ./deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/
 #          ./mistralai/Mistral-Small-3.2-24B-Instruct-2506/
 #          ./meta-llama/Llama-4-Scout-17B-16E-Instruct/
 #          ./Qwen/Qwen3-Embedding-8B/
@@ -55,9 +56,9 @@ huggingface-cli download Qwen/Qwen3-235B-A22B-Instruct-2507 \
 #    NOTE: Requires vLLM nightly (pip install -U vllm --pre)
 #    vLLM: --tensor-parallel-size 2 --tool-call-parser glm47
 # ============================================================
-echo "[2/6] Downloading GLM-4.7 (~260 GB)..."
-huggingface-cli download zai-org/GLM-4.7 \
-  --local-dir "$BASE_DIR/zai-org/GLM-4.7" \
+echo "[2/7] Downloading GLM-4.7-FP8 (official quantized, ~334 GB)..."
+huggingface-cli download zai-org/GLM-4.7-FP8 \
+  --local-dir "$BASE_DIR/zai-org/GLM-4.7-FP8" \
   --local-dir-use-symlinks False
 
 # ============================================================
@@ -73,25 +74,35 @@ huggingface-cli download Qwen/Qwen3-32B \
   --local-dir-use-symlinks False
 
 # ============================================================
-# 4. VALIDATOR 2 (Mistral family — third model family)
-#    Mistral-Small-3.2-24B-Instruct
-#    GPU assignment: GPU 4 (shared, ~45% utilization)
-#    VRAM: ~48GB BF16, single GPU
-#    vLLM: --gpu-memory-utilization 0.45
+# 4. VALIDATOR 2 (DeepSeek family — strong reasoning judge)
+#    DeepSeek-R1-Distill-Qwen-32B (distilled from DeepSeek-R1)
+#    GPU assignment: GPU 2 (swap with V1/V5)
+#    VRAM: ~64GB BF16, single GPU
 # ============================================================
-echo "[4/6] Downloading Mistral-Small-3.2-24B-Instruct (~48 GB)..."
+echo "[4/7] Downloading DeepSeek-R1-Distill-Qwen-32B (~64 GB)..."
+huggingface-cli download deepseek-ai/DeepSeek-R1-Distill-Qwen-32B \
+  --local-dir "$BASE_DIR/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" \
+  --local-dir-use-symlinks False
+
+# ============================================================
+# 5. VALIDATOR 5 (Mistral family — optional, swap with V1/V2)
+#    Mistral-Small-3.2-24B-Instruct
+#    GPU assignment: GPU 2 (swap)
+#    VRAM: ~48GB BF16, single GPU
+# ============================================================
+echo "[5/7] Downloading Mistral-Small-3.2-24B-Instruct (~48 GB)..."
 huggingface-cli download mistralai/Mistral-Small-3.2-24B-Instruct-2506 \
   --local-dir "$BASE_DIR/mistralai/Mistral-Small-3.2-24B-Instruct-2506" \
   --local-dir-use-symlinks False
 
 # ============================================================
-# 5. VALIDATOR 3 (Meta Llama family — fourth model family)
+# 6. VALIDATOR 3 (Meta Llama family)
 #    Llama-4-Scout-17B-16E-Instruct (MoE, 109B total, 17B active)
 #    GPU assignment: GPU 5
 #    VRAM: ~55GB FP8, single GPU
 #    vLLM: --gpu-memory-utilization 0.85
 # ============================================================
-echo "[5/6] Downloading Llama-4-Scout-17B-16E-Instruct (~55 GB)..."
+echo "[6/7] Downloading Llama-4-Scout-17B-16E-Instruct (~55 GB)..."
 huggingface-cli download meta-llama/Llama-4-Scout-17B-16E-Instruct \
   --local-dir "$BASE_DIR/meta-llama/Llama-4-Scout-17B-16E-Instruct" \
   --local-dir-use-symlinks False
@@ -104,7 +115,7 @@ huggingface-cli download meta-llama/Llama-4-Scout-17B-16E-Instruct \
 #             write-boundary filtering (cosine similarity checks)
 #    Supports Matryoshka dimensions (32–4096), last-token pooling
 # ============================================================
-echo "[6/6] Downloading Qwen3-Embedding-8B (~16 GB)..."
+echo "[7/7] Downloading Qwen3-Embedding-8B (~16 GB)..."
 huggingface-cli download Qwen/Qwen3-Embedding-8B \
   --local-dir "$BASE_DIR/Qwen/Qwen3-Embedding-8B" \
   --local-dir-use-symlinks False
@@ -121,8 +132,9 @@ echo ""
 echo "Disk usage per model:"
 echo "--------------------------------------------"
 du -sh "$BASE_DIR"/Qwen/Qwen3-235B-A22B-Instruct-2507 2>/dev/null || true
-du -sh "$BASE_DIR"/zai-org/GLM-4.7 2>/dev/null || true
+du -sh "$BASE_DIR"/zai-org/GLM-4.7-FP8 2>/dev/null || true
 du -sh "$BASE_DIR"/Qwen/Qwen3-32B 2>/dev/null || true
+du -sh "$BASE_DIR"/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B 2>/dev/null || true
 du -sh "$BASE_DIR"/mistralai/Mistral-Small-3.2-24B-Instruct-2506 2>/dev/null || true
 du -sh "$BASE_DIR"/meta-llama/Llama-4-Scout-17B-16E-Instruct 2>/dev/null || true
 du -sh "$BASE_DIR"/Qwen/Qwen3-Embedding-8B 2>/dev/null || true
@@ -135,7 +147,7 @@ echo " GPU Assignment Reference"
 echo "============================================"
 echo ""
 echo "  GPU 0-1 (NVLink) : Qwen3-235B-A22B  [Primary agents + Host]"
-echo "  GPU 2-3 (NVLink) : GLM-4.7          [Diversity agents]"
+echo "  GPU 0,1,4,5      : GLM-4.7-FP8      [Diversity agents, swap with Primary]"
 echo "  GPU 4             : Qwen3-32B + Mistral-Small-3.2  [Validators 1 & 2]"
 echo "  GPU 5             : Llama-4-Scout    [Validator 3]"
 echo "  CPU / any GPU     : Qwen3-Embedding-8B [Embedding for ChromaDB]"
@@ -159,7 +171,7 @@ echo "  --gpu-memory-utilization 0.9 \\"
 echo "  --port 8000"
 echo ""
 echo "# Terminal 2 — Diversity agents (GPU 2-3)"
-echo "CUDA_VISIBLE_DEVICES=2,3 vllm serve $BASE_DIR/zai-org/GLM-4.7 \\"
+echo "CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve $BASE_DIR/zai-org/GLM-4.7-FP8 \\"
 echo "  --tensor-parallel-size 2 \\"
 echo "  --enable-auto-tool-choice \\"
 echo "  --tool-call-parser glm47 \\"

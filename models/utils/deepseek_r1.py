@@ -1,10 +1,10 @@
 """
-Qwen3-32B — Validator 1
+DeepSeek-R1-Distill-Qwen-32B — Validator V2
 
-Dense model with unified thinking/non-thinking mode.
-GPU assignment: GPU 4 (shared with Mistral-Small, ~45% utilization).
-VRAM: ~64GB BF16, single GPU.
-Role: First validator in multi-validator consensus (same Qwen family, smaller size = different failure mode).
+Distilled reasoning model from DeepSeek-R1 into Qwen2.5-32B.
+Strong reasoning/judgment capabilities for validation tasks.
+GPU assignment: GPU 3, ~64GB BF16, single GPU. V5 Mistral swaps onto GPU 3 when needed.
+Role: Second validator in consensus module (DeepSeek family = distinct failure mode from Qwen).
 """
 
 import subprocess
@@ -19,13 +19,13 @@ from openai import OpenAI
 
 
 MODELS_DIR = Path(__file__).resolve().parent.parent
-MODEL_PATH = str(MODELS_DIR / "Qwen" / "Qwen3-32B")
-DEFAULT_PORT = 8002
-DEFAULT_GPUS = "4"
+MODEL_PATH = str(MODELS_DIR / "deepseek-ai" / "DeepSeek-R1-Distill-Qwen-32B")
+DEFAULT_PORT = 8005
+DEFAULT_GPUS = "3"
 
 
-class Qwen3_32B:
-    """Utility class for serving and querying Qwen3-32B."""
+class DeepSeekR1:
+    """Utility class for serving and querying DeepSeek-R1-Distill-Qwen-32B."""
 
     def __init__(
         self,
@@ -47,20 +47,18 @@ class Qwen3_32B:
     def serve(
         self,
         tensor_parallel_size: int = 1,
-        gpu_memory_utilization: float = 0.47,
+        gpu_memory_utilization: float = 0.9,
         max_model_len: Optional[int] = None,
         dtype: str = "bfloat16",
         quantization: Optional[str] = None,
         enable_tool_choice: bool = False,
         tool_call_parser: str = "hermes",
-        enable_thinking: bool = False,
-        thinking_budget: int = 4096,
         extra_args: Optional[list[str]] = None,
     ) -> subprocess.Popen:
         """Start vLLM server with full configuration control.
 
-        Default gpu_memory_utilization=0.45 because GPU 4 is shared with Mistral-Small.
-        Default enable_tool_choice=False — validators primarily do structured validation, not tool calling.
+        DeepSeek-R1-Distill uses chain-of-thought reasoning by default.
+        Default enable_tool_choice=False — validators do structured validation, not tool calling.
         """
         cmd = [
             "vllm", "serve", self.model_path,
@@ -75,8 +73,6 @@ class Qwen3_32B:
             cmd += ["--quantization", quantization]
         if enable_tool_choice:
             cmd += ["--enable-auto-tool-choice", "--tool-call-parser", tool_call_parser]
-        if enable_thinking:
-            cmd += ["--enable-thinking", "--thinking-budget", str(thinking_budget)]
         if extra_args:
             cmd += extra_args
 
@@ -93,10 +89,6 @@ class Qwen3_32B:
     def serve_fp8(self, **kwargs) -> subprocess.Popen:
         """Serve with FP8 quantization for reduced VRAM."""
         return self.serve(quantization="fp8", **kwargs)
-
-    def serve_with_thinking(self, thinking_budget: int = 4096, **kwargs) -> subprocess.Popen:
-        """Serve with Qwen3 thinking/reasoning mode enabled."""
-        return self.serve(enable_thinking=True, thinking_budget=thinking_budget, **kwargs)
 
     def stop(self):
         """Stop the vLLM server."""
@@ -132,20 +124,22 @@ class Qwen3_32B:
         temperature: float = 0.0,
         max_tokens: int = 4096,
         top_p: float = 1.0,
-        top_k: int = -1,
         frequency_penalty: float = 0.0,
         presence_penalty: float = 0.0,
         stop: Optional[list[str]] = None,
         stream: bool = False,
     ):
-        """Send a chat completion request."""
+        """Send a chat completion request.
+
+        DeepSeek-R1-Distill produces chain-of-thought reasoning in <think>...</think> tags
+        before giving the final answer.
+        """
         return self.client.chat.completions.create(
             model=self.model_path,
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
-            extra_body={"top_k": top_k},
             frequency_penalty=frequency_penalty,
             presence_penalty=presence_penalty,
             stop=stop,
@@ -160,16 +154,21 @@ class Qwen3_32B:
         """Chat with temperature=0.7 for experiment variation runs."""
         return self.chat(messages, temperature=0.7, **kwargs)
 
+    # ------------------------------------------------------------------ #
+    #  Validation (primary use case)
+    # ------------------------------------------------------------------ #
+
     def validate(
         self,
         proposal: str,
         context: str,
         temperature: float = 0.0,
-        max_tokens: int = 2048,
+        max_tokens: int = 4096,
     ):
-        """Validate an agent proposal (primary use case as Validator 1).
+        """Validate an agent proposal (primary use case as Validator V2).
 
-        Returns a structured validation judgment given a proposal and incident context.
+        Leverages DeepSeek-R1's reasoning capabilities for deeper analysis.
+        The model will reason in <think> tags before producing the JSON verdict.
         """
         messages = [
             {
@@ -177,7 +176,8 @@ class Qwen3_32B:
                 "content": (
                     "You are a security validation agent. Evaluate the proposed action "
                     "for correctness, safety, and appropriateness given the incident context. "
-                    "Respond with JSON: {\"approved\": bool, \"confidence\": float, \"reasoning\": str, \"risks\": [str]}"
+                    "Think step by step, then respond with JSON: "
+                    '{\"approved\": bool, \"confidence\": float, \"reasoning\": str, \"risks\": [str]}'
                 ),
             },
             {
@@ -190,8 +190,23 @@ class Qwen3_32B:
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
-            response_format={"type": "json_object"},
         )
+
+    def batch_validate(
+        self,
+        proposals: list[dict],
+        temperature: float = 0.0,
+    ) -> list:
+        """Validate a batch of proposals. Each dict should have 'proposal' and 'context' keys."""
+        results = []
+        for item in proposals:
+            resp = self.validate(
+                proposal=item["proposal"],
+                context=item["context"],
+                temperature=temperature,
+            )
+            results.append(resp)
+        return results
 
     # ------------------------------------------------------------------ #
     #  Tool / function calling
@@ -265,22 +280,6 @@ class Qwen3_32B:
             results.append(resp)
         return results
 
-    def batch_validate(
-        self,
-        proposals: list[dict],
-        temperature: float = 0.0,
-    ) -> list:
-        """Validate a batch of proposals. Each dict should have 'proposal' and 'context' keys."""
-        results = []
-        for item in proposals:
-            resp = self.validate(
-                proposal=item["proposal"],
-                context=item["context"],
-                temperature=temperature,
-            )
-            results.append(resp)
-        return results
-
     # ------------------------------------------------------------------ #
     #  Token counting & metadata
     # ------------------------------------------------------------------ #
@@ -292,13 +291,15 @@ class Qwen3_32B:
     def get_config(self) -> dict:
         """Return the model configuration for logging/reproducibility."""
         return {
-            "model_id": "Qwen/Qwen3-32B",
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
             "model_path": self.model_path,
-            "role": "validator_1",
+            "role": "validator_2",
             "architecture": "dense",
             "total_params": "32B",
+            "base_model": "Qwen2.5-32B",
+            "distilled_from": "DeepSeek-R1",
+            "reasoning_style": "chain_of_thought",
             "gpu_assignment": self.gpus,
-            "gpu_shared": True,
             "port": self.port,
             "base_url": self.base_url,
         }

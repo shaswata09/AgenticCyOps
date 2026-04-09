@@ -3,9 +3,9 @@
 > **Goal:** Produce empirical results substantiating AgenticCyOps design claims.  
 > **Team:** 3 researchers (A, B, C) working in parallel.  
 > **Priority:** Eval A > B > D > Ablation + Validator Diversity > E (from A logs) > C > H  
-> **Hardware:** 6× H200, all BF16, no quantization  
+> **Hardware:** 6× H200, all BF16 (GLM-4.7 uses FP8 quantization)  
 > **API Budget:** ~$70 (GPT-4o ~$50, Claude Sonnet ~$20)  
-> **Target:** ~1,500 instrumented runs, 6 attack paths, 3 configs, 5 OSS model families
+> **Target:** ~1,500 instrumented runs, 6 attack paths, 3 configs, 5 OSS model families (7 total)
 
 ---
 
@@ -13,13 +13,14 @@
 
 | Role | Model | Family | GPU | Port |
 |------|-------|--------|-----|------|
-| Primary agents + Host | Qwen3-235B-A22B-Instruct | Qwen | 0-1 NVLink | 8000 |
-| Diversity agents | GLM-4.7 | GLM (Zhipu) | 2-3 NVLink | 8001 |
-| Validator V1 | Qwen3-32B | Qwen | 4 shared | 8002 |
-| Validator V2 | Mistral-Small-3.2-24B | Mistral | 4 shared | 8003 |
-| Validator V3 | Llama-4-Scout-17B-16E | Meta | 5 | 8004 |
+| Primary agents + Host | Qwen3-235B-A22B-Instruct-2507 | Qwen | 0,1,4,5 TP=4 | 8000 |
+| Diversity agents | GLM-4.7 | GLM (Zhipu) | 0,1,4,5 TP=4 FP8 (swap with Primary) | 8001 |
+| Validator V1 | Qwen3-32B | Qwen | 2 | 8002 |
+| Validator V2 | DeepSeek-R1-Distill-Qwen-32B | DeepSeek | 2 (swap with V1) | 8005 |
+| Validator V3 | Llama-4-Scout-17B-16E | Meta | 4,5 TP=2 | 8004 |
 | Validator V4 | Claude Sonnet | Anthropic | API | — |
-| Embedding | BGE-EN-ICL | BAAI | CPU | — |
+| Validator V5 (optional) | Mistral-Small-3.2-24B | Mistral | 3 | 8003 |
+| Embedding | Qwen3-Embedding-8B | Qwen | CPU/GPU | — |
 | TAMAS baseline | GPT-4o | OpenAI | API | — |
 
 ---
@@ -30,41 +31,50 @@
 - [ ] GitHub repo created
 - [ ] Conda env `agenticcyops` active, `./install.sh` complete
 - [ ] `.env` configured (ANTHROPIC_API_KEY, OPENAI_API_KEY, HF_TOKEN)
-- [ ] All 6 models verified in `/storage/data/models/`
-- [ ] Structured JSON logger ready
+- [ ] All local models verified in `/storage/data/models/` (7 models: Qwen3-235B, GLM-4.7, Qwen3-32B, DeepSeek-R1-Distill-Qwen-32B, Mistral-Small, Llama-4-Scout, Qwen3-Embedding-8B)
+- [x] Structured JSON logger ready (`logging_utils/json_logger.py`)
+  - `ExperimentLogger` with `track()` context manager (auto-latency)
+  - Methods: `log_tool_call`, `log_memory_read/write`, `log_consensus_vote/result`, `log_escalation`, `log_agent_handoff`
+  - Trial context: `set_trial(ap, variant, trial)` generates trial_id
+  - Output: `logs/{eval_name}/{config}_{timestamp}.jsonl`
 
 ### 0.2 vLLM Servers
-- [ ] Primary (GPU 0-1, port 8000):
+- [ ] Primary (GPU 0,1,4,5 TP=4, port 8000):
   ```bash
-  CUDA_VISIBLE_DEVICES=0,1 vllm serve /storage/data/models/Qwen/Qwen3-235B-A22B-Instruct \
-    --tensor-parallel-size 2 --dtype bfloat16 \
+  CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve /storage/data/models/Qwen/Qwen3-235B-A22B-Instruct-2507 \
+    --tensor-parallel-size 4 --dtype bfloat16 \
     --enable-auto-tool-choice --tool-call-parser hermes \
     --gpu-memory-utilization 0.9 --port 8000
   ```
-- [ ] Diversity (GPU 2-3, port 8001):
+- [ ] Diversity — GLM-4.7 (GPU 0,1,4,5 TP=4 FP8, port 8001; swap with Primary when not running):
   ```bash
-  CUDA_VISIBLE_DEVICES=2,3 vllm serve /storage/data/models/zai-org/GLM-4.7 \
-    --tensor-parallel-size 2 --dtype bfloat16 \
-    --enable-auto-tool-choice --tool-call-parser glm47 --reasoning-parser glm45 \
+  CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve /storage/data/models/THUDM/GLM-4.7 \
+    --tensor-parallel-size 4 --dtype float16 --quantization fp8 \
+    --enable-auto-tool-choice --tool-call-parser hermes \
     --gpu-memory-utilization 0.9 --port 8001
   ```
-- [ ] V1 (GPU 4, port 8002):
+- [ ] V1 (GPU 2, port 8002):
   ```bash
-  CUDA_VISIBLE_DEVICES=4 vllm serve /storage/data/models/Qwen/Qwen3-32B \
-    --dtype bfloat16 --gpu-memory-utilization 0.45 --port 8002
+  CUDA_VISIBLE_DEVICES=2 vllm serve /storage/data/models/Qwen/Qwen3-32B \
+    --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8002
   ```
-- [ ] V2 (GPU 4 shared, port 8003):
+- [ ] V2 (GPU 2, port 8005; swap with V1):
   ```bash
-  CUDA_VISIBLE_DEVICES=4 vllm serve /storage/data/models/mistralai/Mistral-Small-3.2-24B-Instruct-2506 \
-    --dtype bfloat16 --gpu-memory-utilization 0.45 --port 8003
+  CUDA_VISIBLE_DEVICES=2 vllm serve /storage/data/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B \
+    --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8005
   ```
-  **Fallback:** If OOM, run V1 and V2 sequentially
-- [ ] V3 (GPU 5, port 8004):
+- [ ] V3 (GPU 4,5 TP=2, port 8004):
   ```bash
-  CUDA_VISIBLE_DEVICES=5 vllm serve /storage/data/models/meta-llama/Llama-4-Scout-17B-16E-Instruct \
-    --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8004
+  CUDA_VISIBLE_DEVICES=4,5 vllm serve /storage/data/models/meta-llama/Llama-4-Scout-17B-16E-Instruct \
+    --tensor-parallel-size 2 --dtype bfloat16 \
+    --gpu-memory-utilization 0.85 --port 8004
   ```
-- [ ] Verify all 5 respond + create `start_servers.sh`
+- [ ] V5 (optional, GPU 3, port 8003):
+  ```bash
+  CUDA_VISIBLE_DEVICES=3 vllm serve /storage/data/models/mistralai/Mistral-Small-3.2-24B-Instruct-2506 \
+    --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8003
+  ```
+- [ ] Verify all local servers respond + create `start_servers.sh`
 
 ### 0.3 Project Structure
 - [ ] Directory tree: configs/, mcp_servers/, agents/, host/, memory/, attacks/, benchmarks/, analysis/, logs/, results/, docs/
@@ -81,7 +91,7 @@
 - [ ] All log to structured JSON, observable side-effects
 
 ### 1.2 Memory Layer — **B**
-- [ ] ChromaDB + bge-en-icl from `/storage/data/models/BAAI/bge-en-icl`
+- [ ] ChromaDB + Qwen3-Embedding-8B from `/storage/data/models/Qwen/Qwen3-Embedding-8B`
 - [ ] 12 collections (M1–M12), seeded 30–50 entries each
 - [ ] MMA gateway: `/read`, `/write`, `/list`
 - [ ] Phase-partitioned access control
@@ -101,13 +111,13 @@
 
 ### 1.5 Phase Agents — **B** (after 1.2)
 - [ ] 4 agents via Qwen3-235B (localhost:8000)
-- [ ] LLM client wrapper switchable to GLM-4.7 (localhost:8001)
+- [ ] LLM client wrapper switchable to GLM-4.7 (localhost:8001, swap with Primary)
 - [ ] Each: manifest, MCP tools, MMA memory, structured JSON output
 
 ### 1.6 Consensus Module — **C** (after 1.3)
-- [ ] `ConsensusValidator`: 3 of 4 validators, ≥2/3 approve
-- [ ] Default: V1 (Qwen3-32B) + V2 (Mistral) + V4 (Claude)
-- [ ] Configurable: swap V3 (Llama-4-Scout) for diversity tests
+- [ ] `ConsensusValidator`: 3 of 5 validators, ≥2/3 approve
+- [ ] Default: V1 (Qwen3-32B) + V2 (DeepSeek-R1-Distill-Qwen-32B) + V4 (Claude) — 3 families: Qwen, DeepSeek, Anthropic
+- [ ] Configurable: swap V3 (Llama-4-Scout) or V5 (Mistral-Small, optional) for diversity tests
 - [ ] Wired into Admin Recovery Loop + Report Improvement Loop
 - [ ] Instrumented: per-validator decision, latency, tokens
 
@@ -188,7 +198,7 @@
 - [ ] **Total: 600 runs** (Qwen3-235B, temp 0.0)
 
 ### 4.2 GLM-4.7 Diversity Check — **A**
-- [ ] AP-1: 30 trials, AgenticCyOps, GLM-4.7 (localhost:8001)
+- [ ] AP-1: 30 trials, AgenticCyOps, GLM-4.7 (local FP8, swap onto GPU 0,1,4,5)
 - [ ] Compare interception: Qwen3 vs GLM-4.7
 
 ### 4.3 Extract Latency (Eval E) — **C**
@@ -250,8 +260,8 @@
 
 ### 7.2 Validator Diversity — **B**
 - [ ] Same-family: 3× Qwen3-32B → AP-1, 30 trials
-- [ ] All-local diverse: V1 + V2 + V3 → AP-1, 30 trials
-- [ ] Mixed: V1 + V2 + V4 → AP-1, 30 trials
+- [ ] Default diverse: V1 + V2 + V4 (Qwen, DeepSeek, Anthropic) → AP-1, 30 trials
+- [ ] All-local diverse: V1 + V2 + V3 (Qwen, DeepSeek, Meta) → AP-1, 30 trials
 - [ ] **Total: 90 runs**
 
 ### 7.3 Results — **B**
@@ -323,7 +333,7 @@
 ### 9.4 Write Rebuttal — **All**
 
 **Opening:**
-- [ ] "The submitted paper deliberately scoped its contribution to the architectural level — the attack surface decomposition and defensive principle derivation constitute the primary novelty. Here we present empirical validation from our evaluation testbed: over 1,500 instrumented trial runs across six attack scenarios, three configurations, five open-source model families (Qwen, GLM, Mistral, Meta, BAAI), 16 MCP-based tool servers, and 12 memory stores, executed on 6× NVIDIA H200 GPUs."
+- [ ] "The submitted paper deliberately scoped its contribution to the architectural level — the attack surface decomposition and defensive principle derivation constitute the primary novelty. Here we present empirical validation from our evaluation testbed: over 1,500 instrumented trial runs across six attack scenarios, three configurations, five open-source model families (Qwen, GLM, DeepSeek, Meta, Mistral) — seven total including proprietary (Anthropic, OpenAI) — 16 MCP-based tool servers, and 12 memory stores, executed on 6× NVIDIA H200 GPUs."
 
 **Table R1 first** — headline result.
 
@@ -353,7 +363,7 @@
 ### 9.5 Final Review — **All**
 - [ ] Numbers match raw logs
 - [ ] Zero reactive language
-- [ ] Scale visible: "~1,500 runs", "6 APs", "5 model families", "16 MCP servers"
+- [ ] Scale visible: "~1,500 runs", "6 APs", "7 model families", "16 MCP servers"
 - [ ] AP-5/AP-6 results strengthens the narrative (escalation + temporal integrity)
 - [ ] Check venue word limit
 - [ ] Submit
@@ -370,7 +380,7 @@
 | **4** | 3.4 AP-3 + 3.6 AP-5 scripts | 3.2 AP-1 + 3.5 AP-4 scripts | 3.3 AP-2 + 3.7 AP-6 + 3.8 Benign |
 | **5** | 6.1 TAMAS + 6.2 GPT-4o baseline | 4.1 Run AP-1, AP-2, AP-5 (270 runs) | 5.1–5.2 Boundaries + weights |
 | **6** | 6.3 TAMAS defended | 4.1 Run AP-3, AP-4, AP-6, benign (330 runs) | 5.3 Stress test + 4.3 Latency |
-| **7** | 6.4 TAMAS results + 4.2 GLM diversity | 7.1 Ablation P1–P3 (180 runs) | 7.1 Ablation P4–P5 (90 runs) |
+| **7** | 6.4 TAMAS results + 4.2 GLM-4.7 diversity | 7.1 Ablation P1–P3 (180 runs) | 7.1 Ablation P4–P5 (90 runs) |
 | **8** | 4.4 Prelim check | 7.2 Validator diversity (90) + 7.3 | 8.1 Memory poison (90) + 8.2 Cross-domain |
 | **9** | 9.1 Results tables | 9.2 Figures | 9.3 Stats |
 | **10** | 9.4 Rebuttal: responses | 9.4 Rebuttal: tables + AP-5/6 points | 9.4 Rebuttal: limits + 9.5 Review |
@@ -380,7 +390,7 @@
 ## Risk Mitigation
 
 - [ ] **vLLM crash:** `start_servers.sh` with health-check + auto-restart
-- [ ] **GPU 4 OOM:** Run V1/V2 sequentially, or FP8 for validators only
+- [ ] **GPU OOM:** Run V1/V2 sequentially (swap GPU 2/3), or FP8 for validators only
 - [ ] **TAMAS too slow:** Day 6 decision — run as-is with caveat
 - [ ] **Mock tools unrealistic:** Use real tool docs (Wazuh, MISP) for responses
 - [ ] **High FP on benign:** Tune validators on benign set (Day 3) first
