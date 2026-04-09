@@ -8,7 +8,8 @@ export TERM="${TERM:-xterm-256color}"
 [ "$TERM" = "dumb" ] && export TERM="xterm-256color"
 
 INTERVAL="${1:-1}"
-LOG_DIR="/storage/data/AgenticCyOps_Private/logs/vllm"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_DIR="$SCRIPT_DIR/logs/vllm"
 
 # ---- Colors ----
 BOLD=$'\033[1m'
@@ -207,9 +208,9 @@ while true; do
     echo ""
     echo "  ${BOLD}Disk${RESET}"
     local models_size logs_size
-    models_size=$(du -sh /storage/data/AgenticCyOps_Private/models/ 2>/dev/null | awk '{print $1}')
-    logs_size=$(du -sh /storage/data/AgenticCyOps_Private/logs/ 2>/dev/null | awk '{print $1}')
-    disk_info=$(df -h /storage/data/ 2>/dev/null | tail -1 | awk '{print $3 "/" $2 " (" $5 " used)"}')
+    models_size=$(du -sh "$SCRIPT_DIR/models/" 2>/dev/null | awk '{print $1}')
+    logs_size=$(du -sh "$SCRIPT_DIR/logs/" 2>/dev/null | awk '{print $1}')
+    disk_info=$(df -h "$SCRIPT_DIR" 2>/dev/null | tail -1 | awk '{print $3 "/" $2 " (" $5 " used)"}')
     echo "  ${DIM}Storage: ${disk_info}  │  Models: ${models_size}  │  Logs: ${logs_size}${RESET}"
 
     # ---- Footer ----

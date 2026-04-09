@@ -34,8 +34,9 @@ if [ -t 1 ] && [ "${TERM:-dumb}" != "dumb" ]; then
     RESET=$'\033[0m'
 fi
 
-MODELS_DIR="/storage/data/AgenticCyOps_Private/models"
-LOG_DIR="/storage/data/AgenticCyOps_Private/logs/vllm"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODELS_DIR="$SCRIPT_DIR/models"
+LOG_DIR="$SCRIPT_DIR/logs/vllm"
 mkdir -p "$LOG_DIR"
 
 # ---- Auto-detect NVLink topology ----

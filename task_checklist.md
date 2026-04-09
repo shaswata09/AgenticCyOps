@@ -28,24 +28,24 @@
 ## Phase 0: Environment Setup (Day 1)
 
 ### 0.1 Environment
-- [ ] GitHub repo created
-- [ ] Conda env `agenticcyops` active, `./install.sh` complete
-- [ ] `.env` configured (ANTHROPIC_API_KEY, OPENAI_API_KEY, HF_TOKEN)
-- [ ] All local models verified in `/storage/data/models/`
+- [x] GitHub repo created
+- [x] Conda env `agenticcyops` active, `./install.sh` complete
+- [x] `.env` configured (ANTHROPIC_API_KEY, OPENAI_API_KEY, HF_TOKEN)
+- [x] All local models verified in `/models/`
 - [x] Structured JSON logger ready (`logging_utils/json_logger.py`)
   - Includes `domain` field in every event (cyberops, healthcare, finance, legal)
 
 ### 0.2 vLLM Servers (start as needed)
 - [ ] Primary (GPU 0,1,4,5 TP=4, port 8000):
   ```bash
-  CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve /storage/data/models/Qwen/Qwen3-235B-A22B-Instruct-2507 \
+  CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve <PROJECT_ROOT>/models/Qwen/Qwen3-235B-A22B-Instruct-2507 \
     --tensor-parallel-size 4 --dtype bfloat16 \
     --enable-auto-tool-choice --tool-call-parser hermes \
     --gpu-memory-utilization 0.9 --port 8000
   ```
 - [ ] Diversity — GLM-4.7 (swap with Primary):
   ```bash
-  CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve /storage/data/models/THUDM/GLM-4.7 \
+  CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve <PROJECT_ROOT>/models/zai-org/GLM-4.7-FP8 \
     --tensor-parallel-size 4 --dtype float16 --quantization fp8 \
     --enable-auto-tool-choice --tool-call-parser hermes \
     --gpu-memory-utilization 0.9 --port 8001

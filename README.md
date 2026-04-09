@@ -39,13 +39,13 @@ This testbed validates that claim through:
 | Evaluation | Runs | Domains | What It Tests |
 |-----------|------|---------|---------------|
 | **A: Attack Path Replay** | ~630 | CyberOps | 6 attack scenarios (AP-1 through AP-6), full depth |
-| **F: Multi-Domain Generalizability** | ~315 | Healthcare, Finance, Legal | 3 attack analogues per domain, zero code changes |
 | **B: Trust Boundary Analysis** | Analytical | All 4 | Weighted boundary reduction across domains |
 | **C: Memory Poisoning** | ~90 | CyberOps | Write-boundary filtering at 5%, 10%, 20% poisoning |
 | **D: TAMAS Benchmark** | ~400 | Generic (5 scenarios) | Independent adversarial benchmark |
+| **E: Consensus Overhead** | From A logs | CyberOps | Latency and token cost analysis |
+| **F: Multi-Domain Generalizability** | ~315 | Healthcare, Finance, Legal | 3 attack analogues per domain, zero code changes |
 | **Ablation Study** | ~300 | CyberOps + Finance | Necessity of each principle, cross-domain spot check |
 | **Validator Diversity** | ~90 | CyberOps | Correlated failure across same vs diverse model families |
-| **E: Consensus Overhead** | From A logs | CyberOps | Latency and token cost analysis |
 | **Total** | **~1,925** | **4 domains + TAMAS** | |
 
 ---
@@ -303,7 +303,7 @@ Or start individually (see [GPU Assignment](#gpu-assignment-6-h200-configuration
 # Initialize all domains
 for domain in cyberops healthcare finance legal; do
   python -m memory.chromadb_setup --domain $domain \
-    --embedding-model /path/to/models/Qwen/Qwen3-Embedding-0.6B
+    --embedding-model <PROJECT_ROOT>/models/Qwen/Qwen3-Embedding-8B
   python -m memory.seed_data --domain $domain
 done
 ```
@@ -355,7 +355,7 @@ agenticcyops-experiments/
 │   ├── test_scripts/                 # Per-model test notebooks
 │   └── (model weight directories, gitignored)
 │
-├── domains/                          # Domain-specific configs (THE ONLY THING THAT CHANGES)
+├── domains/                          # Domain-specific configs
 │   ├── cyberops/                     # Full pipeline: 16 tools, 12 memory stores
 │   │   ├── configs/
 │   │   │   ├── monitor_manifest.json
@@ -846,13 +846,16 @@ with logger.track("triage_agent", "H8_prescription_writer", "tool_call") as even
 ## Citation
 
 ```bibtex
-@inproceedings{mitra2026agenticcyops,
-  title     = {AgenticCyOps: Securing Multi-Agentic AI Integration 
-               in Enterprise Cyber Operations},
-  author    = {Mitra, Shaswata and Patel, Raj and Mittal, Sudip and 
-               Rahman, Md Rayhanur and Rahimi, Shahram},
-  booktitle = {Proceedings of the Conference on AI and Security (CAIS)},
-  year      = {2026}
+@misc{mitra2025agenticcyops,
+  title         = {AgenticCyOps: Securing Multi-Agentic AI Integration 
+                   in Enterprise Cyber Operations},
+  author        = {Mitra, Shaswata and Patel, Raj and Mittal, Sudip and 
+                   Rahman, Md Rayhanur and Rahimi, Shahram},
+  year          = {2025},
+  eprint        = {2603.09134},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CR},
+  url           = {https://arxiv.org/abs/2603.09134}
 }
 ```
 
