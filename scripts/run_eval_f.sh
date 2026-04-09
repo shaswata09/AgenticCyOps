@@ -26,59 +26,35 @@ DOMAIN_LABELS=("Healthcare (13 tools, AP-1/2/4)" "Finance (13 tools, AP-1/2/5)" 
 
 # ---- Interactive selection (if no arguments) ----
 if [ -z "$1" ]; then
-    clear
     echo ""
     echo "  AgenticCyOps — Eval F: Multi-Domain Evaluation"
     echo "  ──────────────────────────────────────────────"
     echo ""
-
     read -p "  Trials per variant [2]: " input_trials
     TRIALS="${input_trials:-2}"
     echo ""
-
-    echo "  Select Domains:"
-    dom_selected=()
-    for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do dom_selected+=(1); done
-    cursor=0
-
-    draw_dom_menu() {
-        printf "\033[7;0H"
-        for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do
-            local prefix="  "; [ $i -eq $cursor ] && prefix="> "
-            local box="[ ]"; [ "${dom_selected[$i]}" -eq 1 ] && box="[x]"
-            printf "\033[2K${prefix}${box} ${DOMAIN_LABELS[$i]}\n"
-        done
-        printf "\033[2K\n"
-        printf "\033[2K  Space toggle | a all | n none | Enter run | q quit"
-    }
-
-    printf "\033[7;0H"
-    for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do
-        echo "  [x] ${DOMAIN_LABELS[$i]}"
-    done
+    echo "  Domains:"
+    echo "    1) healthcare  (13 tools, AP-1/2/4)"
+    echo "    2) finance     (13 tools, AP-1/2/5)"
+    echo "    3) legal       (13 tools, AP-1/2/4)"
+    echo "    4) all (1-3)"
+    echo "    q) quit"
     echo ""
-    echo "  Space toggle | a all | n none | Enter run | q quit"
-    draw_dom_menu
+    read -p "  Select domains (e.g. 1 2, or 4 for all): " choices
 
-    while true; do
-        IFS= read -rsn1 key
-        if [[ "$key" == $'\033' ]]; then read -rsn2 -t 0.01 rest; key="${key}${rest}"; fi
-        case "$key" in
-            $'\033[A'|k) ((cursor > 0)) && ((cursor--)) ;;
-            $'\033[B'|j) ((cursor < ${#ALL_DOMAINS[@]}-1)) && ((cursor++)) ;;
-            ' ') [ "${dom_selected[$cursor]}" -eq 1 ] && dom_selected[$cursor]=0 || dom_selected[$cursor]=1 ;;
-            a) for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do dom_selected[$i]=1; done ;;
-            n) for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do dom_selected[$i]=0; done ;;
-            ''|$'\n') break ;;
-            q) echo ""; echo "  Cancelled."; exit 0 ;;
-        esac
-        draw_dom_menu
-    done
-    echo ""; echo ""
+    if [[ "$choices" == "q" ]]; then
+        echo "  Cancelled."
+        exit 0
+    fi
 
     SELECTED_DOMAINS=()
-    for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do
-        [ "${dom_selected[$i]}" -eq 1 ] && SELECTED_DOMAINS+=("${ALL_DOMAINS[$i]}")
+    for c in $choices; do
+        case "$c" in
+            1) SELECTED_DOMAINS+=("healthcare") ;;
+            2) SELECTED_DOMAINS+=("finance") ;;
+            3) SELECTED_DOMAINS+=("legal") ;;
+            4) SELECTED_DOMAINS=("healthcare" "finance" "legal"); break ;;
+        esac
     done
     [ ${#SELECTED_DOMAINS[@]} -eq 0 ] && echo "  No domains selected." && exit 0
 

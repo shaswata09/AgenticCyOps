@@ -35,104 +35,54 @@ if [ -z "$1" ]; then
     echo "  ──────────────────────────────────────────────"
     echo ""
 
-    # Trials
+    echo ""
+    echo "  AgenticCyOps — Eval A: CyberOps Attack Paths"
+    echo "  ──────────────────────────────────────────────"
+    echo ""
     read -p "  Trials per variant [6]: " input_trials
     TRIALS="${input_trials:-6}"
     echo ""
-
-    # AP selection
-    echo "  Select Attack Paths:"
-    ap_selected=()
-    for ((i=0; i<${#ALL_APS[@]}; i++)); do ap_selected+=(1); done
-    cursor=0
-
-    draw_ap_menu() {
-        printf "\033[8;0H"
-        for ((i=0; i<${#ALL_APS[@]}; i++)); do
-            local prefix="  "; [ $i -eq $cursor ] && prefix="> "
-            local box="[ ]"; [ "${ap_selected[$i]}" -eq 1 ] && box="[x]"
-            printf "\033[2K${prefix}${box} ${ALL_APS[$i]}  ${AP_NAMES[$i]}\n"
-        done
-        printf "\033[2K\n"
-        printf "\033[2K  Space toggle | a all | n none | Enter confirm | q quit"
-    }
-
-    printf "\033[8;0H"
-    for ((i=0; i<${#ALL_APS[@]}; i++)); do
-        echo "  [x] ${ALL_APS[$i]}  ${AP_NAMES[$i]}"
-    done
+    echo "  Attack Paths:"
+    echo "    1) ap1  Tool Redirection"
+    echo "    2) ap2  Memory Poisoning"
+    echo "    3) ap3  Confused Deputy"
+    echo "    4) ap4  Cross-Phase Exfiltration"
+    echo "    5) ap5  Irreversible Action"
+    echo "    6) ap6  Replay Attack"
+    echo "    7) all (1-6)"
     echo ""
-    echo "  Space toggle | a all | n none | Enter confirm | q quit"
-    draw_ap_menu
-
-    while true; do
-        IFS= read -rsn1 key
-        if [[ "$key" == $'\033' ]]; then read -rsn2 -t 0.01 rest; key="${key}${rest}"; fi
-        case "$key" in
-            $'\033[A'|k) ((cursor > 0)) && ((cursor--)) ;;
-            $'\033[B'|j) ((cursor < ${#ALL_APS[@]}-1)) && ((cursor++)) ;;
-            ' ') [ "${ap_selected[$cursor]}" -eq 1 ] && ap_selected[$cursor]=0 || ap_selected[$cursor]=1 ;;
-            a) for ((i=0; i<${#ALL_APS[@]}; i++)); do ap_selected[$i]=1; done ;;
-            n) for ((i=0; i<${#ALL_APS[@]}; i++)); do ap_selected[$i]=0; done ;;
-            ''|$'\n') break ;;
-            q) echo ""; echo "  Cancelled."; exit 0 ;;
-        esac
-        draw_ap_menu
-    done
-    echo ""; echo ""
+    read -p "  Select APs (e.g. 1 2 3, or 7 for all): " ap_choices
 
     SELECTED_APS=()
-    for ((i=0; i<${#ALL_APS[@]}; i++)); do
-        [ "${ap_selected[$i]}" -eq 1 ] && SELECTED_APS+=("${ALL_APS[$i]}")
+    for c in $ap_choices; do
+        case "$c" in
+            1) SELECTED_APS+=("ap1") ;; 2) SELECTED_APS+=("ap2") ;;
+            3) SELECTED_APS+=("ap3") ;; 4) SELECTED_APS+=("ap4") ;;
+            5) SELECTED_APS+=("ap5") ;; 6) SELECTED_APS+=("ap6") ;;
+            7) SELECTED_APS=("ap1" "ap2" "ap3" "ap4" "ap5" "ap6"); break ;;
+        esac
     done
     [ ${#SELECTED_APS[@]} -eq 0 ] && echo "  No APs selected." && exit 0
 
-    # Config selection
-    echo "  Select Configs:"
-    cfg_selected=(1 1 1)
-    cursor=0
-
-    draw_cfg_menu() {
-        printf "\033[$(( 8 + ${#ALL_APS[@]} + 5 ));0H"
-        for ((i=0; i<${#ALL_CONFIGS[@]}; i++)); do
-            local prefix="  "; [ $i -eq $cursor ] && prefix="> "
-            local box="[ ]"; [ "${cfg_selected[$i]}" -eq 1 ] && box="[x]"
-            printf "\033[2K${prefix}${box} ${ALL_CONFIGS[$i]}\n"
-        done
-        printf "\033[2K\n"
-        printf "\033[2K  Space toggle | a all | Enter confirm"
-    }
-
-    for ((i=0; i<${#ALL_CONFIGS[@]}; i++)); do
-        echo "  [x] ${ALL_CONFIGS[$i]}"
-    done
     echo ""
-    echo "  Space toggle | a all | Enter confirm"
-    draw_cfg_menu
-
-    while true; do
-        IFS= read -rsn1 key
-        if [[ "$key" == $'\033' ]]; then read -rsn2 -t 0.01 rest; key="${key}${rest}"; fi
-        case "$key" in
-            $'\033[A'|k) ((cursor > 0)) && ((cursor--)) ;;
-            $'\033[B'|j) ((cursor < ${#ALL_CONFIGS[@]}-1)) && ((cursor++)) ;;
-            ' ') [ "${cfg_selected[$cursor]}" -eq 1 ] && cfg_selected[$cursor]=0 || cfg_selected[$cursor]=1 ;;
-            a) for ((i=0; i<${#ALL_CONFIGS[@]}; i++)); do cfg_selected[$i]=1; done ;;
-            ''|$'\n') break ;;
-            q) echo ""; exit 0 ;;
-        esac
-        draw_cfg_menu
-    done
-    echo ""; echo ""
+    echo "  Configs:"
+    echo "    1) flat"
+    echo "    2) acl_hardened"
+    echo "    3) agenticcyops"
+    echo "    4) all (1-3)"
+    echo ""
+    read -p "  Select configs (e.g. 1 3, or 4 for all): " cfg_choices
 
     SELECTED_CONFIGS=()
-    for ((i=0; i<${#ALL_CONFIGS[@]}; i++)); do
-        [ "${cfg_selected[$i]}" -eq 1 ] && SELECTED_CONFIGS+=("${ALL_CONFIGS[$i]}")
+    for c in $cfg_choices; do
+        case "$c" in
+            1) SELECTED_CONFIGS+=("flat") ;;
+            2) SELECTED_CONFIGS+=("acl_hardened") ;;
+            3) SELECTED_CONFIGS+=("agenticcyops") ;;
+            4) SELECTED_CONFIGS=("flat" "acl_hardened" "agenticcyops"); break ;;
+        esac
     done
     [ ${#SELECTED_CONFIGS[@]} -eq 0 ] && echo "  No configs selected." && exit 0
-
-    AP_FILTER="selected"
-    CONFIG_FILTER="selected"
 else
     TRIALS="${1:-6}"
     AP_FILTER="${2:-all}"

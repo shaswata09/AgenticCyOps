@@ -25,75 +25,35 @@ ALL_DOMAINS=("cyberops" "healthcare" "finance" "legal")
 
 # ---- Interactive domain selection (if no argument) ----
 if [ -z "$1" ]; then
-    clear
     echo ""
     echo "  AgenticCyOps — Baseline Verification"
     echo "  ──────────────────────────────────────────────"
     echo ""
-
-    selected=()
-    for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do selected+=(0); done
-    cursor=0
-
-    draw_menu() {
-        # Move cursor to menu start position
-        printf "\033[7;0H"
-        for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do
-            local prefix="  "
-            [ $i -eq $cursor ] && prefix="> "
-            local box="[ ]"
-            [ "${selected[$i]}" -eq 1 ] && box="[x]"
-            printf "\033[2K${prefix}${box} ${ALL_DOMAINS[$i]}\n"
-        done
-        printf "\033[2K\n"
-        printf "\033[2K  [ ] All 4 domains\n"
-        printf "\033[2K\n"
-        printf "\033[2K  up/down move | Space toggle | a all | n none | Enter run | q quit"
-    }
-
-    # Initial draw
-    printf "\033[7;0H"
-    for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do
-        echo "  [ ] ${ALL_DOMAINS[$i]}"
-    done
+    echo "  Select domains to verify:"
     echo ""
-    echo "  [ ] All 4 domains"
+    echo "    1) cyberops"
+    echo "    2) healthcare"
+    echo "    3) finance"
+    echo "    4) legal"
+    echo "    5) all (1-4)"
+    echo "    q) quit"
     echo ""
-    echo "  up/down move | Space toggle | a all | n none | Enter run | q quit"
+    read -p "  Enter choices (e.g. 1 2 3, or 5 for all): " choices
 
-    draw_menu
+    if [[ "$choices" == "q" ]]; then
+        echo "  Cancelled."
+        exit 0
+    fi
 
-    while true; do
-        IFS= read -rsn1 key
-        if [[ "$key" == $'\033' ]]; then
-            read -rsn2 -t 0.01 rest
-            key="${key}${rest}"
-        fi
-        case "$key" in
-            $'\033[A'|k) ((cursor > 0)) && ((cursor--)) ;;
-            $'\033[B'|j) ((cursor < ${#ALL_DOMAINS[@]}-1)) && ((cursor++)) ;;
-            ' ')
-                if [ "${selected[$cursor]}" -eq 1 ]; then
-                    selected[$cursor]=0
-                else
-                    selected[$cursor]=1
-                fi
-                ;;
-            a) for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do selected[$i]=1; done ;;
-            n) for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do selected[$i]=0; done ;;
-            ''|$'\n') break ;;
-            q) echo ""; echo "  Cancelled."; exit 0 ;;
-        esac
-        draw_menu
-    done
-
-    echo ""
-    echo ""
-
-    # Build domain list from selection
     DOMAINS=()
-    for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do
-        [ "${selected[$i]}" -eq 1 ] && DOMAINS+=("${ALL_DOMAINS[$i]}")
+    for c in $choices; do
+        case "$c" in
+            1) DOMAINS+=("cyberops") ;;
+            2) DOMAINS+=("healthcare") ;;
+            3) DOMAINS+=("finance") ;;
+            4) DOMAINS+=("legal") ;;
+            5) DOMAINS=("cyberops" "healthcare" "finance" "legal"); break ;;
+        esac
     done
 
     if [ ${#DOMAINS[@]} -eq 0 ]; then
