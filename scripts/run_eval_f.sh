@@ -127,8 +127,10 @@ run_domain() {
     sleep 1
     PIDS=()
 
-    # Setup ChromaDB
-    echo "[1/5] ChromaDB setup..."
+    # Clean previous + Setup ChromaDB
+    echo "[1/5] Cleaning previous data + ChromaDB setup..."
+    rm -rf "logs/${domain}_eval_f" 2>/dev/null || true
+    rm -rf "data/chromadb/${domain}" 2>/dev/null || true
     run_py -m memory.chromadb_setup --domain "$domain" --db-path ./data/chromadb 2>&1 | tail -2
     run_py -m memory.seed_data --domain "$domain" --db-path ./data/chromadb 2>&1 | tail -2
 

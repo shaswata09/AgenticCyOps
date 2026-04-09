@@ -50,7 +50,7 @@ class ServerRegistry:
         for phase_dir in sorted(tools_dir.iterdir()):
             if not phase_dir.is_dir() or phase_dir.name.startswith("_"):
                 continue
-            for tool_file in sorted(phase_dir.glob("t*.py")):
+            for tool_file in sorted(phase_dir.glob("[a-z]*.py")):
                 module_path = f"domains.{self.domain}.tools.{phase_dir.name}.{tool_file.stem}"
                 results.append((module_path, tool_file.stem))
         return results

@@ -159,9 +159,12 @@ for port in 8002 8005; do
     curl -s --max-time 2 http://localhost:$port/health > /dev/null 2>&1 && echo "[  ok] Validator ($port)" || echo "[ warn] Validator ($port) not running"
 done
 
-# ---- Step 2: Setup ChromaDB + seed ----
+# ---- Step 2: Clean previous + Setup ChromaDB ----
 echo ""
-echo "[step 2/6] Initializing ChromaDB..."
+echo "[step 2/6] Cleaning previous data + initializing ChromaDB..."
+rm -rf "logs/cyberops_eval_a" 2>/dev/null || true
+rm -rf "results/eval_a" 2>/dev/null || true
+rm -rf "data/chromadb/cyberops" 2>/dev/null || true
 run_py -m memory.chromadb_setup --domain $DOMAIN --db-path ./data/chromadb 2>&1 | tail -3
 echo "Seeding..."
 run_py -m memory.seed_data --domain $DOMAIN --db-path ./data/chromadb 2>&1 | tail -3

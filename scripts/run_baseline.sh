@@ -138,8 +138,11 @@ run_domain_baseline() {
     echo "============================================================"
     echo ""
 
-    # Step 0: Kill stale tool/MMA servers from previous runs
-    echo "[step 0/7] Cleaning stale ports..."
+    # Step 0: Clean previous run data + stale ports
+    echo "[step 0/7] Cleaning previous run data + stale ports..."
+    rm -rf "logs/${domain}_baseline" 2>/dev/null || true
+    rm -rf "results/baseline/${domain}" 2>/dev/null || true
+    rm -rf "data/chromadb/${domain}" 2>/dev/null || true
     for port in $(seq ${TOOL_BASE_PORT} $((TOOL_BASE_PORT + 15))) ${MMA_PORT}; do
         pid=$(lsof -ti :$port 2>/dev/null || true)
         [ -n "$pid" ] && kill -9 $pid 2>/dev/null || true
@@ -263,16 +266,26 @@ async def run():
         logger=logger,
     )
 
-    # Run benign incident
-    incident = {
-        'incident_id': f'{domain}-BENIGN-001',
-        'alert_type': 'suspicious_login',
-        'source_ip': '10.0.5.42',
-        'destination_ip': '10.0.1.10',
-        'timestamp': '2026-04-09T10:00:00Z',
-        'initial_severity': 'medium',
-        'description': 'Multiple failed login attempts followed by successful authentication from workstation WS-ENG-042 to domain controller DC-PROD-01.',
-    }
+    # Load domain-appropriate benign incident
+    import json as _json
+    from pathlib import Path as _Path
+    _benign_file = _Path(f'domains/{domain}/payloads/benign_alerts.json')
+    if not _benign_file.exists():
+        _benign_file = _Path(f'domains/{domain}/payloads/benign_workflows.json')
+    if _benign_file.exists():
+        with open(_benign_file) as _f:
+            _payloads = _json.load(_f)
+        incident = _payloads[0].get('trigger', _payloads[0])
+        if 'incident_id' not in incident:
+            incident['incident_id'] = f'{domain}-BENIGN-001'
+    else:
+        incident = {
+            'incident_id': f'{domain}-BENIGN-001',
+            'alert_type': 'generic_alert',
+            'timestamp': '2026-04-09T10:00:00Z',
+            'initial_severity': 'medium',
+            'description': f'Benign test incident for {domain} domain.',
+        }
 
     try:
         result = await host.run_incident(incident)
