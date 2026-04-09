@@ -2,10 +2,10 @@
 # ============================================================
 # AgenticCyOps — Full Baseline Verification
 #
-# 1. Choose model group (A-E)
+# 1. Choose model group (A-G)
 # 2. Verify required servers are running
 # 3. Choose domains
-# 4. Run baseline, store in results/baseline/{group}/{domain}/
+# 4. Run baseline, store in results/baseline/group_{X}/{domain}/
 #
 # Usage:
 #   ./scripts/run_baseline.sh            # Interactive
@@ -34,43 +34,43 @@ GROUP_NAMES[A]="Group A: Main Experiments (4 validator families)"
 GROUP_PRIMARY[A]="http://localhost:8000/v1"
 GROUP_PORTS[A]="8000 8002 8005"
 GROUP_CONSENSUS[A]="default_consensus"
-GROUP_DESC[A]="Qwen3-235B (8000) + V1 Qwen3-32B (8002) + V2 DeepSeek-R1 (8005) + V4 Claude + V6 GPT-4o (t=3/4)"
+GROUP_DESC[A]="Qwen3-235B (8000) + V1(Qwen) + V2(DeepSeek) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
 
 GROUP_NAMES[B]="Group B: GLM Diversity"
 GROUP_PRIMARY[B]="http://localhost:8001/v1"
 GROUP_PORTS[B]="8001 8002 8005"
 GROUP_CONSENSUS[B]="default_consensus"
-GROUP_DESC[B]="GLM-4.7-FP8 (8001) + V1(Qwen) + V2(DeepSeek) + V4(Claude) + V6(GPT-4o) [t=3/4]"
+GROUP_DESC[B]="GLM-4.7-FP8 (8001) + V1(Qwen) + V2(DeepSeek) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
 
 GROUP_NAMES[C]="Group C: Validator Same-Family"
 GROUP_PRIMARY[C]="http://localhost:8000/v1"
 GROUP_PORTS[C]="8000 8002"
 GROUP_CONSENSUS[C]="same_family"
-GROUP_DESC[C]="Qwen3-235B (8000) + V1 Qwen3-32B x3 (8002) — same-family consensus [t=2/3]"
+GROUP_DESC[C]="Qwen3-235B (8000) + V1 Qwen3-32B x3 (8002) — same-family consensus [need 2 of 3 to approve]"
 
 GROUP_NAMES[D]="Group D: Validator All-Local + API"
 GROUP_PRIMARY[D]="http://localhost:8004/v1"
 GROUP_PORTS[D]="8004 8002 8005"
 GROUP_CONSENSUS[D]="default_consensus"
-GROUP_DESC[D]="Llama-4-Scout (8004) + V1(Qwen) + V2(DeepSeek) + V4(Claude) + V6(GPT-4o) [t=3/4]"
+GROUP_DESC[D]="Llama-4-Scout (8004) + V1(Qwen) + V2(DeepSeek) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
 
 GROUP_NAMES[E]="Group E: With Mistral"
 GROUP_PRIMARY[E]="http://localhost:8000/v1"
 GROUP_PORTS[E]="8000 8002 8003"
 GROUP_CONSENSUS[E]="with_mistral"
-GROUP_DESC[E]="Qwen3-235B (8000) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [t=3/4]"
+GROUP_DESC[E]="Qwen3-235B (8000) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
 
-GROUP_NAMES[F]="Group F: Full Local Diversity"
-GROUP_PRIMARY[F]="http://localhost:8000/v1"
-GROUP_PORTS[F]="8000 8002 8005"
+GROUP_NAMES[F]="Group F: Full Diversity (Claude primary + all validators)"
+GROUP_PRIMARY[F]="anthropic"
+GROUP_PORTS[F]="8002 8005 8004 8003"
 GROUP_CONSENSUS[F]="full_diversity"
-GROUP_DESC[F]="Qwen3-235B (8000) + ALL validators: V1-V6 (6 families) [t=4/7]"
+GROUP_DESC[F]="Claude (API primary) + ALL local validators V1-V5 + V6(GPT-4o) [need 4 of 5 to approve, max diversity]"
 
-GROUP_NAMES[G]="Group G: Claude as Primary"
+GROUP_NAMES[G]="Group G: Claude as Primary (max local validators)"
 GROUP_PRIMARY[G]="anthropic"
-GROUP_PORTS[G]="8002 8005"
-GROUP_CONSENSUS[G]="default_no_claude"
-GROUP_DESC[G]="Claude Sonnet (API primary) + V1(Qwen) + V2(DeepSeek) + V6(GPT-4o) [t=2/3, no Claude as validator when it's primary]"
+GROUP_PORTS[G]="8002 8005 8004"
+GROUP_CONSENSUS[G]="all_with_gpt4o"
+GROUP_DESC[G]="Claude (API primary) + V1(Qwen) + V2(DeepSeek) + V3(Llama) + V6(GPT-4o) [need 3 of 4 to approve]"
 
 ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G")
 
@@ -134,7 +134,7 @@ fi
 
 # Validate group
 if [ -z "${GROUP_NAMES[$GROUP]}" ]; then
-    echo "  Unknown group: $GROUP. Use A/B/C/D/E."
+    echo "  Unknown group: $GROUP. Use A/B/C/D/E/F/G."
     exit 1
 fi
 

@@ -28,7 +28,7 @@ These three configurations are applied identically across all domains. The Host 
 | Validator V1 | Qwen3-32B | Qwen (Alibaba) | 2 | 8002 |
 | Validator V2 | DeepSeek-R1-Distill-Qwen-32B | DeepSeek | 3 | 8005 |
 | Validator V3 | Llama-4-Scout-17B-16E | Meta | 4,5 TP=2 | 8004 |
-| Validator V4 (optional, needs API key) | Claude Sonnet | Anthropic | API | — |
+| Validator V4 | Claude Sonnet | Anthropic | API (ANTHROPIC_API_KEY configured) | — |
 | Validator V5 (optional) | Mistral-Small-3.2-24B | Mistral | 3 (swap with V2) | 8003 |
 | Embedding (ChromaDB) | Qwen3-Embedding-8B | Qwen (Alibaba) | CPU/GPU | — |
 | Embedding (fast/CPU) | Qwen3-Embedding-0.6B | Qwen (Alibaba) | CPU | — |
@@ -381,11 +381,39 @@ Cross-domain ablation spot check: Run P2 ablation on Finance AP-1 analogue (30 r
 
 ### 3.8 Validator Diversity
 
+**7 model groups (A–G) test different primary/validator combinations:**
+
+| Group | Primary Agent | Validators | Threshold | Notes |
+|-------|--------------|------------|-----------|-------|
+| **A** | Qwen3-235B | V1(Qwen3-32B) + V2(DeepSeek-R1) + V4(Claude) + V6(GPT-4o) | 3/4 | Default experiments |
+| **B** | GLM-4.7-FP8 | V1 + V2 + V4 + V6 | 3/4 | Model-independence check |
+| **C** | Qwen3-235B | V1(Qwen3-32B) × 3 (same-family) | 2/3 | Correlated failure test |
+| **D** | Llama-4-Scout | V1 + V2 + V4 + V6 | 3/4 | Third primary model |
+| **E** | Qwen3-235B | V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) | 3/4 | Mistral in mix |
+| **F** | Claude (API) | V1 + V2 + V3(Llama) + V5(Mistral) + V6(GPT-4o) | 4/5 | Max diversity, all local validators |
+| **G** | Claude (API) | V1 + V2 + V3(Llama) + V6(GPT-4o) | 3/4 | Claude primary, 4 local families |
+
+**V3(Llama) GPU constraint:** Llama-4-Scout on GPU 4,5 conflicts with Qwen3-235B on GPU 0,1,4,5. V3 can only serve as validator in Groups F and G, where Claude (API) is primary and GPU 4,5 are free. Claude is NOT a validator when it is the primary agent (no self-judging).
+
+**Consensus configs in `configs/validators.yaml`:**
+- `default_consensus`: V1+V2+V4+V6 (4 validators, t=3) — Groups A, B, D
+- `default_no_claude`: V1+V2+V6 (t=2) — fallback if no ANTHROPIC_API_KEY
+- `same_family`: V1×3 (t=2) — Group C
+- `with_mistral`: V1+V5+V4+V6 (t=3) — Group E
+- `full_diversity`: V1+V2+V3+V5+V6 (t=4) — Group F
+- `all_with_gpt4o`: V1+V2+V3+V6 (t=3) — Group G
+- `all_local_diverse`: V1+V2+V3 (t=2)
+- `local_only`: V1+V2 (t=2)
+- `mixed_with_claude`: V1+V2+V4 (t=2)
+- `mixed_with_gpt4o`: V1+V2+V6 (t=2)
+
+**Validator diversity experiment trials (AP-1):**
+
 | Config | Validators | Families | Trials (AP-1) |
 |--------|-----------|----------|---------------|
-| Same-family | 3× Qwen3-32B | 1 | 30 |
-| Default diverse | Qwen3-32B + DeepSeek-R1 + GPT-4o | 3 | 30 |
-| All-local diverse | Qwen3-32B + DeepSeek-R1 + Llama-4-Scout | 3 | 30 |
+| Same-family (Group C) | 3× Qwen3-32B | 1 | 30 |
+| Default diverse (Group A) | V1 + V2 + V4(Claude) + V6(GPT-4o) | 4 | 30 |
+| All-local diverse | V1 + V2 + V3(Llama) | 3 | 30 |
 
 **Total: 90 runs**
 

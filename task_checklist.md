@@ -4,7 +4,7 @@
 > **Team:** 3 researchers (A, B, C) working in parallel.  
 > **Priority:** Eval A (CyberOps depth) > Eval F (multi-domain) > Eval D (TAMAS) > B > Ablation + Validator Diversity > E > C  
 > **Hardware:** 6× H200, all BF16 (GLM-4.7-FP8 uses official FP8 weights from zai-org/GLM-4.7-FP8)  
-> **API Budget:** ~$12 GPT-4o for full experiment (consensus validation); ~$50 if TAMAS included  
+> **API Budget:** ~$12 GPT-4o + ~$4 Claude for consensus validation (~$16 total); ~$50 additional if TAMAS included (~$66 total)  
 > **Target:** ~1,900 instrumented runs, 4 domains, 6 attack paths, 3 configs, 7 model families, zero framework code changes across domains
 
 ---
@@ -18,7 +18,7 @@
 | Validator V1 | Qwen3-32B | Qwen | 2 | 8002 |
 | Validator V2 | DeepSeek-R1-Distill-Qwen-32B | DeepSeek | 3 | 8005 |
 | Validator V3 | Llama-4-Scout-17B-16E | Meta | 4,5 TP=2 | 8004 |
-| Validator V4 | Claude Sonnet (optional, needs ANTHROPIC_API_KEY) | Anthropic | API | — |
+| Validator V4 | Claude Sonnet | Anthropic | API (ANTHROPIC_API_KEY configured) | — |
 | Validator V5 (optional) | Mistral-Small-3.2-24B | Mistral | 3 (swap with V2) | 8003 |
 | Validator V6 (default) | GPT-4o | OpenAI | API | — |
 | Embedding | Qwen3-Embedding-8B | Qwen | CPU/GPU | — |
@@ -32,7 +32,7 @@
 ### 0.1 Environment
 - [x] GitHub repo created
 - [x] Conda env `agenticcyops` active, `./install.sh` complete
-- [x] `.env` configured (OPENAI_API_KEY, HF_TOKEN; ANTHROPIC_API_KEY optional)
+- [x] `.env` configured (OPENAI_API_KEY, HF_TOKEN, ANTHROPIC_API_KEY)
 - [x] All local models verified in `/models/`
 - [x] Structured JSON logger ready (`logging_utils/json_logger.py`)
   - Includes `domain` field in every event (cyberops, healthcare, finance, legal)
@@ -44,7 +44,7 @@
 - [x] V2 DeepSeek-R1 (GPU 3, port 8005) — tested, works
 - [x] V3 Llama-4-Scout (GPU 4,5 TP=2, port 8004) — tested, works with `--enforce-eager`
 - [x] V5 Mistral-Small (GPU 3 swap, port 8003) — tested, works
-- [ ] V4 Claude Sonnet — API (optional, no key configured)
+- [x] V4 Claude Sonnet — API (ANTHROPIC_API_KEY configured in .env)
 - [x] `start_servers.sh` created with interactive group selection (7 groups: A-G)
 - [x] `monitor.sh` created (live GPU/CPU/RAM/server dashboard)
 - [x] FlashInfer disabled (CUTLASS JIT broken on H200) — renamed flashinfer package
@@ -136,7 +136,8 @@
 - [x] `agents/base_agent.py`: BaseAgent + AgentResult + ToolCallProposal
   - Loads prompts from `domains/{domain}/prompts/{phase}.txt`
   - LLM client switchable via switch_model(url)
-  - OpenAI-compatible tool calling
+  - Supports `llm_provider="anthropic"` with Anthropic tool calling (for Groups F, G)
+  - OpenAI-compatible tool calling (default, for all local models)
 - [x] 4 phase agents: MonitorAgent, AnalyzeAgent, AdminAgent, ReportAgent
 - [x] 4 CyberOps prompts in `domains/cyberops/prompts/`
 
@@ -147,7 +148,7 @@
 - [x] `consensus/recovery_loop.py`: RecoveryLoop (Admin phase, bulk action detection)
 - [x] `consensus/improvement_loop.py`: ImprovementLoop (Report phase memory writes)
 - [x] `consensus/escalation.py`: EscalationHandler (auto-reject in testbed, logs escalation)
-- [x] `configs/validators.yaml`: V1-V5 + default_consensus(V1+V2+V6_gpt4o,t=2) + same_family + all_local_diverse
+- [x] `configs/validators.yaml`: V1-V6 + 10 consensus configs (default_consensus=V1+V2+V4+V6, t=3/4; full_diversity, all_with_gpt4o, with_mistral, same_family, all_local_diverse, local_only, mixed_with_claude, mixed_with_gpt4o, default_no_claude)
 - [x] Per-validator decision, latency, tokens logged via ExperimentLogger
 
 ---
@@ -423,9 +424,10 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
 - [ ] **Total: 30 runs**
 
 ### 7.3 Validator Diversity — **B**
-- [ ] Same-family: 3× Qwen3-32B → AP-1, 30 trials
-- [ ] Default diverse: V1 + V2 + V4 (Qwen, DeepSeek, Anthropic) → AP-1, 30 trials
-- [ ] All-local diverse: V1 + V2 + V3 (Qwen, DeepSeek, Meta) → AP-1, 30 trials
+- [ ] Same-family (Group C config): 3× Qwen3-32B → AP-1, 30 trials
+- [ ] Default diverse (Group A config): V1 + V2 + V4(Claude) + V6(GPT-4o) (4 families, t=3/4) → AP-1, 30 trials
+- [ ] All-local diverse: V1 + V2 + V3(Llama) (3 families, t=2/3) → AP-1, 30 trials
+  - **Note:** V3(Llama) requires Claude-primary or no Qwen3-235B (GPU 4,5 conflict)
 - [ ] **Total: 90 runs**
 
 ### 7.4 Results — **B**

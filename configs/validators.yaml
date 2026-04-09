@@ -72,7 +72,12 @@ with_mistral:
   validators: ["V1_qwen", "V5_mistral", "V6_gpt4o", "V4_claude"]
   threshold: 3
 
-# Full diversity: all 5 local + 2 API = 7 validators
+# All local + GPT-4o (for Group G where Claude is primary, freeing GPU 4,5 for Llama)
+all_with_gpt4o:
+  validators: ["V1_qwen", "V2_deepseek", "V3_llama", "V6_gpt4o"]
+  threshold: 3
+
+# Full diversity: all 4 local + GPT-4o = 5 validators (for Group F where Claude is primary)
 full_diversity:
-  validators: ["V1_qwen", "V2_deepseek", "V3_llama", "V5_mistral", "V6_gpt4o", "V4_claude"]
+  validators: ["V1_qwen", "V2_deepseek", "V3_llama", "V5_mistral", "V6_gpt4o"]
   threshold: 4

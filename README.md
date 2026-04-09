@@ -78,8 +78,8 @@ The following components are **identical across all domains** — zero code chan
 |-----------|---------|
 | `host/orchestrator.py` | LangGraph Host with CoT planning and phase routing |
 | `host/manifest_enforcer.py` | Validates tool calls against phase manifests |
-| `agents/base_agent.py` | LLM-powered agent with switchable model backend |
-| `consensus/validator.py` | Multi-model consensus (≥2/3 approval) |
+| `agents/base_agent.py` | LLM-powered agent with switchable model backend (`llm_provider="anthropic"` supported) |
+| `consensus/validator.py` | Multi-model consensus (default: 4 validators, ≥3/4 approval) |
 | `memory/mma_gateway.py` | Memory Management Agent with access control |
 | `memory/write_filter.py` | Schema validation + cosine similarity check |
 | `attacks/harness.py` | Attack execution and logging harness |
@@ -125,7 +125,7 @@ python -m attacks.harness --domain legal --ap ap1 --config agenticcyops --trials
 | GPUs | 2× NVIDIA A100 80GB or equivalent |
 | RAM | 128 GB |
 | Storage | 400 GB (models) + 50 GB (experiment data) |
-| Network | Internet access for API calls (GPT-4o (consensus + TAMAS)) |
+| Network | Internet access for API calls (GPT-4o + Claude for consensus; GPT-4o for TAMAS) |
 
 With 2× A100: run Qwen3-235B-A22B only (primary agent), use API providers for validators.
 
@@ -152,7 +152,7 @@ GPU 3 ──────────── DeepSeek-R1-Distill-Qwen-32B   (Valid
                    Mistral-Small-3.2-24B           (Validator V5 optional, Port 8003; swap with V2)
 
 GPU 4 ─┐ TP=2 ── Llama-4-Scout-17B-16E            (Validator V3, Port 8004)
-GPU 5 ─┘
+GPU 5 ─┘          ⚠ Conflicts with Qwen3-235B — V3 only available in Groups F/G (Claude primary)
 ```
 
 ---
@@ -176,10 +176,10 @@ GPU 5 ─┘
 
 | Model | Role | Estimated Cost |
 |-------|------|---------------|
-| Claude Sonnet | Validator V4 (optional) | ~$20 (not required) |
+| Claude Sonnet | Validator V4 (default consensus) + Primary agent (Groups F, G) | ~$4 (consensus) |
 | GPT-4o | Validator V6 + TAMAS baseline | ~$12 (consensus only); ~$50 (with TAMAS) |
 
-**Total API budget: ~$12 (consensus only), ~$70 (with TAMAS + optional Claude)**
+**Total API budget: ~$16 (consensus: GPT-4o ~$12 + Claude ~$4), ~$66 (with TAMAS)**
 
 ---
 
@@ -200,8 +200,7 @@ chmod +x install.sh
 
 # 4. Configure API keys
 cp .env.example .env
-# ANTHROPIC_API_KEY=sk-ant-xxx  # Optional — not needed for default consensus
-# Edit .env with your OPENAI_API_KEY, HF_TOKEN
+# Edit .env with your OPENAI_API_KEY, ANTHROPIC_API_KEY, HF_TOKEN
 
 # 5. Download models (~1.5 TB total, takes several hours)
 cd /path/to/model/storage
@@ -268,7 +267,7 @@ python -c "import vllm; print(f'vLLM {vllm.__version__}')"
 cp .env.example .env
 ```
 
-Edit `.env`:
+Edit `.env` (all three keys required for default consensus and Groups F/G):
 
 ```
 HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx
@@ -504,6 +503,9 @@ agenticcyops-experiments/
 │   └── validator_diversity/
 │
 ├── results/                          # (gitignored)
+│   ├── baseline/                    # Baseline verification results
+│   │   └── group_{A-G}/            # Per model group
+│   │       └── {domain}/           # Per domain (cyberops, healthcare, etc.)
 │   ├── tables/
 │   │   ├── R1_attack_interception.csv
 │   │   ├── R2_boundary_reduction.csv
@@ -629,10 +631,28 @@ Three system configurations applied identically across all domains:
 
 - **P1 (Authorized Interface):** Signed manifests, admin-approved tool catalog
 - **P2 (Capability Scoping):** Phase-to-tool restriction at Host routing layer
-- **P3 (Verified Execution):** Multi-model consensus (≥2/3) before irreversible actions
+- **P3 (Verified Execution):** Multi-model consensus (default ≥3/4: V1+V2+V4+V6) before irreversible actions
 - **P4 (Memory Integrity):** Write-boundary filtering + versioned ledger
 - **P5 (Access Control):** MMA-mediated memory with phase-partitioned policies
 - Host-mediated sequential handoffs
+
+### Model Groups (A–G)
+
+Seven model groups test different primary agent / validator combinations:
+
+| Group | Primary | Validators | Consensus Config | Threshold |
+|-------|---------|-----------|-----------------|-----------|
+| **A** | Qwen3-235B | V1+V2+V4(Claude)+V6(GPT-4o) | `default_consensus` | 3/4 |
+| **B** | GLM-4.7-FP8 | V1+V2+V4+V6 | `default_consensus` | 3/4 |
+| **C** | Qwen3-235B | V1×3 (same-family) | `same_family` | 2/3 |
+| **D** | Llama-4-Scout | V1+V2+V4+V6 | `default_consensus` | 3/4 |
+| **E** | Qwen3-235B | V1+V5(Mistral)+V4+V6 | `with_mistral` | 3/4 |
+| **F** | Claude (API) | V1+V2+V3(Llama)+V5+V6 | `full_diversity` | 4/5 |
+| **G** | Claude (API) | V1+V2+V3(Llama)+V6 | `all_with_gpt4o` | 3/4 |
+
+**GPU constraint:** V3(Llama) on GPU 4,5 conflicts with Qwen3-235B on GPU 0,1,4,5. V3 can only be a validator in Groups F and G, where Claude (API) is the primary agent and GPU 4,5 are free. Claude is NOT used as a validator when it is the primary agent (no self-judging).
+
+Scripts (`run_baseline.sh`, `run_eval_a.sh`, `run_eval_f.sh`) provide interactive group selection menus.
 
 ---
 
@@ -676,8 +696,13 @@ done
 ### Baseline Verification
 
 ```bash
-# Interactive domain selection menu
+# Interactive group (A-G) + domain selection menu
 bash scripts/run_baseline.sh
+
+# Or non-interactive: Group A, CyberOps only
+bash scripts/run_baseline.sh A 1
+
+# Results stored in results/baseline/group_{X}/{domain}/
 ```
 
 ### TAMAS Benchmark (Eval D)
@@ -798,7 +823,7 @@ jupyter notebook analysis/results_explorer.ipynb
 | Skip adapter domains | No cross-domain proof | Skip `--domain healthcare/finance/legal` |
 | Skip GLM-4.7 | No model-independence | Skip diversity runs |
 | Skip TAMAS | No independent benchmark | Skip `benchmarks/tamas/` |
-| API validators only | No local V1-V3 | Set all to GPT-4o in `validators.yaml` |
+| API validators only | No local V1-V3 | Use `default_no_claude` or set all to GPT-4o in `validators.yaml` |
 | 2-GPU setup | Single model only | Use API providers for everything else |
 
 Minimum viable: CyberOps Eval A (AP-1–4) + Eval B + Ablation = ~500 runs, single model.
@@ -813,6 +838,7 @@ Minimum viable: CyberOps Eval A (AP-1–4) + Eval B + Ablation = ~500 runs, sing
 | DeepSeek-R1 load error | Requires vLLM nightly |
 | GLM-4.7 FP8 error | Verify vLLM nightly supports FP8; check model path |
 | GPT-4o rate limit | Tenacity retry built in; or fallback to local_only consensus config |
+| Claude API error | Verify ANTHROPIC_API_KEY in .env; fallback to `default_no_claude` consensus config |
 | ChromaDB slow | Run embedding on GPU: `CUDA_VISIBLE_DEVICES=3 python -m memory.chromadb_setup` |
 | TAMAS conflicts | Run in separate virtualenv |
 | Domain adapter fails | Verify manifests load: `python -m host.manifest_enforcer --domain healthcare --test` |

@@ -141,6 +141,7 @@ def page_experiment_config(pdf, domain: str):
         ["Qwen3-235B-A22B-Instruct-2507", "Primary Agents + Host", "Qwen", "GPU 0,1,4,5 (TP=4)", "8000"],
         ["Qwen3-32B", "Validator V1", "Qwen", "GPU 2", "8002"],
         ["DeepSeek-R1-Distill-Qwen-32B", "Validator V2", "DeepSeek", "GPU 3", "8005"],
+        ["Claude Sonnet", "Validator V4 (API)", "Anthropic", "API", "--"],
         ["GPT-4o", "Validator V6 (API)", "OpenAI", "API", "--"],
         ["Qwen3-Embedding-0.6B", "Embedding (CPU)", "Qwen", "CPU", "--"],
     ]
@@ -164,7 +165,7 @@ def page_experiment_config(pdf, domain: str):
     config_data = [
         ["Tool visibility", "All 16 tools", "All 16 tools", "Manifest only (4-5)"],
         ["Tool enforcement", "None", "ACL (HTTP 403)", "P2 Manifest Enforcer"],
-        ["Consensus (P3)", "Disabled", "Disabled", "V1 + V2 + V6 (2/3)"],
+        ["Consensus (P3)", "Disabled", "Disabled", "V1+V2+V4+V6 (3/4)"],
         ["Memory access", "Direct", "Direct + ACL", "MMA Gateway (P4+P5)"],
         ["Write filtering (P4)", "None", "None", "Cosine sim > 0.5"],
         ["Escalation", "Never", "Never", "On bulk/rejection"],
