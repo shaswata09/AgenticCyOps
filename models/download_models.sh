@@ -8,7 +8,7 @@
 #          ./Qwen/Qwen3-32B/
 #          ./mistralai/Mistral-Small-3.2-24B-Instruct-2506/
 #          ./meta-llama/Llama-4-Scout-17B-16E-Instruct/
-#          ./BAAI/bge-en-icl/
+#          ./Qwen/Qwen3-Embedding-8B/
 #
 # Hardware target: 6× H200 (4 NVLink + 2 standalone)
 # Estimated total download: ~550 GB
@@ -98,14 +98,15 @@ huggingface-cli download meta-llama/Llama-4-Scout-17B-16E-Instruct \
 
 # ============================================================
 # 6. EMBEDDING MODEL (for ChromaDB / RAG memory layer)
-#    BGE-EN-ICL — state-of-the-art retrieval embedding
-#    Runs on CPU or any GPU with minimal VRAM (~2GB)
+#    Qwen3-Embedding-8B — #1 MTEB multilingual leaderboard
+#    Runs on CPU or any GPU (~16GB BF16)
 #    Used by: Memory Management Agent for semantic search,
 #             write-boundary filtering (cosine similarity checks)
+#    Supports Matryoshka dimensions (32–4096), last-token pooling
 # ============================================================
-echo "[6/6] Downloading BGE-EN-ICL embedding model (~2 GB)..."
-huggingface-cli download BAAI/bge-en-icl \
-  --local-dir "$BASE_DIR/BAAI/bge-en-icl" \
+echo "[6/6] Downloading Qwen3-Embedding-8B (~16 GB)..."
+huggingface-cli download Qwen/Qwen3-Embedding-8B \
+  --local-dir "$BASE_DIR/Qwen/Qwen3-Embedding-8B" \
   --local-dir-use-symlinks False
 
 echo ""
@@ -124,7 +125,7 @@ du -sh "$BASE_DIR"/zai-org/GLM-4.7 2>/dev/null || true
 du -sh "$BASE_DIR"/Qwen/Qwen3-32B 2>/dev/null || true
 du -sh "$BASE_DIR"/mistralai/Mistral-Small-3.2-24B-Instruct-2506 2>/dev/null || true
 du -sh "$BASE_DIR"/meta-llama/Llama-4-Scout-17B-16E-Instruct 2>/dev/null || true
-du -sh "$BASE_DIR"/BAAI/bge-en-icl 2>/dev/null || true
+du -sh "$BASE_DIR"/Qwen/Qwen3-Embedding-8B 2>/dev/null || true
 echo ""
 echo "Total:"
 du -sh "$BASE_DIR"
@@ -137,7 +138,7 @@ echo "  GPU 0-1 (NVLink) : Qwen3-235B-A22B  [Primary agents + Host]"
 echo "  GPU 2-3 (NVLink) : GLM-4.7          [Diversity agents]"
 echo "  GPU 4             : Qwen3-32B + Mistral-Small-3.2  [Validators 1 & 2]"
 echo "  GPU 5             : Llama-4-Scout    [Validator 3]"
-echo "  CPU / any GPU     : BGE-EN-ICL       [Embedding for ChromaDB]"
+echo "  CPU / any GPU     : Qwen3-Embedding-8B [Embedding for ChromaDB]"
 echo ""
 echo " Proprietary (API only, not downloaded):"
 echo "  GPT-4o            : TAMAS benchmark baseline (~\$50 API budget)"

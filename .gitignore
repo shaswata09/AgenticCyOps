@@ -216,6 +216,8 @@ results/
 __pycache__/
 *.pyc
 
-# Model weights (keep only the download script)
+# Model weights (keep scripts, utils, and tests)
 models/*
 !models/download_models.sh
+!models/utils/
+!models/test_scripts/
