@@ -35,30 +35,33 @@
 - [x] Structured JSON logger ready (`logging_utils/json_logger.py`)
   - Includes `domain` field in every event (cyberops, healthcare, finance, legal)
 
-### 0.2 vLLM Servers (start as needed)
-- [ ] Primary (GPU 0,1,4,5 TP=4, port 8000):
-  ```bash
-  CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve <PROJECT_ROOT>/models/Qwen/Qwen3-235B-A22B-Instruct-2507 \
-    --tensor-parallel-size 4 --dtype bfloat16 \
-    --enable-auto-tool-choice --tool-call-parser hermes \
-    --gpu-memory-utilization 0.9 --port 8000
-  ```
-- [ ] Diversity — GLM-4.7 (swap with Primary):
-  ```bash
-  CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve <PROJECT_ROOT>/models/zai-org/GLM-4.7-FP8 \
-    --tensor-parallel-size 4 --dtype float16 --quantization fp8 \
-    --enable-auto-tool-choice --tool-call-parser hermes \
-    --gpu-memory-utilization 0.9 --port 8001
-  ```
-- [ ] V1 Qwen3-32B (GPU 2, port 8002)
-- [ ] V2 DeepSeek-R1 (GPU 2 swap, port 8005)
-- [ ] V3 Llama-4-Scout (GPU 4,5 TP=2, port 8004)
-- [ ] V5 Mistral-Small (GPU 3, port 8003)
-- [ ] V4 Claude Sonnet — API, always available
-- [ ] Verify + create `start_servers.sh`
+### 0.2 vLLM Servers (start as needed via `./start_servers.sh`)
+- [x] Primary Qwen3-235B (GPU 0,1,4,5 TP=4, port 8000) — tested, works with `--enforce-eager`
+- [x] Diversity GLM-4.7-FP8 (GPU 0,1,4,5 TP=4, port 8001) — uses official FP8 weights (`zai-org/GLM-4.7-FP8`)
+- [x] V1 Qwen3-32B (GPU 2, port 8002) — tested, works
+- [x] V2 DeepSeek-R1 (GPU 3, port 8005) — tested, works
+- [x] V3 Llama-4-Scout (GPU 4,5 TP=2, port 8004) — tested, works with `--enforce-eager`
+- [x] V5 Mistral-Small (GPU 3 swap, port 8003) — tested, works
+- [x] V4 Claude Sonnet — API, always available
+- [x] `start_servers.sh` created with interactive group selection (7 groups: A-G)
+- [x] `monitor.sh` created (live GPU/CPU/RAM/server dashboard)
+- [x] FlashInfer disabled (CUTLASS JIT broken on H200) — renamed flashinfer package
+- [x] All 7 local models downloaded and verified
 
 ### 0.3 Project Structure
-- [ ] Core (domain-agnostic): host/, agents/, memory/, consensus/, attacks/, analysis/
+- [x] Core (domain-agnostic): host/, agents/, consensus/, attacks/, analysis/, mcp_servers/, tests/
+- [x] `models/` — utils (10 files), test_scripts (9 notebooks), download_models.sh
+- [x] `logging_utils/` — json_logger.py with ExperimentLogger
+- [x] `memory/` — embedding_adapter.py + placeholders (chromadb_setup, mma_gateway, write_filter, access_control, seed_data)
+- [x] `config.py` — project base path (no hardcoded paths)
+- [x] `domains/` — 4 domains (cyberops, healthcare, finance, legal), each with configs/, tools/, seed_data/, prompts/, payloads/
+- [x] `configs/` — flat_config.yaml, acl_config.yaml, agenticcyops_config.yaml, validators.yaml (placeholders)
+- [x] `ablation/configs/` — no_p1 through no_p5 yaml placeholders
+- [x] `benchmarks/` — tamas/ and boundary/ with placeholder scripts
+- [x] `results/` — tables/ and figures/ directories
+- [x] `docs/`, `cross_domain/`, `tests/` — all placeholder files created
+- [x] All Python packages have `__init__.py`
+- [x] All Phase 1+ files have TODO docstrings marking which phase implements them
 - [ ] Domain configs:
   ```
   domains/
