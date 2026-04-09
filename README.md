@@ -1,8 +1,8 @@
 # AgenticCyOps — Empirical Evaluation Testbed
 
-> **Securing Multi-Agentic AI Integration in Enterprise Cyber Operations**
+> **Securing Multi-Agentic AI Integration in Enterprise Operations**
 
-This repository contains the evaluation testbed for the AgenticCyOps framework, a security architecture for LLM-powered multi-agent systems (MAS). The testbed implements a full Security Operations Center (SOC) pipeline with 16 MCP-based tool servers, 12 memory stores, phase-scoped agents, consensus-validated execution, and six adversarial attack scenarios — evaluated across three configurations and seven model families (five open-source, two proprietary).
+This repository contains the evaluation testbed for the AgenticCyOps framework, a domain-agnostic security architecture for LLM-powered multi-agent systems (MAS). The testbed validates the framework across **four enterprise domains** — cybersecurity operations, healthcare, financial fraud detection, and legal case management — with 16+ MCP-based tool servers per domain, phase-scoped agents, consensus-validated execution, and six adversarial attack scenarios, evaluated across three configurations and seven model families. **Zero framework code changes** are required across domains — only configuration files and tool stubs differ.
 
 ---
 
@@ -10,11 +10,13 @@ This repository contains the evaluation testbed for the AgenticCyOps framework, 
 
 - [Overview](#overview)
 - [Key Results](#key-results)
+- [Architecture](#architecture)
 - [Hardware Requirements](#hardware-requirements)
 - [Model Requirements](#model-requirements)
 - [Quick Start](#quick-start)
 - [Detailed Setup](#detailed-setup)
 - [Project Structure](#project-structure)
+- [Domain Adapters](#domain-adapters)
 - [Configurations](#configurations)
 - [Running Experiments](#running-experiments)
 - [Analysis & Reproducing Results](#analysis--reproducing-results)
@@ -25,24 +27,26 @@ This repository contains the evaluation testbed for the AgenticCyOps framework, 
 
 ## Overview
 
-AgenticCyOps addresses the security challenges of integrating LLM-powered multi-agent systems into enterprise cyber operations. The framework is built on two observations:
+AgenticCyOps addresses the security challenges of integrating LLM-powered multi-agent systems into enterprise operations. The framework is built on two observations:
 
 1. **MAS attack vectors converge on two integration surfaces:** tool orchestration and memory management
-2. **Five defensive principles** — authorized interfaces, capability scoping, verified execution, memory integrity, and access-controlled isolation — provide defense-in-depth coverage
+2. **Five defensive principles** — authorized interfaces, capability scoping, verified execution, memory integrity, and access-controlled isolation — provide domain-agnostic defense-in-depth coverage
 
-This testbed empirically validates these claims through:
+The key architectural claim is that these five principles are **not domain-specific** — they are structural constraints on how agents interact with tools and memory, independent of what the tools do or what domain they serve.
 
-| Evaluation | Runs | What It Tests |
-|-----------|------|---------------|
-| **A: Attack Path Replay** | ~630 | 6 attack scenarios (AP-1 through AP-6) across 3 configurations |
-| **B: Trust Boundary Analysis** | Analytical | Weighted boundary reduction (200 → 56, ≥72%) |
-| **C: Memory Poisoning** | ~90 | Write-boundary filtering efficacy at 5%, 10%, 20% poisoning |
-| **D: TAMAS Benchmark** | ~400 | Independent adversarial benchmark comparison |
-| **Ablation Study** | ~270 | Necessity of each defensive principle |
-| **Validator Diversity** | ~90 | Correlated failure across same-family vs diverse validators |
-| **E: Consensus Overhead** | From A logs | Latency and token cost analysis |
-| **H: Cross-Domain** | Structural | Generalizability to financial fraud detection |
-| **Total** | **~1,570** | |
+This testbed validates that claim through:
+
+| Evaluation | Runs | Domains | What It Tests |
+|-----------|------|---------|---------------|
+| **A: Attack Path Replay** | ~630 | CyberOps | 6 attack scenarios (AP-1 through AP-6), full depth |
+| **F: Multi-Domain Generalizability** | ~315 | Healthcare, Finance, Legal | 3 attack analogues per domain, zero code changes |
+| **B: Trust Boundary Analysis** | Analytical | All 4 | Weighted boundary reduction across domains |
+| **C: Memory Poisoning** | ~90 | CyberOps | Write-boundary filtering at 5%, 10%, 20% poisoning |
+| **D: TAMAS Benchmark** | ~400 | Generic (5 scenarios) | Independent adversarial benchmark |
+| **Ablation Study** | ~300 | CyberOps + Finance | Necessity of each principle, cross-domain spot check |
+| **Validator Diversity** | ~90 | CyberOps | Correlated failure across same vs diverse model families |
+| **E: Consensus Overhead** | From A logs | CyberOps | Latency and token cost analysis |
+| **Total** | **~1,925** | **4 domains + TAMAS** | |
 
 ---
 
@@ -50,15 +54,65 @@ This testbed empirically validates these claims through:
 
 *(Tables populated after running experiments — see `results/tables/`)*
 
-- **Table R1:** Attack interception rates per AP per configuration
+- **Table R1:** CyberOps attack interception rates per AP per configuration
 - **Table R2:** Weighted trust boundary reduction (unweighted + weighted × 3 configs)
 - **Table R3:** TAMAS benchmark comparison (flat GPT-4o vs defended Qwen3)
-- **Table R4:** Ablation degradation per principle
+- **Table R4:** Ablation degradation per principle (+ cross-domain spot check)
 - **Table R5:** Consensus latency overhead per validation loop
-- **Table R6:** Benign workflow completion rates
+- **Table R6:** Benign workflow completion rates across all 4 domains
 - **Table R7:** Validator diversity — consensus failure by model family configuration
 - **Table R8:** Memory poisoning propagation resistance
 - **Table R9:** Model-independence check (Qwen3 vs GLM-4.7)
+- **Table R10:** **Cross-domain attack interception (headline table)** — consistent results with "Code Changes: 0"
+- **Table R11:** Cross-domain boundary reduction comparison
+
+---
+
+## Architecture
+
+### Domain-Agnostic Core
+
+The following components are **identical across all domains** — zero code changes required:
+
+| Component | Purpose |
+|-----------|---------|
+| `host/orchestrator.py` | LangGraph Host with CoT planning and phase routing |
+| `host/manifest_enforcer.py` | Validates tool calls against phase manifests |
+| `agents/base_agent.py` | LLM-powered agent with switchable model backend |
+| `consensus/validator.py` | Multi-model consensus (≥2/3 approval) |
+| `memory/mma_gateway.py` | Memory Management Agent with access control |
+| `memory/write_filter.py` | Schema validation + cosine similarity check |
+| `attacks/harness.py` | Attack execution and logging harness |
+| `logging_utils/json_logger.py` | Structured JSON instrumentation |
+
+### Domain-Specific Content (Config Only)
+
+Each domain provides only:
+
+| Content | Location | Example |
+|---------|----------|---------|
+| Phase manifests | `domains/{domain}/configs/` | Which tools each phase can access |
+| Tool stubs | `domains/{domain}/tools/` | FastAPI servers (~20 lines each) |
+| Memory seeds | `domains/{domain}/seed_data/` | Initial collection entries |
+| System prompts | `domains/{domain}/prompts/` | Agent role descriptions |
+| Access policies | `domains/{domain}/configs/access_policy.json` | Memory read/write permissions |
+| Attack payloads | `domains/{domain}/payloads/` | Domain-specific injection variants |
+
+### Switching Domains
+
+```bash
+# Run CyberOps
+python -m attacks.harness --domain cyberops --ap ap1 --config agenticcyops --trials 30
+
+# Run Healthcare — same framework, different config
+python -m attacks.harness --domain healthcare --ap ap1_health --config agenticcyops --trials 10
+
+# Run Finance
+python -m attacks.harness --domain finance --ap ap1_finance --config agenticcyops --trials 10
+
+# Run Legal
+python -m attacks.harness --domain legal --ap ap1_legal --config agenticcyops --trials 10
+```
 
 ---
 
@@ -109,13 +163,13 @@ GPU 5 ─┘
 
 | Model | Role | Family | Size | HuggingFace Repo |
 |-------|------|--------|------|-------------------|
-| Qwen3-235B-A22B-Instruct-2507 | Primary agents + Host | Qwen (Alibaba) | ~120 GB | `Qwen/Qwen3-235B-A22B-Instruct-2507` |
+| Qwen3-235B-A22B-Instruct-2507 | Primary agents + Host | Qwen (Alibaba) | ~438 GB | `Qwen/Qwen3-235B-A22B-Instruct-2507` |
 | GLM-4.7 | Diversity agents | GLM (Zhipu) | ~668 GB | `zai-org/GLM-4.7` |
-| Qwen3-32B | Validator V1 | Qwen (Alibaba) | ~64 GB | `Qwen/Qwen3-32B` |
+| Qwen3-32B | Validator V1 | Qwen (Alibaba) | ~61 GB | `Qwen/Qwen3-32B` |
 | DeepSeek-R1-Distill-Qwen-32B | Validator V2 | DeepSeek | ~64 GB | `deepseek-ai/DeepSeek-R1-Distill-Qwen-32B` |
-| Llama-4-Scout-17B-16E-Instruct | Validator V3 | Meta | ~55 GB | `meta-llama/Llama-4-Scout-17B-16E-Instruct` |
-| Mistral-Small-3.2-24B-Instruct | Validator V5 (optional) | Mistral | ~48 GB | `mistralai/Mistral-Small-3.2-24B-Instruct-2506` |
-| Qwen3-Embedding-8B | Embedding (ChromaDB) | Qwen (Alibaba) | ~16 GB | `Qwen/Qwen3-Embedding-8B` |
+| Llama-4-Scout-17B-16E-Instruct | Validator V3 | Meta | ~202 GB | `meta-llama/Llama-4-Scout-17B-16E-Instruct` |
+| Mistral-Small-3.2-24B-Instruct | Validator V5 (optional) | Mistral | ~89 GB | `mistralai/Mistral-Small-3.2-24B-Instruct-2506` |
+| Qwen3-Embedding-0.6B | Embedding (ChromaDB) | Qwen (Alibaba) | ~1.2 GB | `Qwen/Qwen3-Embedding-0.6B` |
 
 ### Proprietary Models (API only)
 
@@ -143,16 +197,16 @@ conda activate agenticcyops
 chmod +x install.sh
 ./install.sh
 
-# 4. Configure API keys (no DeepSeek API needed — all DeepSeek models run locally)
+# 4. Configure API keys
 cp .env.example .env
 # Edit .env with your ANTHROPIC_API_KEY, OPENAI_API_KEY, HF_TOKEN
 
-# 5. Download models (~370 GB, takes several hours)
+# 5. Download models (~1.5 TB total, takes several hours)
 cd /path/to/model/storage
 chmod +x download_models.sh
 ./download_models.sh
 
-# 6. Start vLLM servers (4 terminals or use start_servers.sh)
+# 6. Start vLLM servers
 chmod +x start_servers.sh
 ./start_servers.sh
 
@@ -161,11 +215,16 @@ for port in 8000 8002 8003 8004; do
   curl -s http://localhost:$port/v1/models | python -m json.tool | head -3
 done
 
-# 8. Run a benign end-to-end test
-python -m attacks.benign_scenarios --config agenticcyops --trials 1
+# 8. Run a benign end-to-end test (CyberOps)
+python -m attacks.harness --domain cyberops --benign --config agenticcyops --trials 1
 
-# 9. Run full evaluation
-python -m attacks.harness --eval all --config all --trials 30
+# 9. Run CyberOps full evaluation
+python -m attacks.harness --domain cyberops --eval A --config all --trials 30
+
+# 10. Run multi-domain evaluation
+python -m attacks.harness --domain healthcare --eval F --config all --trials 10
+python -m attacks.harness --domain finance --eval F --config all --trials 10
+python -m attacks.harness --domain legal --eval F --config all --trials 10
 ```
 
 ---
@@ -190,7 +249,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 # Step 2: All other dependencies
 pip install -r requirements.txt
 
-# Step 3: vLLM nightly (required for DeepSeek-R1-Distill-Qwen-32B)
+# Step 3: vLLM nightly (required for GLM-4.7 and DeepSeek-R1)
 pip install -U vllm --pre \
   --index-url https://pypi.org/simple \
   --extra-index-url https://wheels.vllm.ai/nightly
@@ -220,86 +279,47 @@ OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
 ### Step 4: Model Download
 
 ```bash
-# From your model storage directory (needs ~370 GB)
+# From your model storage directory
 chmod +x download_models.sh
 ./download_models.sh
 ```
 
-This downloads all 7 local models with HuggingFace's Rust-based parallel transfer (`hf_transfer`). Models are stored as actual files (no symlinks to HF cache).
-
-Expected directory structure after download:
-
-```
-models/
-├── Qwen/Qwen3-235B-A22B-Instruct-2507/             (~438 GB weights)
-├── zai-org/GLM-4.7/                                 (~668 GB weights)
-├── Qwen/Qwen3-32B/                                  (~61 GB weights)
-├── deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/       (~64 GB weights)
-├── mistralai/Mistral-Small-3.2-24B-Instruct-2506/  (~89 GB weights)
-├── meta-llama/Llama-4-Scout-17B-16E-Instruct/      (~202 GB weights)
-└── Qwen/Qwen3-Embedding-8B/                        (~16 GB weights)
-```
+Downloads all local models with HuggingFace's Rust-based parallel transfer (`hf_transfer`). Models are stored as actual files (no symlinks to HF cache).
 
 ### Step 5: Start vLLM Servers
-
-Update the model paths in `start_servers.sh` to match your storage location, then:
 
 ```bash
 chmod +x start_servers.sh
 ./start_servers.sh
 ```
 
-Or start individually in separate terminals:
+Or start individually (see [GPU Assignment](#gpu-assignment-6-h200-configuration) for port/GPU mapping).
 
-```bash
-# Primary agents + Host (GPU 0,1,4,5 TP=4)
-CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve /path/to/models/Qwen/Qwen3-235B-A22B-Instruct-2507 \
-  --tensor-parallel-size 4 --dtype bfloat16 \
-  --enable-auto-tool-choice --tool-call-parser hermes \
-  --gpu-memory-utilization 0.9 --port 8000
-
-# Diversity agents: GLM-4.7 FP8 (GPU 0,1,4,5 TP=4; swap with Primary when not running)
-CUDA_VISIBLE_DEVICES=0,1,4,5 vllm serve /path/to/models/zai-org/GLM-4.7 \
-  --tensor-parallel-size 4 --dtype float16 --quantization fp8 \
-  --enable-auto-tool-choice --tool-call-parser hermes \
-  --gpu-memory-utilization 0.9 --port 8001
-
-# Validator V1 (GPU 2)
-CUDA_VISIBLE_DEVICES=2 vllm serve /path/to/models/Qwen/Qwen3-32B \
-  --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8002
-
-# Validator V2 (GPU 2; swap with V1)
-CUDA_VISIBLE_DEVICES=2 vllm serve /path/to/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B \
-  --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8005
-
-# Validator V3 (GPU 4,5 TP=2)
-CUDA_VISIBLE_DEVICES=4,5 vllm serve /path/to/models/meta-llama/Llama-4-Scout-17B-16E-Instruct \
-  --tensor-parallel-size 2 --dtype bfloat16 \
-  --gpu-memory-utilization 0.85 --port 8004
-
-# Validator V5 (optional, GPU 3)
-CUDA_VISIBLE_DEVICES=3 vllm serve /path/to/models/mistralai/Mistral-Small-3.2-24B-Instruct-2506 \
-  --dtype bfloat16 --gpu-memory-utilization 0.85 --port 8003
-```
-
-**Note:** Primary and GLM-4.7 diversity share GPU 0,1,4,5 (swap — only one runs at a time). V1 and V2 share GPU 2 (swap). V5 runs on GPU 3. V3 uses GPU 4,5 TP=2 (available when Primary is not running).
+**Note:** Primary and GLM-4.7 diversity share GPU 0,1,4,5 (swap — only one runs at a time). V1 and V2 share GPU 2 (swap).
 
 ### Step 6: Initialize Memory Layer
 
 ```bash
-# Initialize ChromaDB with 12 collections and seed data
-python -m memory.chromadb_setup --embedding-model /path/to/models/Qwen/Qwen3-Embedding-8B
-python -m memory.seed_data
+# Initialize all domains
+for domain in cyberops healthcare finance legal; do
+  python -m memory.chromadb_setup --domain $domain \
+    --embedding-model /path/to/models/Qwen/Qwen3-Embedding-0.6B
+  python -m memory.seed_data --domain $domain
+done
 ```
 
 ### Step 7: Verify End-to-End
 
 ```bash
-# Run one benign incident through AgenticCyOps pipeline
-python -m attacks.benign_scenarios --config agenticcyops --trials 1 --verbose
+# Verify each domain
+for domain in cyberops healthcare finance legal; do
+  echo "Testing $domain..."
+  python -m attacks.harness --domain $domain --benign --config agenticcyops --trials 1 --verbose
+done
 
-# Expected: incident completes Monitor → Analyze → Admin → Report
+# Expected: each domain completes Monitor → Analyze → Admin → Report
 # Expected: all 5 principles log activity, no false blocks
+# Expected: zero code changes — only --domain flag differs
 ```
 
 ---
@@ -314,123 +334,135 @@ agenticcyops-experiments/
 ├── install.sh                        # 3-step dependency installer
 ├── requirements.txt                  # All Python dependencies
 ├── start_servers.sh                  # Interactive vLLM server launcher
-├── monitor.sh                        # Live system monitor (GPU/CPU/RAM/servers)
-├── gpu_monitor.sh                    # Lightweight nvidia-smi loop
+├── monitor.sh                        # Live system monitor
+├── gpu_monitor.sh                    # nvidia-smi loop
 ├── README.md                         # This file
 ├── experiment_plan.md                # Full evaluation protocol
 ├── task_checklist.md                 # 10-day execution checklist
 │
 ├── models/                           # Model weights + utilities
-│   ├── download_models.sh            # Download 7 local models from HuggingFace
+│   ├── download_models.sh
 │   ├── utils/                        # Per-model Python utility classes
-│   │   ├── __init__.py
-│   │   ├── qwen3_235b.py             # Primary agents + Host
-│   │   ├── glm47.py                  # Diversity agents (GLM family)
-│   │   ├── qwen3_32b.py              # Validator V1
-│   │   ├── deepseek_r1.py            # Validator V2 (DeepSeek family)
-│   │   ├── mistral_small.py          # Validator V5 optional (Mistral family)
-│   │   ├── llama4_scout.py           # Validator V3 (Meta family)
-│   │   ├── claude_sonnet.py          # Validator V4 (Anthropic API)
-│   │   ├── gpt4o.py                  # TAMAS baseline (OpenAI API)
-│   │   └── qwen3_embedding.py        # Embedding for ChromaDB
-│   ├── test_scripts/                 # Jupyter test notebooks per model
-│   │   ├── test_qwen3_235b.ipynb
-│   │   ├── test_glm47.ipynb
-│   │   ├── test_qwen3_32b.ipynb
-│   │   ├── test_deepseek_r1.ipynb
-│   │   ├── test_mistral_small.ipynb
-│   │   ├── test_llama4_scout.ipynb
-│   │   ├── test_claude_sonnet.ipynb
-│   │   ├── test_gpt4o.ipynb
-│   │   └── test_qwen3_embedding.ipynb
-│   ├── Qwen/                         # (gitignored) model weights
-│   │   ├── Qwen3-235B-A22B-Instruct-2507/
-│   │   ├── Qwen3-32B/
-│   │   └── Qwen3-Embedding-8B/
-│   ├── zai-org/GLM-4.7/
-│   ├── deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/
-│   ├── mistralai/Mistral-Small-3.2-24B-Instruct-2506/
-│   └── meta-llama/Llama-4-Scout-17B-16E-Instruct/
+│   │   ├── qwen3_235b.py
+│   │   ├── glm47.py
+│   │   ├── qwen3_32b.py
+│   │   ├── deepseek_r1.py
+│   │   ├── mistral_small.py
+│   │   ├── llama4_scout.py
+│   │   ├── claude_sonnet.py
+│   │   ├── gpt4o.py
+│   │   └── qwen3_embedding.py
+│   ├── test_scripts/                 # Per-model test notebooks
+│   └── (model weight directories, gitignored)
 │
-├── configs/                          # Phase manifests + system configs
-│   ├── monitor_manifest.json
-│   ├── analyze_manifest.json
-│   ├── admin_manifest.json
-│   ├── report_manifest.json
-│   ├── flat_config.yaml              # Flat MAS: all access open
-│   ├── acl_config.yaml               # ACL-Hardened: network ACLs only
-│   ├── agenticcyops_config.yaml      # Full framework
-│   └── validators.yaml               # V1–V5 endpoints and models
+├── domains/                          # Domain-specific configs (THE ONLY THING THAT CHANGES)
+│   ├── cyberops/                     # Full pipeline: 16 tools, 12 memory stores
+│   │   ├── configs/
+│   │   │   ├── monitor_manifest.json
+│   │   │   ├── analyze_manifest.json
+│   │   │   ├── admin_manifest.json
+│   │   │   ├── report_manifest.json
+│   │   │   └── access_policy.json
+│   │   ├── tools/                    # 16 MCP tool stubs (T1–T16)
+│   │   │   ├── monitor/             # T1–T4
+│   │   │   ├── analyze/             # T5–T7
+│   │   │   ├── admin/               # T8–T12
+│   │   │   └── report/              # T13–T16
+│   │   ├── seed_data/               # 12 collection seeds (30-50 entries each)
+│   │   ├── prompts/                 # 4 agent system prompts
+│   │   └── payloads/                # 6 APs × 5 variants + benign
+│   │       ├── ap1_variants.json
+│   │       ├── ap2_variants.json
+│   │       ├── ap3_variants.json
+│   │       ├── ap4_variants.json
+│   │       ├── ap5_variants.json
+│   │       ├── ap6_variants.json
+│   │       └── benign_alerts.json
+│   │
+│   ├── healthcare/                   # Adapter: 13 tools, 8 memory stores
+│   │   ├── configs/                  # 4 manifests + access_policy.json
+│   │   ├── tools/                    # H1–H13 (EHR, Vitals, Imaging, Rx Writer, etc.)
+│   │   ├── seed_data/               # 8 collections (10-20 entries each)
+│   │   ├── prompts/                 # Triage, Diagnostic, Treatment, Compliance agents
+│   │   └── payloads/                # 3 APs × 5 variants + benign
+│   │       ├── ap1_health_variants.json    # Triage → Prescription Writer
+│   │       ├── ap2_health_variants.json    # Poisoned labs → wrong diagnosis
+│   │       ├── ap4_health_variants.json    # PHI exfil into quality metrics
+│   │       └── benign_clinical.json
+│   │
+│   ├── finance/                      # Adapter: 13 tools, 8 memory stores
+│   │   ├── configs/
+│   │   ├── tools/                    # F1–F13 (Transaction Stream, Account Freeze, SAR, etc.)
+│   │   ├── seed_data/
+│   │   ├── prompts/                 # Surveillance, Investigator, Action, Compliance agents
+│   │   └── payloads/                # 3 APs × 5 variants + benign
+│   │       ├── ap1_finance_variants.json   # Surveillance → Account Freeze
+│   │       ├── ap2_finance_variants.json   # Falsified fraud determination
+│   │       ├── ap5_finance_variants.json   # Mass account freeze
+│   │       └── benign_fraud.json
+│   │
+│   └── legal/                        # Adapter: 13 tools, 8 memory stores
+│       ├── configs/
+│       ├── tools/                    # L1–L13 (Docket Search, Court Filing, Billing, etc.)
+│       ├── seed_data/
+│       ├── prompts/                 # Intake, Research, Filing, Client Reporting agents
+│       └── payloads/                # 3 APs × 5 variants + benign
+│           ├── ap1_legal_variants.json     # Research → Court Filing
+│           ├── ap2_legal_variants.json     # Poisoned case law → wrong analysis
+│           ├── ap4_legal_variants.json     # Privileged comms in billing
+│           └── benign_case.json
 │
-├── mcp_servers/                      # 16 mock tool servers (FastAPI + MCP)
-│   ├── base_server.py
-│   ├── monitor/                      # T1–T4
-│   ├── analyze/                      # T5–T7
-│   ├── admin/                        # T8–T12
-│   ├── report/                       # T13–T16
-│   └── test_servers.py
+├── host/                             # SOAR Host orchestrator (DOMAIN-AGNOSTIC)
+│   ├── orchestrator.py               # LangGraph CoT + phase routing
+│   ├── manifest_enforcer.py          # Reads manifests from domains/{domain}/configs/
+│   └── handoff.py
 │
-├── agents/                           # LLM-powered phase agents
-│   ├── base_agent.py                 # Switchable Qwen3/GLM-4.7 client
+├── agents/                           # Phase agents (DOMAIN-AGNOSTIC)
+│   ├── base_agent.py                 # Loads prompts from domains/{domain}/prompts/
 │   ├── monitor_agent.py
 │   ├── analyze_agent.py
 │   ├── admin_agent.py
 │   └── report_agent.py
 │
-├── host/                             # SOAR Host orchestrator
-│   ├── orchestrator.py               # LangGraph CoT + phase routing
-│   ├── manifest_enforcer.py
-│   └── handoff.py
-│
-├── memory/                           # Organizational memory layer
-│   ├── chromadb_setup.py             # 12 collections + Qwen3-Embedding-8B
+├── memory/                           # Memory layer (DOMAIN-AGNOSTIC)
+│   ├── chromadb_setup.py             # Creates collections from domains/{domain}/seed_data/
 │   ├── seed_data.py
-│   ├── mma_gateway.py                # Memory Management Agent
-│   ├── access_control.py             # Phase-partitioned policies
-│   └── write_filter.py               # Schema + cosine similarity
+│   ├── mma_gateway.py                # Reads access_policy from domains/{domain}/configs/
+│   ├── access_control.py
+│   └── write_filter.py               # Cosine similarity via Qwen3-Embedding-0.6B
 │
-├── consensus/                        # Consensus validation module
-│   ├── validator.py                  # 3-of-5 validators, ≥2/3 approve
-│   ├── recovery_loop.py             # Admin phase (irreversible actions)
-│   ├── improvement_loop.py          # Report phase (memory writes)
-│   └── escalation.py                # Human-in-the-loop handler
+├── consensus/                        # Consensus module (DOMAIN-AGNOSTIC)
+│   ├── validator.py
+│   ├── recovery_loop.py
+│   ├── improvement_loop.py
+│   └── escalation.py
 │
-├── logging_utils/                    # Structured JSON instrumentation
-│   ├── __init__.py                   # Exports ExperimentLogger, log_event
-│   └── json_logger.py                # ExperimentLogger + EventBuilder + convenience methods
+├── mcp_servers/                      # Tool server template (DOMAIN-AGNOSTIC)
+│   └── base_server.py                # Generic FastAPI + MCP template
 │
-├── attacks/                          # Attack scenarios + harness
-│   ├── harness.py                    # attack × config × trials → logs
-│   ├── ap1_tool_redirection.py
-│   ├── ap2_memory_poisoning.py
-│   ├── ap3_confused_deputy.py
-│   ├── ap4_cross_phase_exfil.py
-│   ├── ap5_irreversible_action.py
-│   ├── ap6_replay_attack.py
-│   ├── benign_scenarios.py
-│   └── payloads/                     # JSON attack variant definitions
-│       ├── ap1_variants.json
-│       ├── ap2_variants.json
-│       ├── ap3_variants.json
-│       ├── ap4_variants.json
-│       ├── ap5_variants.json
-│       ├── ap6_variants.json
-│       └── benign_alerts.json
+├── logging_utils/                    # Structured JSON instrumentation (DOMAIN-AGNOSTIC)
+│   ├── __init__.py
+│   └── json_logger.py                # Includes domain field in every event
 │
-├── benchmarks/                       # External benchmarks
+├── attacks/                          # Attack harness (DOMAIN-AGNOSTIC)
+│   ├── harness.py                    # --domain flag loads from domains/{domain}/payloads/
+│   └── benign_scenarios.py
+│
+├── benchmarks/
 │   ├── tamas/                        # TAMAS adversarial benchmark
 │   │   ├── setup.sh
-│   │   ├── run_baseline.py           # Flat + GPT-4o
-│   │   ├── run_defended.py           # AgenticCyOps + Qwen3
+│   │   ├── run_baseline.py
+│   │   ├── run_defended.py
 │   │   └── compare.py
-│   └── boundary/                     # Trust boundary analysis
+│   └── boundary/                     # Trust boundary analysis (all domains)
 │       ├── classify_boundaries.py
-│       ├── boundary_weights.csv
+│       ├── boundary_weights.csv      # CyberOps (200 boundaries)
+│       ├── cross_domain_boundaries.csv  # All 4 domains
 │       ├── stress_test.py
 │       └── sensitivity.py
 │
-├── ablation/                         # Ablation + validator diversity
-│   ├── run_ablation.py
+├── ablation/
+│   ├── run_ablation.py               # --domain flag for cross-domain spot checks
 │   ├── validator_diversity.py
 │   └── configs/
 │       ├── no_p1.yaml
@@ -439,88 +471,156 @@ agenticcyops-experiments/
 │       ├── no_p4.yaml
 │       └── no_p5.yaml
 │
-├── analysis/                         # Results processing
+├── analysis/
 │   ├── parse_logs.py
 │   ├── compute_metrics.py
-│   ├── statistical_tests.py
-│   ├── generate_tables.py
-│   ├── generate_figures.py
-│   └── results_explorer.ipynb        # Interactive figure tuning
+│   ├── statistical_tests.py          # Includes chi-squared homogeneity for cross-domain
+│   ├── generate_tables.py            # Generates R1–R11
+│   ├── generate_figures.py           # Includes cross-domain comparison charts
+│   └── results_explorer.ipynb
 │
-├── cross_domain/                     # Generalizability analysis
-│   ├── fraud_mapping.md
-│   ├── boundary_comparison.md
-│   └── generalizability.md
+├── logs/                             # (gitignored)
+│   ├── vllm/
+│   ├── cyberops_eval_a/
+│   ├── healthcare_eval_f/
+│   ├── finance_eval_f/
+│   ├── legal_eval_f/
+│   ├── eval_b/
+│   ├── eval_c/
+│   ├── eval_d/
+│   ├── ablation/
+│   └── validator_diversity/
 │
-├── logs/                             # (gitignored) experiment logs
-│   ├── vllm/                         # vLLM server logs (port_XXXX.log)
-│   ├── eval_a/                       # Attack path replay logs
-│   ├── eval_b/                       # Trust boundary logs
-│   ├── eval_c/                       # Memory poisoning logs
-│   ├── eval_d/                       # TAMAS benchmark logs
-│   ├── ablation/                     # Ablation study logs
-│   └── validator_diversity/          # Validator diversity logs
-│
-├── results/                          # (gitignored) output tables and figures
+├── results/                          # (gitignored)
 │   ├── tables/
 │   │   ├── R1_attack_interception.csv
 │   │   ├── R2_boundary_reduction.csv
 │   │   ├── R3_tamas_benchmark.csv
 │   │   ├── R4_ablation.csv
 │   │   ├── R5_consensus_latency.csv
-│   │   ├── R6_benign_completion.csv
+│   │   ├── R6_benign_completion.csv    # All 4 domains
 │   │   ├── R7_validator_diversity.csv
 │   │   ├── R8_memory_poisoning.csv
-│   │   └── R9_glm_diversity.csv
+│   │   ├── R9_glm_diversity.csv
+│   │   ├── R10_cross_domain_interception.csv   # HEADLINE
+│   │   └── R11_cross_domain_boundaries.csv
 │   └── figures/
 │       ├── asr_by_ap.png
+│       ├── cross_domain_comparison.png         # NEW
 │       ├── boundary_reduction.png
+│       ├── cross_domain_boundaries.png         # NEW
 │       ├── ablation_heatmap.png
 │       ├── validator_diversity.png
 │       └── poisoning_propagation.png
 │
-├── docs/                             # Documentation
+├── docs/
 │   ├── engineering_challenges.md
 │   └── rebuttal_draft.md
 │
-└── tests/                            # Unit + integration tests
+└── tests/
     ├── test_manifest_enforcer.py
     ├── test_access_control.py
     ├── test_write_filter.py
     ├── test_consensus.py
     ├── test_harness.py
-    └── test_e2e_benign.py
+    ├── test_e2e_benign.py
+    └── test_domain_adapters.py         # Verifies all 4 domains load and run
 ```
+
+---
+
+## Domain Adapters
+
+AgenticCyOps claims its five principles are architectural, not domain-specific. To validate this, the testbed includes four enterprise domains. The framework code is identical across all — only configuration files and tool stubs differ.
+
+### CyberOps (Full Pipeline)
+
+Security Operations Center incident response.
+
+| Phase | Agent | Tools | Memory |
+|-------|-------|-------|--------|
+| Monitor | SOC Triage | UEBA, IDS/CMDB, EDR/NDR, ITSM | Threat Repo, SIEM Lake, CTI KB, Detection Rules |
+| Analyze | Investigation | Sandbox, SIEM Search, Code Analyzer | Threat Repo, Asset Inv, Case Mgmt, CTI KB |
+| Admin | Response | IAM/PAM, Firewall, Config Mgr, EPP/AV, Ansible | Asset Inv, Policy, Playbooks, BCP |
+| Report | Reporting | Dashboard, ISAC/MISP, Editor/Test, GRC Mapper | Playbooks, Compliance, Rules, AAR |
+
+**16 tools, 12 memory stores, 200 flat boundaries → 56 AgenticCyOps boundaries (72% reduction)**
+
+### Healthcare (Adapter)
+
+Clinical decision support and treatment pipeline.
+
+| Phase | Agent | Tools | Memory |
+|-------|-------|-------|--------|
+| Monitor | Patient Triage | EHR Query, Vitals Monitor, Lab Results, Triage Scoring | Patient Records, Lab Archive |
+| Analyze | Diagnostic | Imaging Viewer, Drug Interaction, Clinical Guidelines | Clinical Protocols, Diagnostic History |
+| Admin | Treatment | Prescription Writer, Procedure Scheduler, Insurance Pre-Auth | Formulary, Treatment Plans |
+| Report | Compliance | Discharge Summary, Regulatory Filing, Quality Metrics | Audit Trail, Compliance Records |
+
+**Key risk:** Patient safety (misrouted tool call → prescriptions by wrong agent), PHI leakage (HIPAA).
+
+### Finance (Adapter)
+
+Fraud detection and regulatory compliance.
+
+| Phase | Agent | Tools | Memory |
+|-------|-------|-------|--------|
+| Monitor | Surveillance | Transaction Stream, Rule Engine, Customer Profile, Alert Queue | Transaction Log, Customer DB |
+| Analyze | Investigation | Graph Analysis, External Fraud DB, Document Verification | Case History, Fraud Patterns |
+| Admin | Account Action | Account Freeze, Chargeback Processor, Wire Recall | Account Registry, Compliance Records |
+| Report | SAR/Compliance | SAR Generator, Audit Compiler, Regulatory Submission | SAR Archive, Audit Log |
+
+**Key risk:** Financial irreversibility (mass account freeze), regulatory exposure (SAR filing has legal consequences).
+
+### Legal (Adapter)
+
+Case management and legal research.
+
+| Phase | Agent | Tools | Memory |
+|-------|-------|-------|--------|
+| Monitor | Case Intake | Docket Search, Deadline Tracker, Conflict Checker, Client Portal | Case Registry, Deadline DB |
+| Analyze | Research | Case Law DB, Statute Search, Contract Analyzer | Precedent Library, Research Memos |
+| Admin | Filing/Action | Court Filing, Document Signing, Payment Processing | Filing Records, Client Trust Account |
+| Report | Client Reporting | Memo Generator, Billing System, Matter Close | Billing Archive, Matter Archive |
+
+**Key risk:** Attorney-client privilege (cross-phase leakage destroys privilege), court filings are irreversible and public.
+
+### Cross-Domain Attack Matrix
+
+| Attack Pattern | CyberOps | Healthcare | Finance | Legal |
+|---------------|----------|------------|---------|-------|
+| Tool Redirection | Monitor → IAM/PAM | Triage → Prescription Writer | Surveillance → Account Freeze | Research → Court Filing |
+| Memory Poisoning | Falsified RCA → Threat Repo | Poisoned labs → Patient Records | Falsified fraud → Case History | Poisoned case law → Research Memos |
+| Data Exfiltration | Raw forensics → MISP | PHI → Quality Metrics | — | Privileged comms → Billing |
+| Bulk Irreversible | Mass credential revocation | — | Mass account freeze | — |
 
 ---
 
 ## Configurations
 
-The testbed supports three system configurations to isolate the contribution of each defense layer:
+Three system configurations applied identically across all domains:
 
 ### Flat MAS (Baseline)
 
-- All 4 agents access all 16 tools and 12 memory stores
-- No manifest enforcement, no consensus, no MMA
+- All agents access all tools and memory stores
+- No manifest enforcement, consensus, or MMA
 - Peer-to-peer agent communication
-- **200 trust boundaries, all unverified**
 
 ### ACL-Hardened MAS
 
-- Same phase-to-tool and phase-to-memory assignments as AgenticCyOps
-- Enforcement via network-level ACLs (HTTP 403 on out-of-scope calls)
-- **No** signed manifests, consensus validation, write-boundary filtering, or MMA mediation
-- Tests whether simple access control is sufficient (it isn't — semantic attacks bypass ACLs)
+- Same phase-to-tool restrictions as AgenticCyOps
+- Enforcement via network-level ACLs (HTTP 403)
+- No signed manifests, consensus, write-boundary filtering, or MMA
+- Tests whether simple access control suffices (it doesn't — semantic attacks bypass ACLs)
 
 ### AgenticCyOps
 
 - **P1 (Authorized Interface):** Signed manifests, admin-approved tool catalog
 - **P2 (Capability Scoping):** Phase-to-tool restriction at Host routing layer
-- **P3 (Verified Execution):** 3-of-4 validator consensus (≥2/3 approval) before irreversible actions
-- **P4 (Memory Integrity):** Write-boundary filtering (schema + cosine similarity), versioned ledger
-- **P5 (Access Control):** MMA-mediated memory with phase-partitioned read/write policies
-- Host-mediated sequential handoffs: Monitor → Analyze → Admin → Report
-- **56 trust boundaries, all actively verified**
+- **P3 (Verified Execution):** Multi-model consensus (≥2/3) before irreversible actions
+- **P4 (Memory Integrity):** Write-boundary filtering + versioned ledger
+- **P5 (Access Control):** MMA-mediated memory with phase-partitioned policies
+- Host-mediated sequential handoffs
 
 ---
 
@@ -528,64 +628,96 @@ The testbed supports three system configurations to isolate the contribution of 
 
 ### Prerequisites
 
-Before running experiments, ensure:
-
-1. All 4 vLLM servers are running and responding
-2. ChromaDB is initialized with seed data
+1. At least Primary vLLM server (port 8000) running
+2. ChromaDB initialized for target domain(s)
 3. `.env` has valid API keys
-4. At least one benign E2E test passes
+4. Benign E2E test passes for target domain
 
-### Individual Evaluations
+### CyberOps (Full Depth — Eval A)
 
 ```bash
-# Evaluation A: Attack Path Replay (6 APs × 3 configs × 30 trials)
-python -m attacks.harness --eval A --config all --trials 30
+# All 6 APs × 3 configs × 30 trials
+python -m attacks.harness --domain cyberops --eval A --config all --trials 30
 
-# Run single AP against single config
-python -m attacks.harness --ap 1 --config agenticcyops --trials 30
+# Single AP
+python -m attacks.harness --domain cyberops --ap ap1 --config agenticcyops --trials 30
 
-# GLM-4.7 diversity check (swap onto GPU 0,1,4,5 when Primary not running)
-python -m attacks.harness --ap 1 --config agenticcyops --trials 30 \
-  --model-url http://localhost:8001/v1
+# Benign baseline
+python -m attacks.harness --domain cyberops --benign --config all --trials 20
+```
 
-# Evaluation B: Trust Boundary Analysis
-python -m benchmarks.boundary.classify_boundaries
-python -m benchmarks.boundary.sensitivity
-python -m benchmarks.boundary.stress_test --config agenticcyops
+### Multi-Domain (Eval F)
 
-# Evaluation C: Memory Poisoning
-python -m attacks.harness --eval C --poison-rates 0.05 0.10 0.20 --trials 10
+```bash
+# Run all 3 adapter domains
+for domain in healthcare finance legal; do
+  python -m attacks.harness --domain $domain --eval F --config all --trials 10
+done
+```
 
-# Evaluation D: TAMAS Benchmark
+### TAMAS Benchmark (Eval D)
+
+```bash
 cd benchmarks/tamas && bash setup.sh
 python run_baseline.py      # Flat + GPT-4o
 python run_defended.py      # AgenticCyOps + Qwen3
 python compare.py
+```
 
-# Ablation Study
-python -m ablation.run_ablation --all --trials 30
+### Ablation + Cross-Domain Spot Check
 
-# Validator Diversity
+```bash
+# CyberOps ablation
+python -m ablation.run_ablation --domain cyberops --all --trials 30
+
+# Finance cross-domain spot check (P2 ablation)
+python -m ablation.run_ablation --domain finance --principle P2 --ap ap1_finance --trials 30
+```
+
+### Validator Diversity
+
+```bash
 python -m ablation.validator_diversity --trials 30
+```
+
+### GLM-4.7 Diversity Check
+
+```bash
+# Swap Primary for GLM-4.7, then:
+python -m attacks.harness --domain cyberops --ap ap1 --config agenticcyops \
+  --trials 30 --model-url http://localhost:8001/v1
+```
+
+### Trust Boundary Analysis (All Domains)
+
+```bash
+python -m benchmarks.boundary.classify_boundaries --domain cyberops
+python -m benchmarks.boundary.classify_boundaries --domain healthcare
+python -m benchmarks.boundary.classify_boundaries --domain finance
+python -m benchmarks.boundary.classify_boundaries --domain legal
+python -m benchmarks.boundary.sensitivity
+python -m benchmarks.boundary.stress_test --domain cyberops --config agenticcyops
 ```
 
 ### Full Evaluation Suite
 
 ```bash
-# Runs everything in sequence (~1,570 trials, several hours)
-python -m attacks.harness --eval all --config all --trials 30
-python -m ablation.run_ablation --all --trials 30
+# Everything (~1,925 runs, several hours)
+# CyberOps depth
+python -m attacks.harness --domain cyberops --eval A --config all --trials 30
+# Multi-domain
+for domain in healthcare finance legal; do
+  python -m attacks.harness --domain $domain --eval F --config all --trials 10
+done
+# TAMAS
+cd benchmarks/tamas && python run_baseline.py && python run_defended.py && python compare.py && cd ../..
+# Ablation
+python -m ablation.run_ablation --domain cyberops --all --trials 30
+python -m ablation.run_ablation --domain finance --principle P2 --ap ap1_finance --trials 30
+# Validator diversity
 python -m ablation.validator_diversity --trials 30
-```
-
-### Monitoring
-
-```bash
-# Watch logs in real-time
-tail -f logs/eval_a/*.jsonl | python -m analysis.parse_logs --stream
-
-# Check progress
-python -m analysis.compute_metrics --summary logs/eval_a/
+# Memory poisoning
+python -m attacks.harness --domain cyberops --eval C --poison-rates 0.05 0.10 0.20 --trials 10
 ```
 
 ---
@@ -598,55 +730,53 @@ python -m analysis.compute_metrics --summary logs/eval_a/
 # Parse all logs and compute metrics
 python -m analysis.compute_metrics --input logs/ --output results/tables/
 
-# Run statistical tests (McNemar's, CIs)
+# Run statistical tests (McNemar's, CIs, chi-squared homogeneity for cross-domain)
 python -m analysis.statistical_tests --input results/tables/
 
-# Generate all tables (R1–R9)
+# Generate all tables (R1–R11)
 python -m analysis.generate_tables --input results/tables/ --output results/tables/
 ```
 
 ### Generate Figures
 
 ```bash
-# Generate all publication-ready figures
 python -m analysis.generate_figures --input results/tables/ --output results/figures/
 
-# Or use the interactive notebook for fine-tuning
+# Or interactive
 jupyter notebook analysis/results_explorer.ipynb
 ```
 
 ### Expected Results
 
-After running the full evaluation, the `results/` directory should contain:
-
 | File | Content |
 |------|---------|
-| `R1_attack_interception.csv` | ASR per AP per config (6 APs × 3 configs) |
-| `R2_boundary_reduction.csv` | Unweighted + weighted reduction (3 configs) |
-| `R3_tamas_benchmark.csv` | ASR/TSR/ERS per attack type (flat GPT-4o vs defended Qwen3) |
-| `R4_ablation.csv` | ASR with each principle removed |
+| `R1_attack_interception.csv` | CyberOps ASR per AP per config (6 APs × 3 configs) |
+| `R2_boundary_reduction.csv` | Unweighted + weighted reduction (CyberOps) |
+| `R3_tamas_benchmark.csv` | ASR/TSR/ERS (flat GPT-4o vs defended Qwen3) |
+| `R4_ablation.csv` | ASR with each principle removed + cross-domain spot check |
 | `R5_consensus_latency.csv` | Per-loop latency statistics |
-| `R6_benign_completion.csv` | Completion rate, false block rate |
-| `R7_validator_diversity.csv` | Consensus failure by validator configuration |
+| `R6_benign_completion.csv` | Completion rates across all 4 domains |
+| `R7_validator_diversity.csv` | Consensus failure by validator config |
 | `R8_memory_poisoning.csv` | Propagation rate by poisoning rate |
-| `R9_glm_diversity.csv` | Qwen3 vs GLM-4.7 interception comparison |
+| `R9_glm_diversity.csv` | Qwen3 vs GLM-4.7 comparison |
+| **`R10_cross_domain_interception.csv`** | **ASR across 4 domains with "Code Changes: 0" column** |
+| `R11_cross_domain_boundaries.csv` | Boundary reduction across 4 domains |
 
 ---
 
 ## Reducing Experiment Scope
 
-If compute resources or time are limited, experiments can be run at reduced scale:
-
 | Reduction | Impact | How |
 |-----------|--------|-----|
-| Fewer trials | Wider confidence intervals | `--trials 10` instead of `--trials 30` |
-| Fewer APs | Incomplete attack coverage | `--ap 1 2 3 4` (skip AP-5, AP-6) |
-| Skip GLM-4.7 diversity | No model-independence check | Skip GLM-4.7 diversity runs |
+| Fewer trials | Wider CIs | `--trials 10` instead of `--trials 30` |
+| Fewer APs | Incomplete coverage | `--ap 1 2 3 4` (skip AP-5, AP-6) |
+| Skip adapter domains | No cross-domain proof | Skip `--domain healthcare/finance/legal` |
+| Skip GLM-4.7 | No model-independence | Skip diversity runs |
 | Skip TAMAS | No independent benchmark | Skip `benchmarks/tamas/` |
-| API validators only | No local V1-V3 needed | Set all validators to Claude in `validators.yaml` |
-| 2-GPU setup | Run Qwen3-235B only | Use API providers for diversity + validators |
+| API validators only | No local V1-V3 | Set all to Claude in `validators.yaml` |
+| 2-GPU setup | Single model only | Use API providers for everything else |
 
-Minimum viable evaluation (2× A100): Eval A (AP-1–4 only) + Eval B + Ablation = ~500 runs on a single model.
+Minimum viable: CyberOps Eval A (AP-1–4) + Eval B + Ablation = ~500 runs, single model.
 
 ---
 
@@ -654,39 +784,38 @@ Minimum viable evaluation (2× A100): Eval A (AP-1–4 only) + Eval B + Ablation
 
 | Issue | Solution |
 |-------|---------|
-| vLLM OOM on validator GPUs | Reduce `--gpu-memory-utilization` or run validators sequentially |
-| DeepSeek-R1-Distill-Qwen-32B fails to load | Requires vLLM nightly: `pip install -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly` |
-| GLM-4.7 FP8 load errors | Ensure vLLM supports FP8 quantization; verify model at `/storage/data/models/zai-org/GLM-4.7` |
-| Claude API rate limit | `tenacity` retry is built in; reduce concurrent calls or fallback to all-local validators |
-| ChromaDB embedding slow | Ensure Qwen3-Embedding-8B runs on GPU: `CUDA_VISIBLE_DEVICES=5 python -m memory.chromadb_setup` |
-| TAMAS import errors | Run `cd benchmarks/tamas && bash setup.sh` in a separate virtualenv if dependencies conflict |
-| Benign E2E test fails | Check all 4 vLLM servers respond: `curl http://localhost:800X/v1/models` |
+| vLLM OOM | Reduce `--gpu-memory-utilization` or run validators sequentially |
+| DeepSeek-R1 load error | Requires vLLM nightly |
+| GLM-4.7 FP8 error | Verify vLLM nightly supports FP8; check model path |
+| Claude rate limit | Tenacity retry built in; fallback to all-local validators |
+| ChromaDB slow | Run embedding on GPU: `CUDA_VISIBLE_DEVICES=3 python -m memory.chromadb_setup` |
+| TAMAS conflicts | Run in separate virtualenv |
+| Domain adapter fails | Verify manifests load: `python -m host.manifest_enforcer --domain healthcare --test` |
+| Benign E2E fails | Check vLLM servers: `curl http://localhost:800X/v1/models` |
+| Cross-domain inconsistency | Interesting result — analyze and report domain-specific LLM biases |
 
 ---
 
 ## Logging & Instrumentation
 
-All inter-component calls are logged via `logging_utils/json_logger.py`. One JSON line per event in `.jsonl` files.
+All inter-component calls logged via `logging_utils/json_logger.py`. One JSON line per event.
 
 ### Usage
 
 ```python
 from logging_utils import ExperimentLogger
 
-logger = ExperimentLogger(eval_name="eval_a", config="agenticcyops", model="Qwen3-235B")
-logger.set_trial("ap1", variant=3, trial=12)
+logger = ExperimentLogger(
+    eval_name="eval_f", 
+    domain="healthcare",
+    config="agenticcyops", 
+    model="Qwen3-235B"
+)
+logger.set_trial("ap1_health", variant=3, trial=5)
 
-# Auto-latency with context manager
-with logger.track("monitor_agent", "T1_ueba", "tool_call") as event:
+with logger.track("triage_agent", "H8_prescription_writer", "tool_call") as event:
     result = call_tool(...)
-    event.set_auth("allow", "P2_capability_scoping")
-    event.set_tokens(prompt=1200, completion=647)
-
-# Convenience methods
-logger.log_tool_call("monitor_agent", "T8_iam_pam", auth_decision="deny", mechanism="P2_capability_scoping")
-logger.log_memory_write("analyze_agent", "M1_threat_repo", auth_decision="deny", mechanism="P4_memory_integrity", cosine_similarity=0.23)
-logger.log_consensus_vote("qwen3_32b", "admin_agent", vote="approve", confidence=0.95, latency_ms=1200)
-logger.log_escalation("admin_agent", reason="Bulk credential revocation", severity="critical")
+    event.set_auth("deny", "P2_capability_scoping")
 ```
 
 ### Log Format
@@ -694,37 +823,22 @@ logger.log_escalation("admin_agent", reason="Bulk credential revocation", severi
 ```json
 {
   "timestamp": "2026-04-08T14:30:22.451Z",
-  "trial_id": "ap1_v3_t12_agenticcyops",
-  "eval": "eval_a",
+  "trial_id": "healthcare_ap1_health_v3_t5_agenticcyops",
+  "domain": "healthcare",
+  "eval": "eval_f",
   "config": "agenticcyops",
   "model": "Qwen3-235B-A22B-Instruct-2507",
-  "source": "monitor_agent",
-  "destination": "T8_iam_pam",
+  "source": "triage_agent",
+  "destination": "H8_prescription_writer",
   "action": "tool_call",
-  "payload_hash": "a3f2b8c1",
+  "payload_hash": "b4e2c9d1",
   "auth_decision": "deny",
   "mechanism": "P2_capability_scoping",
   "interception_step": 2,
-  "latency_ms": 342,
-  "tokens_used": 1847,
-  "tokens_prompt": 1200,
-  "tokens_completion": 647,
-  "ap": "ap1",
-  "variant": 3,
-  "trial": 12
+  "latency_ms": 287,
+  "tokens_prompt": 1100,
+  "tokens_completion": 520
 }
-```
-
-### Log Files
-
-```
-logs/
-├── vllm/                  # vLLM server logs
-├── eval_a/                # agenticcyops_20260408_143022.jsonl
-├── eval_c/
-├── eval_d/
-├── ablation/
-└── validator_diversity/
 ```
 
 ---
@@ -748,13 +862,12 @@ logs/
 
 This testbed is released for research purposes. See [LICENSE](LICENSE) for details.
 
-The models used have their own licenses:
-- Qwen3: Apache 2.0
+Model licenses:
+- Qwen3, Qwen3-Embedding: Apache 2.0
 - GLM-4.7: Apache 2.0
 - DeepSeek-R1-Distill-Qwen-32B: MIT License
 - Mistral-Small: Apache 2.0
 - Llama-4-Scout: Llama Community License
-- Qwen3-Embedding: Apache 2.0
 
 ---
 
