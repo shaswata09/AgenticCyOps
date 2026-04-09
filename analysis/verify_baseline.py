@@ -81,9 +81,18 @@ def verify_config(domain: str, config: str) -> dict:
         has_memory_ops = len(memory_ops) > 0
 
         checks["p2_active"] = any("P2" in m for m in mechanisms)
-        checks["p3_active"] = any("P3" in m for m in mechanisms) or any(
-            e.get("action") == "consensus_vote" for e in events
-        )
+
+        # P3 only fires when admin/report phases propose tool calls
+        admin_report_calls = [
+            e for e in tool_calls
+            if any(p in e.get("source", "") for p in ("admin", "report"))
+        ]
+        if admin_report_calls:
+            checks["p3_active"] = any("P3" in m for m in mechanisms) or any(
+                e.get("action") == "consensus_vote" for e in events
+            )
+        else:
+            checks["p3_active"] = "N/A (no admin/report tool calls)"
 
         # P4/P5 only fire on memory operations — mark N/A if no memory ops occurred
         if has_memory_ops:
@@ -109,10 +118,12 @@ def verify_config(domain: str, config: str) -> dict:
     # Overall — critical checks for pass/fail
     critical = ["all_4_phases_active", "tool_calls_made"]
     if config == "agenticcyops":
-        # P2 and P3 must be active, zero non-consensus blocks
-        critical.extend(["p2_active", "p3_active", "zero_non_consensus_blocks"])
+        critical.extend(["p2_active", "zero_non_consensus_blocks"])
+        # P3 only critical if admin/report made tool calls
+        if checks.get("p3_active") is not True and not str(checks.get("p3_active", "")).startswith("N/A"):
+            critical.append("p3_active")
     result_pass = all(
-        checks.get(c, False) is True or checks.get(c, False) == True
+        checks.get(c, False) is True or str(checks.get(c, "")).startswith("N/A")
         for c in critical
     )
 

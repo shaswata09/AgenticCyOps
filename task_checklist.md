@@ -148,7 +148,7 @@
 - [x] `consensus/recovery_loop.py`: RecoveryLoop (Admin phase, bulk action detection)
 - [x] `consensus/improvement_loop.py`: ImprovementLoop (Report phase memory writes)
 - [x] `consensus/escalation.py`: EscalationHandler (auto-reject in testbed, logs escalation)
-- [x] `configs/validators.yaml`: V1-V6 + 10 consensus configs (default_consensus=V1+V2+V4+V6, t=3/4; full_diversity, all_with_gpt4o, with_mistral, same_family, all_local_diverse, local_only, mixed_with_claude, mixed_with_gpt4o, default_no_claude)
+- [x] `configs/validators.yaml`: V1-V6 + 10 consensus configs (default_consensus=V1+V2+V4+V6, need 3 of 4; full_diversity, all_with_gpt4o, with_mistral, same_family, all_local_diverse, local_only, mixed_with_claude, mixed_with_gpt4o, default_no_claude)
 - [x] Per-validator decision, latency, tokens logged via ExperimentLogger
 
 ---
@@ -425,8 +425,8 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
 
 ### 7.3 Validator Diversity — **B**
 - [ ] Same-family (Group C config): 3× Qwen3-32B → AP-1, 30 trials
-- [ ] Default diverse (Group A config): V1 + V2 + V4(Claude) + V6(GPT-4o) (4 families, t=3/4) → AP-1, 30 trials
-- [ ] All-local diverse: V1 + V2 + V3(Llama) (3 families, t=2/3) → AP-1, 30 trials
+- [ ] Default diverse (Group A config): V1 + V2 + V4(Claude) + V6(GPT-4o) (4 families, need 3 of 4) → AP-1, 30 trials
+- [ ] All-local diverse: V1 + V2 + V3(Llama) (3 families, need 2 of 3) → AP-1, 30 trials
   - **Note:** V3(Llama) requires Claude-primary or no Qwen3-235B (GPU 4,5 conflict)
 - [ ] **Total: 90 runs**
 
