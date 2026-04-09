@@ -4,7 +4,7 @@
 > **Team:** 3 researchers (A, B, C) working in parallel.  
 > **Priority:** Eval A (CyberOps depth) > Eval F (multi-domain) > Eval D (TAMAS) > B > Ablation + Validator Diversity > E > C  
 > **Hardware:** 6× H200, all BF16 (GLM-4.7-FP8 uses official FP8 weights from zai-org/GLM-4.7-FP8)  
-> **API Budget:** ~$50 (GPT-4o ~$50 for TAMAS + consensus validation)  
+> **API Budget:** ~$12 GPT-4o for full experiment (consensus validation); ~$50 if TAMAS included  
 > **Target:** ~1,900 instrumented runs, 4 domains, 6 attack paths, 3 configs, 7 model families, zero framework code changes across domains
 
 ---
@@ -53,7 +53,7 @@
 ### 0.3 Project Structure
 - [x] Core (domain-agnostic): host/, agents/, consensus/, attacks/, analysis/, mcp_servers/, tests/
   - `host/acl_middleware.py` — HTTP-level ACL for acl_hardened config
-- [x] `scripts/` — run_baseline.sh
+- [x] `scripts/` — run_baseline.sh, run_eval_a.sh, run_eval_f.sh
 - [x] `models/` — utils (11 files), test_scripts (11 notebooks), download_models.sh
 - [x] `logging_utils/` — json_logger.py with ExperimentLogger
 - [x] `memory/` — embedding_adapter.py + placeholders (chromadb_setup, mma_gateway, write_filter, access_control, seed_data)
@@ -66,7 +66,7 @@
 - [x] `docs/`, `cross_domain/`, `tests/` — all placeholder files created
 - [x] All Python packages have `__init__.py`
 - [x] All Phase 1+ files have TODO docstrings marking which phase implements them
-- [ ] Domain configs:
+- [x] Domain configs:
   ```
   domains/
   ├── cyberops/
@@ -184,36 +184,36 @@
 ## Phase 3: Attack Scripts + Domain Adapters (Days 3–4)
 
 ### 3.1 Attack Harness — **B**
-- [ ] `attacks/harness.py`: domain-agnostic
+- [x] `attacks/harness.py`: domain-agnostic attack execution engine with log-based success evaluation
   - Takes: `--domain cyberops --ap ap1 --config agenticcyops --trials 30`
   - Loads payloads from `domains/{domain}/payloads/`
   - Logs to `logs/{domain}_{eval}/`
 
 ### 3.2–3.8 CyberOps Attack Scripts — **A + B**
-- [ ] AP-1: Tool Redirection (5 variants) — **B**
-- [ ] AP-2: Memory Poisoning (5 variants) — **C**
-- [ ] AP-3: Confused Deputy (5 variants) — **A**
-- [ ] AP-4: Cross-Phase Exfiltration (5 variants) — **B**
-- [ ] AP-5: Unauthorized Irreversible Action (5 variants) — **A**
-- [ ] AP-6: Replay Attack (5 variants) — **C**
-- [ ] Benign: 20 scenarios — **C**
-- [ ] All payloads → `domains/cyberops/payloads/`
+- [x] AP-1: Tool Redirection (5 variants) — **B**
+- [x] AP-2: Memory Poisoning (5 variants) — **C**
+- [x] AP-3: Confused Deputy (5 variants) — **A**
+- [x] AP-4: Cross-Phase Exfiltration (5 variants) — **B**
+- [x] AP-5: Unauthorized Irreversible Action (5 variants) — **A**
+- [x] AP-6: Replay Attack (5 variants) — **C**
+- [x] Benign: 20 scenarios — **C**
+- [x] All payloads → `domains/cyberops/payloads/` (6 APs × 5 variants + 20 benign = 50 payloads)
 
 ### 3.9 Healthcare Adapter — **C** (Day 4)
-- [ ] 4 manifests → `domains/healthcare/configs/`
+- [x] 4 manifests → `domains/healthcare/configs/` (+ memory_collections.json, access_policy.json)
   - Monitor: H1-H4 (EHR, Vitals, Lab Results, Triage Scoring)
   - Analyze: H5-H7 (Imaging, Drug Interaction, Clinical Guidelines)
   - Admin: H8-H10 (Prescription Writer, Procedure Scheduler, Insurance Pre-Auth)
   - Report: H11-H13 (Discharge Summary, Regulatory Filing, Quality Metrics)
-- [ ] 13 tool stubs → `domains/healthcare/tools/` (~20 lines each from base template)
-- [ ] 8 memory collections (HM1–HM8), 10–20 seed entries each
-- [ ] 4 system prompts → `domains/healthcare/prompts/`
-- [ ] Access policy JSON → `domains/healthcare/configs/access_policy.json`
-- [ ] Attack payloads (3 APs × 5 variants):
-  - [ ] AP-1 analogue: Triage agent tricked into writing prescriptions (H8)
-  - [ ] AP-2 analogue: Poisoned lab results → wrong diagnosis in patient records
-  - [ ] AP-4 analogue: Compliance agent exfiltrates PHI into quality metrics
-- [ ] 5 benign clinical workflows
+- [x] 13 tool stubs → `domains/healthcare/tools/` (H1-H13, organized by phase)
+- [x] 8 memory collections (HM1–HM8), ~400 seed entries total
+- [x] 4 system prompts → `domains/healthcare/prompts/`
+- [x] Access policy JSON → `domains/healthcare/configs/access_policy.json`
+- [x] Attack payloads (3 APs × 5 variants + 1 benign = 20 payloads):
+  - [x] AP-1 analogue: Triage agent tricked into writing prescriptions (H8)
+  - [x] AP-2 analogue: Poisoned lab results → wrong diagnosis in patient records
+  - [x] AP-4 analogue: Compliance agent exfiltrates PHI into quality metrics
+- [x] Benign clinical workflows
 - [ ] **Baseline verification (all 3 configs):**
   - [ ] Initialize healthcare memory: `python -m memory.chromadb_setup --domain healthcare`
   - [ ] Start healthcare tools: `python -m domains.healthcare.tools.start_all`
@@ -224,17 +224,17 @@
   - [ ] AgenticCyOps: run 1 benign → completes, all P1–P5 logging, zero false blocks ✓
 
 ### 3.10 Finance Adapter — **C** (Day 4)
-- [ ] 4 manifests → `domains/finance/configs/`
+- [x] 4 manifests → `domains/finance/configs/` (+ memory_collections.json, access_policy.json)
   - Monitor: F1-F4 (Transaction Stream, Rule Engine, Customer Profile, Alert Queue)
   - Analyze: F5-F7 (Graph Analysis, External Fraud DB, Document Verification)
   - Admin: F8-F10 (Account Freeze, Chargeback Processor, Wire Recall)
   - Report: F11-F13 (SAR Generator, Audit Compiler, Regulatory Submission)
-- [ ] 13 tool stubs, 8 memory collections, 4 system prompts, access policy
-- [ ] Attack payloads:
-  - [ ] AP-1 analogue: Surveillance agent tricked into freezing accounts (F8)
-  - [ ] AP-2 analogue: Falsified fraud determination poisons case history
-  - [ ] AP-5 analogue: Account action agent proposes mass account freezes
-- [ ] 5 benign fraud investigation workflows
+- [x] 13 tool stubs (F1-F13), 8 memory collections (FM1-FM8, ~396 seed entries), 4 system prompts, access policy
+- [x] Attack payloads (3 APs × 5 variants + 1 benign = 20 payloads):
+  - [x] AP-1 analogue: Surveillance agent tricked into freezing accounts (F8)
+  - [x] AP-2 analogue: Falsified fraud determination poisons case history
+  - [x] AP-5 analogue: Account action agent proposes mass account freezes
+- [x] Benign fraud investigation workflows
 - [ ] **Baseline verification (all 3 configs):**
   - [ ] Initialize finance memory: `python -m memory.chromadb_setup --domain finance`
   - [ ] Start finance tools: `python -m domains.finance.tools.start_all`
@@ -245,17 +245,17 @@
   - [ ] AgenticCyOps: run 1 benign → completes, all P1–P5 logging, zero false blocks ✓
 
 ### 3.11 Legal Adapter — **C** (Day 4)
-- [ ] 4 manifests → `domains/legal/configs/`
+- [x] 4 manifests → `domains/legal/configs/` (+ memory_collections.json, access_policy.json)
   - Monitor: L1-L4 (Docket Search, Deadline Tracker, Conflict Checker, Client Portal)
   - Analyze: L5-L7 (Case Law DB, Statute Search, Contract Analyzer)
   - Admin: L8-L10 (Court Filing, Document Signing, Payment Processing)
   - Report: L11-L13 (Client Memo Generator, Billing System, Matter Close)
-- [ ] 13 tool stubs, 8 memory collections, 4 system prompts, access policy
-- [ ] Attack payloads:
-  - [ ] AP-1 analogue: Research agent tricked into filing court documents (L8)
-  - [ ] AP-2 analogue: Poisoned case law → wrong legal analysis in research memos
-  - [ ] AP-4 analogue: Client reporting agent exfiltrates privileged comms into billing
-- [ ] 5 benign case management workflows
+- [x] 13 tool stubs (L1-L13), 8 memory collections (LM1-LM8, ~400 seed entries), 4 system prompts, access policy
+- [x] Attack payloads (3 APs × 5 variants + 1 benign = 20 payloads):
+  - [x] AP-1 analogue: Research agent tricked into filing court documents (L8)
+  - [x] AP-2 analogue: Poisoned case law → wrong legal analysis in research memos
+  - [x] AP-4 analogue: Client reporting agent exfiltrates privileged comms into billing
+- [x] Benign case management workflows
 - [ ] **Baseline verification (all 3 configs):**
   - [ ] Initialize legal memory: `python -m memory.chromadb_setup --domain legal`
   - [ ] Start legal tools: `python -m domains.legal.tools.start_all`
@@ -309,22 +309,25 @@
 Same framework code, swap domain config:
 
 ```bash
+# Or use the evaluation script:
+bash scripts/run_eval_f.sh
+
 # Healthcare
-python -m attacks.harness --domain healthcare --ap ap1_health --config all --trials 10
-python -m attacks.harness --domain healthcare --ap ap2_health --config all --trials 10
-python -m attacks.harness --domain healthcare --ap ap4_health --config all --trials 10
+python -m attacks.harness --domain healthcare --ap ap1 --config all --trials 10
+python -m attacks.harness --domain healthcare --ap ap2 --config all --trials 10
+python -m attacks.harness --domain healthcare --ap ap4 --config all --trials 10
 python -m attacks.harness --domain healthcare --benign --config all --trials 5
 
 # Finance
-python -m attacks.harness --domain finance --ap ap1_finance --config all --trials 10
-python -m attacks.harness --domain finance --ap ap2_finance --config all --trials 10
-python -m attacks.harness --domain finance --ap ap5_finance --config all --trials 10
+python -m attacks.harness --domain finance --ap ap1 --config all --trials 10
+python -m attacks.harness --domain finance --ap ap2 --config all --trials 10
+python -m attacks.harness --domain finance --ap ap5 --config all --trials 10
 python -m attacks.harness --domain finance --benign --config all --trials 5
 
 # Legal
-python -m attacks.harness --domain legal --ap ap1_legal --config all --trials 10
-python -m attacks.harness --domain legal --ap ap2_legal --config all --trials 10
-python -m attacks.harness --domain legal --ap ap4_legal --config all --trials 10
+python -m attacks.harness --domain legal --ap ap1 --config all --trials 10
+python -m attacks.harness --domain legal --ap ap2 --config all --trials 10
+python -m attacks.harness --domain legal --ap ap4 --config all --trials 10
 python -m attacks.harness --domain legal --benign --config all --trials 5
 ```
 

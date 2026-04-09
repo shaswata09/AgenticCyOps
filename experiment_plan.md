@@ -242,9 +242,9 @@ The same Host, agent framework, consensus module, and MMA gateway code used in C
 | Component | Per Domain |
 |-----------|-----------|
 | **Baseline verification** | **1 benign E2E × 3 configs = 3 runs (must pass before attacks)** |
-| Tool stubs | 10–13 minimal FastAPI servers (~20 lines each) |
+| Tool stubs | 13 minimal FastAPI servers (~20 lines each) |
 | Manifests | 4 JSON files (one per phase) |
-| Memory collections | 6–8 ChromaDB collections, 10–20 seed entries each |
+| Memory collections | 8 ChromaDB collections, ~50 seed entries each |
 | Attack payloads | 3 AP analogues × 5 variants = 15 payload JSONs |
 | Attack runs | 3 APs × 5 variants × 2 trials × 3 configs = **90 runs** |
 | Benign runs | 5 workflows × 3 configs = **15 runs** |

@@ -2,27 +2,110 @@
 # ============================================================
 # AgenticCyOps — Full Baseline Verification
 #
-# Runs benign E2E through all 3 configs for a domain,
-# then generates verification report + dashboard.
+# Interactive domain selection, then runs benign E2E through
+# all 3 configs, generates verification report + dashboard + PDF.
 #
 # Usage:
-#   ./run_baseline.sh                    # CyberOps only
-#   ./run_baseline.sh cyberops           # CyberOps only
-#   ./run_baseline.sh all                # All 4 domains
-#   ./run_baseline.sh healthcare         # Single domain
+#   ./scripts/run_baseline.sh            # Interactive menu
+#   ./scripts/run_baseline.sh cyberops   # Skip menu, run one domain
+#   ./scripts/run_baseline.sh all        # Skip menu, run all
 # ============================================================
 
 set -eE
-# Note: cleanup commands use || true to avoid triggering set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/.."  # project root
+cd "$SCRIPT_DIR/.."
 
-DOMAIN="${1:-cyberops}"
 CONDA_ENV="agenticcyops"
 TOOL_BASE_PORT=9000
 MMA_PORT=9100
 PIDS=()
+
+ALL_DOMAINS=("cyberops" "healthcare" "finance" "legal")
+
+# ---- Interactive domain selection (if no argument) ----
+if [ -z "$1" ]; then
+    clear
+    echo ""
+    echo "  AgenticCyOps — Baseline Verification"
+    echo "  ──────────────────────────────────────────────"
+    echo ""
+
+    selected=()
+    for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do selected+=(0); done
+    cursor=0
+
+    draw_menu() {
+        # Move cursor to menu start position
+        printf "\033[7;0H"
+        for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do
+            local prefix="  "
+            [ $i -eq $cursor ] && prefix="> "
+            local box="[ ]"
+            [ "${selected[$i]}" -eq 1 ] && box="[x]"
+            printf "\033[2K${prefix}${box} ${ALL_DOMAINS[$i]}\n"
+        done
+        printf "\033[2K\n"
+        printf "\033[2K  [ ] All 4 domains\n"
+        printf "\033[2K\n"
+        printf "\033[2K  up/down move | Space toggle | a all | n none | Enter run | q quit"
+    }
+
+    # Initial draw
+    printf "\033[7;0H"
+    for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do
+        echo "  [ ] ${ALL_DOMAINS[$i]}"
+    done
+    echo ""
+    echo "  [ ] All 4 domains"
+    echo ""
+    echo "  up/down move | Space toggle | a all | n none | Enter run | q quit"
+
+    draw_menu
+
+    while true; do
+        IFS= read -rsn1 key
+        if [[ "$key" == $'\033' ]]; then
+            read -rsn2 -t 0.01 rest
+            key="${key}${rest}"
+        fi
+        case "$key" in
+            $'\033[A'|k) ((cursor > 0)) && ((cursor--)) ;;
+            $'\033[B'|j) ((cursor < ${#ALL_DOMAINS[@]}-1)) && ((cursor++)) ;;
+            ' ')
+                if [ "${selected[$cursor]}" -eq 1 ]; then
+                    selected[$cursor]=0
+                else
+                    selected[$cursor]=1
+                fi
+                ;;
+            a) for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do selected[$i]=1; done ;;
+            n) for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do selected[$i]=0; done ;;
+            ''|$'\n') break ;;
+            q) echo ""; echo "  Cancelled."; exit 0 ;;
+        esac
+        draw_menu
+    done
+
+    echo ""
+    echo ""
+
+    # Build domain list from selection
+    DOMAINS=()
+    for ((i=0; i<${#ALL_DOMAINS[@]}; i++)); do
+        [ "${selected[$i]}" -eq 1 ] && DOMAINS+=("${ALL_DOMAINS[$i]}")
+    done
+
+    if [ ${#DOMAINS[@]} -eq 0 ]; then
+        echo "  No domains selected. Exiting."
+        exit 0
+    fi
+
+elif [ "$1" = "all" ]; then
+    DOMAINS=("${ALL_DOMAINS[@]}")
+else
+    DOMAINS=("$1")
+fi
 
 # ---- Cleanup on exit (kills ALL spawned processes) ----
 cleanup() {
@@ -280,22 +363,20 @@ asyncio.run(run())
 echo ""
 echo "============================================================"
 echo "  AgenticCyOps — Baseline Verification"
-echo "  Domain: ${DOMAIN}"
+echo "  Domains: ${DOMAINS[*]}"
 echo "============================================================"
 
-if [ "$DOMAIN" = "all" ]; then
-    for d in cyberops healthcare finance legal; do
-        run_domain_baseline "$d"
-    done
+for d in "${DOMAINS[@]}"; do
+    run_domain_baseline "$d"
+done
 
-    # Final readiness gate
+# Readiness gate
+if [ ${#DOMAINS[@]} -gt 1 ]; then
     echo ""
     echo "============================================================"
-    echo "  FULL READINESS GATE (all domains)"
+    echo "  READINESS GATE"
     echo "============================================================"
     run_py -m analysis.verify_baseline --domain all --config all 2>&1
-else
-    run_domain_baseline "$DOMAIN"
 fi
 
 echo ""

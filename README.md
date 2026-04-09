@@ -2,7 +2,7 @@
 
 > **Securing Multi-Agentic AI Integration in Enterprise Operations**
 
-This repository contains the evaluation testbed for the AgenticCyOps framework, a domain-agnostic security architecture for LLM-powered multi-agent systems (MAS). The testbed validates the framework across **four enterprise domains** — cybersecurity operations, healthcare, financial fraud detection, and legal case management — with 16+ MCP-based tool servers per domain, phase-scoped agents, consensus-validated execution, and six adversarial attack scenarios, evaluated across three configurations and seven model families. **Zero framework code changes** are required across domains — only configuration files and tool stubs differ.
+This repository contains the evaluation testbed for the AgenticCyOps framework, a domain-agnostic security architecture for LLM-powered multi-agent systems (MAS). The testbed validates the framework across **four enterprise domains** — cybersecurity operations, healthcare, financial fraud detection, and legal case management — with 13-16 MCP-based tool servers per domain, phase-scoped agents, consensus-validated execution, and six adversarial attack scenarios, evaluated across three configurations and seven model families. **Zero framework code changes** are required across domains — only configuration files and tool stubs differ.
 
 ---
 
@@ -105,13 +105,13 @@ Each domain provides only:
 python -m attacks.harness --domain cyberops --ap ap1 --config agenticcyops --trials 30
 
 # Run Healthcare — same framework, different config
-python -m attacks.harness --domain healthcare --ap ap1_health --config agenticcyops --trials 10
+python -m attacks.harness --domain healthcare --ap ap1 --config agenticcyops --trials 10
 
 # Run Finance
-python -m attacks.harness --domain finance --ap ap1_finance --config agenticcyops --trials 10
+python -m attacks.harness --domain finance --ap ap1 --config agenticcyops --trials 10
 
 # Run Legal
-python -m attacks.harness --domain legal --ap ap1_legal --config agenticcyops --trials 10
+python -m attacks.harness --domain legal --ap ap1 --config agenticcyops --trials 10
 ```
 
 ---
@@ -177,9 +177,9 @@ GPU 5 ─┘
 | Model | Role | Estimated Cost |
 |-------|------|---------------|
 | Claude Sonnet | Validator V4 (optional) | ~$20 (not required) |
-| GPT-4o | Validator V6 + TAMAS baseline | ~$50 |
+| GPT-4o | Validator V6 + TAMAS baseline | ~$12 (consensus only); ~$50 (with TAMAS) |
 
-**Total API budget: ~$70**
+**Total API budget: ~$12 (consensus only), ~$70 (with TAMAS + optional Claude)**
 
 ---
 
@@ -220,13 +220,11 @@ done
 # 8. Run a benign end-to-end test (CyberOps)
 python -m attacks.harness --domain cyberops --benign --config agenticcyops --trials 1
 
-# 9. Run CyberOps full evaluation
-python -m attacks.harness --domain cyberops --eval A --config all --trials 30
+# 9. Run CyberOps full evaluation (auto charts + PDF)
+bash scripts/run_eval_a.sh
 
-# 10. Run multi-domain evaluation
-python -m attacks.harness --domain healthcare --eval F --config all --trials 10
-python -m attacks.harness --domain finance --eval F --config all --trials 10
-python -m attacks.harness --domain legal --eval F --config all --trials 10
+# 10. Run multi-domain evaluation (auto charts + PDF)
+bash scripts/run_eval_f.sh
 ```
 
 ---
@@ -339,7 +337,9 @@ agenticcyops-experiments/
 ├── monitor.sh                        # Live system monitor
 ├── gpu_monitor.sh                    # nvidia-smi loop
 ├── scripts/                          # Experiment runner scripts
-│   └── run_baseline.sh              # Full baseline verification (Phase 2)
+│   ├── run_baseline.sh              # Interactive domain baseline verification
+│   ├── run_eval_a.sh               # CyberOps attack evaluation (auto charts + PDF)
+│   └── run_eval_f.sh               # Multi-domain evaluation (auto charts + PDF)
 ├── README.md                         # This file
 ├── experiment_plan.md                # Full evaluation protocol
 ├── task_checklist.md                 # 10-day execution checklist
@@ -391,10 +391,10 @@ agenticcyops-experiments/
 │   │   ├── seed_data/               # 8 collections (10-20 entries each)
 │   │   ├── prompts/                 # Triage, Diagnostic, Treatment, Compliance agents
 │   │   └── payloads/                # 3 APs × 5 variants + benign
-│   │       ├── ap1_health_variants.json    # Triage → Prescription Writer
-│   │       ├── ap2_health_variants.json    # Poisoned labs → wrong diagnosis
-│   │       ├── ap4_health_variants.json    # PHI exfil into quality metrics
-│   │       └── benign_clinical.json
+│   │       ├── ap1_variants.json           # Triage → Prescription Writer
+│   │       ├── ap2_variants.json           # Poisoned labs → wrong diagnosis
+│   │       ├── ap4_variants.json           # PHI exfil into quality metrics
+│   │       └── benign_workflows.json
 │   │
 │   ├── finance/                      # Adapter: 13 tools, 8 memory stores
 │   │   ├── configs/
@@ -402,10 +402,10 @@ agenticcyops-experiments/
 │   │   ├── seed_data/
 │   │   ├── prompts/                 # Surveillance, Investigator, Action, Compliance agents
 │   │   └── payloads/                # 3 APs × 5 variants + benign
-│   │       ├── ap1_finance_variants.json   # Surveillance → Account Freeze
-│   │       ├── ap2_finance_variants.json   # Falsified fraud determination
-│   │       ├── ap5_finance_variants.json   # Mass account freeze
-│   │       └── benign_fraud.json
+│   │       ├── ap1_variants.json           # Surveillance → Account Freeze
+│   │       ├── ap2_variants.json           # Falsified fraud determination
+│   │       ├── ap5_variants.json           # Mass account freeze
+│   │       └── benign_workflows.json
 │   │
 │   └── legal/                        # Adapter: 13 tools, 8 memory stores
 │       ├── configs/
@@ -413,10 +413,10 @@ agenticcyops-experiments/
 │       ├── seed_data/
 │       ├── prompts/                 # Intake, Research, Filing, Client Reporting agents
 │       └── payloads/                # 3 APs × 5 variants + benign
-│           ├── ap1_legal_variants.json     # Research → Court Filing
-│           ├── ap2_legal_variants.json     # Poisoned case law → wrong analysis
-│           ├── ap4_legal_variants.json     # Privileged comms in billing
-│           └── benign_case.json
+│           ├── ap1_variants.json           # Research → Court Filing
+│           ├── ap2_variants.json           # Poisoned case law → wrong analysis
+│           ├── ap4_variants.json           # Privileged comms in billing
+│           └── benign_workflows.json
 │
 ├── host/                             # SOAR Host orchestrator (DOMAIN-AGNOSTIC)
 │   ├── orchestrator.py               # LangGraph CoT + phase routing
@@ -445,7 +445,8 @@ agenticcyops-experiments/
 │   └── escalation.py
 │
 ├── mcp_servers/                      # Tool server template (DOMAIN-AGNOSTIC)
-│   └── base_server.py                # Generic FastAPI + MCP template
+│   ├── base_server.py                # Generic FastAPI + MCP template
+│   └── server_registry.py            # Dynamic tool discovery + start/stop
 │
 ├── logging_utils/                    # Structured JSON instrumentation (DOMAIN-AGNOSTIC)
 │   ├── __init__.py
@@ -647,7 +648,10 @@ Three system configurations applied identically across all domains:
 ### CyberOps (Full Depth — Eval A)
 
 ```bash
-# All 6 APs × 3 configs × 30 trials
+# Recommended: use the evaluation script (auto charts + PDF report)
+bash scripts/run_eval_a.sh
+
+# Or run manually: all 6 APs × 3 configs × 30 trials
 python -m attacks.harness --domain cyberops --eval A --config all --trials 30
 
 # Single AP
@@ -660,10 +664,20 @@ python -m attacks.harness --domain cyberops --benign --config all --trials 20
 ### Multi-Domain (Eval F)
 
 ```bash
-# Run all 3 adapter domains
+# Recommended: use the evaluation script (auto charts + PDF report)
+bash scripts/run_eval_f.sh
+
+# Or run manually: all 3 adapter domains
 for domain in healthcare finance legal; do
   python -m attacks.harness --domain $domain --eval F --config all --trials 10
 done
+```
+
+### Baseline Verification
+
+```bash
+# Interactive domain selection menu
+bash scripts/run_baseline.sh
 ```
 
 ### TAMAS Benchmark (Eval D)
@@ -682,7 +696,7 @@ python compare.py
 python -m ablation.run_ablation --domain cyberops --all --trials 30
 
 # Finance cross-domain spot check (P2 ablation)
-python -m ablation.run_ablation --domain finance --principle P2 --ap ap1_finance --trials 30
+python -m ablation.run_ablation --domain finance --principle P2 --ap ap1 --trials 30
 ```
 
 ### Validator Diversity
@@ -724,7 +738,7 @@ done
 cd benchmarks/tamas && python run_baseline.py && python run_defended.py && python compare.py && cd ../..
 # Ablation
 python -m ablation.run_ablation --domain cyberops --all --trials 30
-python -m ablation.run_ablation --domain finance --principle P2 --ap ap1_finance --trials 30
+python -m ablation.run_ablation --domain finance --principle P2 --ap ap1 --trials 30
 # Validator diversity
 python -m ablation.validator_diversity --trials 30
 # Memory poisoning
@@ -822,7 +836,7 @@ logger = ExperimentLogger(
     config="agenticcyops", 
     model="Qwen3-235B"
 )
-logger.set_trial("ap1_health", variant=3, trial=5)
+logger.set_trial("ap1", variant=3, trial=5)
 
 with logger.track("triage_agent", "H8_prescription_writer", "tool_call") as event:
     result = call_tool(...)
@@ -834,7 +848,7 @@ with logger.track("triage_agent", "H8_prescription_writer", "tool_call") as even
 ```json
 {
   "timestamp": "2026-04-08T14:30:22.451Z",
-  "trial_id": "healthcare_ap1_health_v3_t5_agenticcyops",
+  "trial_id": "healthcare_ap1_v3_t5_agenticcyops",
   "domain": "healthcare",
   "eval": "eval_f",
   "config": "agenticcyops",

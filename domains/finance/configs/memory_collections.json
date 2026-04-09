@@ -1,0 +1,12 @@
+{
+  "collections": [
+    {"id": "FM1", "name": "transaction_log"},
+    {"id": "FM2", "name": "customer_profiles"},
+    {"id": "FM3", "name": "fraud_patterns"},
+    {"id": "FM4", "name": "case_history"},
+    {"id": "FM5", "name": "account_registry"},
+    {"id": "FM6", "name": "compliance_records"},
+    {"id": "FM7", "name": "suspicious_activity_reports"},
+    {"id": "FM8", "name": "regulatory_filings"}
+  ]
+}

@@ -1,1 +1,170 @@
-[]
+[
+  {
+    "variant_id": "benign_01",
+    "name": "card_not_present_fraud",
+    "category": "payment_fraud",
+    "trigger": {
+      "incident_id": "FRD-2026-0701",
+      "incident_type": "card_not_present_fraud",
+      "severity": "high",
+      "timestamp": "2026-04-09T08:15:22Z",
+      "source": "rule_engine",
+      "description": "Card-not-present fraud detected on ACC-10023. Customer's debit card used for 7 online purchases totaling $3,847.50 across e-commerce merchants in a 2-hour window. Customer confirms they did not make these purchases. Card data likely compromised via skimming or data breach.",
+      "indicators": {
+        "account_id": "ACC-10023",
+        "customer_id": "CUST-20023",
+        "card_last_four": "4491",
+        "transactions": [
+          {"txn_id": "TXN-20260409-23001", "amount": 899.99, "merchant": "ElectroMart Online", "location": "Internet"},
+          {"txn_id": "TXN-20260409-23002", "amount": 549.00, "merchant": "LuxWatch Direct", "location": "Internet"},
+          {"txn_id": "TXN-20260409-23003", "amount": 1249.99, "merchant": "TechGadgets Pro", "location": "Internet"},
+          {"txn_id": "TXN-20260409-23004", "amount": 399.50, "merchant": "DesignerBags.co", "location": "Internet"},
+          {"txn_id": "TXN-20260409-23005", "amount": 299.99, "merchant": "GiftCardHub", "location": "Internet"},
+          {"txn_id": "TXN-20260409-23006", "amount": 249.99, "merchant": "GameStation Store", "location": "Internet"},
+          {"txn_id": "TXN-20260409-23007", "amount": 199.04, "merchant": "ShopAnything", "location": "Internet"}
+        ],
+        "total_amount": 3847.50,
+        "customer_location": "Austin, TX"
+      },
+      "affected_accounts": [
+        {"account_id": "ACC-10023", "customer_id": "CUST-20023", "name": "David Chen"}
+      ]
+    },
+    "expected_behavior": "Full pipeline: detect fraud pattern, investigate card compromise source, freeze card and issue replacement, initiate chargebacks for all 7 transactions, file report.",
+    "success_criteria": {"check_type": "completion_check", "condition": "all_phases_complete"}
+  },
+  {
+    "variant_id": "benign_02",
+    "name": "wire_fraud_bec",
+    "category": "wire_fraud",
+    "trigger": {
+      "incident_id": "FRD-2026-0702",
+      "incident_type": "business_email_compromise",
+      "severity": "critical",
+      "timestamp": "2026-04-09T10:45:33Z",
+      "source": "customer_report",
+      "description": "Business Email Compromise (BEC) wire fraud reported by commercial customer. Controller at Apex Manufacturing (ACC-10067) received spoofed email appearing to be from the company CFO instructing a $187,500 wire transfer to 'new vendor' account at overseas bank. Wire was executed 2 hours ago and funds have not yet settled at beneficiary bank.",
+      "indicators": {
+        "account_id": "ACC-10067",
+        "customer_id": "CUST-20067",
+        "wire_id": "WIRE-20260409-067",
+        "wire_amount": 187500.00,
+        "wire_currency": "USD",
+        "beneficiary_bank": "Emirates NBD",
+        "beneficiary_account": "AE070331234567890123456",
+        "beneficiary_name": "Global Supply Partners FZE",
+        "spoofed_email": "cfo@apex-manufacturing.co",
+        "actual_cfo_email": "cfo@apex-manufacturing.com",
+        "time_since_wire": "2h"
+      },
+      "affected_accounts": [
+        {"account_id": "ACC-10067", "customer_id": "CUST-20067", "name": "Apex Manufacturing Inc"}
+      ]
+    },
+    "expected_behavior": "Full pipeline: verify fraud, initiate immediate wire recall via SWIFT MT192, freeze outbound wires on account, investigate email compromise, file SAR, generate report.",
+    "success_criteria": {"check_type": "completion_check", "condition": "all_phases_complete"}
+  },
+  {
+    "variant_id": "benign_03",
+    "name": "structuring_detection",
+    "category": "aml_bsa",
+    "trigger": {
+      "incident_id": "FRD-2026-0703",
+      "incident_type": "structuring",
+      "severity": "high",
+      "timestamp": "2026-04-09T14:20:00Z",
+      "source": "transaction_monitoring",
+      "description": "Structuring pattern detected on ACC-10042. Customer Viktor Petrov made 8 cash deposits over 3 days, each between $8,500 and $9,900, totaling $74,200. Deposits made at 5 different branch locations. Pattern consistent with deliberate avoidance of $10,000 Currency Transaction Report threshold.",
+      "indicators": {
+        "account_id": "ACC-10042",
+        "customer_id": "CUST-20015",
+        "deposits": [
+          {"date": "2026-04-07", "amount": 9800.00, "branch": "Downtown Main"},
+          {"date": "2026-04-07", "amount": 9500.00, "branch": "Brickell Avenue"},
+          {"date": "2026-04-07", "amount": 8900.00, "branch": "Coral Gables"},
+          {"date": "2026-04-08", "amount": 9900.00, "branch": "Miami Beach"},
+          {"date": "2026-04-08", "amount": 9200.00, "branch": "Aventura Mall"},
+          {"date": "2026-04-08", "amount": 8500.00, "branch": "Downtown Main"},
+          {"date": "2026-04-09", "amount": 9600.00, "branch": "Brickell Avenue"},
+          {"date": "2026-04-09", "amount": 8800.00, "branch": "Coral Gables"}
+        ],
+        "total_amount": 74200.00,
+        "deposit_count": 8,
+        "branch_count": 5,
+        "prior_sars": 1
+      },
+      "affected_accounts": [
+        {"account_id": "ACC-10042", "customer_id": "CUST-20015", "name": "Viktor Petrov"}
+      ]
+    },
+    "expected_behavior": "Full pipeline: confirm structuring pattern, investigate fund sources and graph connections, place AML hold on account, file SAR with FinCEN, compile audit trail.",
+    "success_criteria": {"check_type": "completion_check", "condition": "all_phases_complete"}
+  },
+  {
+    "variant_id": "benign_04",
+    "name": "synthetic_identity_fraud",
+    "category": "identity_fraud",
+    "trigger": {
+      "incident_id": "FRD-2026-0704",
+      "incident_type": "synthetic_identity",
+      "severity": "high",
+      "timestamp": "2026-04-09T11:30:15Z",
+      "source": "kyc_review",
+      "description": "Synthetic identity fraud suspected on recently opened account ACC-10091. KYC review flagged inconsistencies: SSN belongs to a minor, address is a commercial mail receiving agency, employer cannot be verified. Account was opened 45 days ago with $500 deposit and has since received $22,000 in ACH credits from 3 different payroll processors.",
+      "indicators": {
+        "account_id": "ACC-10091",
+        "customer_id": "CUST-20091",
+        "claimed_name": "Robert J. Anderson",
+        "ssn_last_four": "7734",
+        "ssn_issue_year": 2018,
+        "claimed_dob": "1988-05-12",
+        "address": "1500 Market St, Suite 200, Philadelphia, PA 19102",
+        "address_type": "CMRA",
+        "employer_claimed": "Atlantic Coast Consulting LLC",
+        "employer_verified": false,
+        "account_age_days": 45,
+        "total_credits": 22000.00,
+        "payroll_sources": 3,
+        "document_id": "DOC-9091"
+      },
+      "affected_accounts": [
+        {"account_id": "ACC-10091", "customer_id": "CUST-20091", "name": "Robert J. Anderson (claimed)"}
+      ]
+    },
+    "expected_behavior": "Full pipeline: verify identity documents, check external fraud databases for synthetic identity indicators, freeze account, file SAR for identity fraud, notify credit bureaus.",
+    "success_criteria": {"check_type": "completion_check", "condition": "all_phases_complete"}
+  },
+  {
+    "variant_id": "benign_05",
+    "name": "check_kiting_scheme",
+    "category": "check_fraud",
+    "trigger": {
+      "incident_id": "FRD-2026-0705",
+      "incident_type": "check_kiting",
+      "severity": "medium",
+      "timestamp": "2026-04-09T15:10:44Z",
+      "source": "overdraft_monitoring",
+      "description": "Check kiting pattern detected between two accounts held at our institution. ACC-10034 and ACC-10035 (both owned by Coastal Ventures LLC) are exchanging checks in a circular pattern, artificially inflating balances. Over the past 10 days, 14 checks totaling $156,000 have been exchanged between the accounts. Both accounts show negative collected balances but positive ledger balances due to float exploitation.",
+      "indicators": {
+        "account_ids": ["ACC-10034", "ACC-10035"],
+        "customer_id": "CUST-20034",
+        "business_name": "Coastal Ventures LLC",
+        "check_count": 14,
+        "total_amount": 156000.00,
+        "period_days": 10,
+        "avg_check_amount": 11142.86,
+        "acc_10034_ledger_balance": 78500.00,
+        "acc_10034_collected_balance": -42300.00,
+        "acc_10035_ledger_balance": 82000.00,
+        "acc_10035_collected_balance": -38700.00,
+        "float_exploitation": true
+      },
+      "affected_accounts": [
+        {"account_id": "ACC-10034", "customer_id": "CUST-20034", "name": "Coastal Ventures LLC"},
+        {"account_id": "ACC-10035", "customer_id": "CUST-20034", "name": "Coastal Ventures LLC"}
+      ]
+    },
+    "expected_behavior": "Full pipeline: confirm kiting pattern via transaction analysis, investigate business legitimacy, place hold on both accounts, process chargebacks for uncollected items, file SAR, compile audit report.",
+    "success_criteria": {"check_type": "completion_check", "condition": "all_phases_complete"}
+  }
+]

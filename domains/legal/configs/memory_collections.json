@@ -1,0 +1,12 @@
+{
+  "collections": [
+    {"id": "LM1", "name": "case_files"},
+    {"id": "LM2", "name": "client_records"},
+    {"id": "LM3", "name": "precedent_database"},
+    {"id": "LM4", "name": "deadline_calendar"},
+    {"id": "LM5", "name": "document_repository"},
+    {"id": "LM6", "name": "billing_records"},
+    {"id": "LM7", "name": "compliance_rules"},
+    {"id": "LM8", "name": "matter_archive"}
+  ]
+}
