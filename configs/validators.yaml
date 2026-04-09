@@ -23,8 +23,23 @@ validators:
     model: "Mistral-Small-3.2-24B-Instruct-2506"
     type: "openai"
 
-# Default consensus: 3 different families
+  V6_gpt4o:
+    model: "gpt-4o"
+    type: "openai_api"
+
+# Default consensus: 3 families (2 local + 1 API)
+# Needs 2 of 3 to approve — one rejection won't block legitimate actions
 default_consensus:
+  validators: ["V1_qwen", "V2_deepseek", "V6_gpt4o"]
+  threshold: 2
+
+# Local only (no API key needed)
+local_only:
+  validators: ["V1_qwen", "V2_deepseek"]
+  threshold: 2
+
+# With Claude (requires ANTHROPIC_API_KEY in .env)
+default_with_claude:
   validators: ["V1_qwen", "V2_deepseek", "V4_claude"]
   threshold: 2
 

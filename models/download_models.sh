@@ -115,9 +115,21 @@ huggingface-cli download meta-llama/Llama-4-Scout-17B-16E-Instruct \
 #             write-boundary filtering (cosine similarity checks)
 #    Supports Matryoshka dimensions (32–4096), last-token pooling
 # ============================================================
-echo "[7/7] Downloading Qwen3-Embedding-8B (~16 GB)..."
+echo "[7/8] Downloading Qwen3-Embedding-8B (~16 GB)..."
 huggingface-cli download Qwen/Qwen3-Embedding-8B \
   --local-dir "$BASE_DIR/Qwen/Qwen3-Embedding-8B" \
+  --local-dir-use-symlinks False
+
+# ============================================================
+# 8. EMBEDDING MODEL (lightweight, for CPU-only operation)
+#    Qwen3-Embedding-0.6B — fast CPU inference (~1.2GB)
+#    Used when GPUs are occupied by LLM servers.
+#    Same API as 8B, lower quality but sufficient for
+#    write-boundary filtering and seed data operations.
+# ============================================================
+echo "[8/8] Downloading Qwen3-Embedding-0.6B (~1.2 GB)..."
+huggingface-cli download Qwen/Qwen3-Embedding-0.6B \
+  --local-dir "$BASE_DIR/Qwen/Qwen3-Embedding-0.6B" \
   --local-dir-use-symlinks False
 
 echo ""

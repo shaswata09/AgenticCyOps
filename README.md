@@ -125,7 +125,7 @@ python -m attacks.harness --domain legal --ap ap1_legal --config agenticcyops --
 | GPUs | 2× NVIDIA A100 80GB or equivalent |
 | RAM | 128 GB |
 | Storage | 400 GB (models) + 50 GB (experiment data) |
-| Network | Internet access for API calls (Claude Sonnet, GPT-4o) |
+| Network | Internet access for API calls (GPT-4o (consensus + TAMAS)) |
 
 With 2× A100: run Qwen3-235B-A22B only (primary agent), use API providers for validators.
 
@@ -170,13 +170,14 @@ GPU 5 ─┘
 | Llama-4-Scout-17B-16E-Instruct | Validator V3 | Meta | ~202 GB | `meta-llama/Llama-4-Scout-17B-16E-Instruct` |
 | Mistral-Small-3.2-24B-Instruct | Validator V5 (optional) | Mistral | ~89 GB | `mistralai/Mistral-Small-3.2-24B-Instruct-2506` |
 | Qwen3-Embedding-8B | Embedding (ChromaDB) | Qwen (Alibaba) | ~1.2 GB | `Qwen/Qwen3-Embedding-8B` |
+| Qwen3-Embedding-0.6B | Embedding (fast/CPU) | Qwen (Alibaba) | ~1.2 GB | `Qwen/Qwen3-Embedding-0.6B` |
 
 ### Proprietary Models (API only)
 
 | Model | Role | Estimated Cost |
 |-------|------|---------------|
-| Claude Sonnet | Validator V4 | ~$20 |
-| GPT-4o | TAMAS baseline | ~$50 |
+| Claude Sonnet | Validator V4 (optional) | ~$20 (not required) |
+| GPT-4o | Validator V6 + TAMAS baseline | ~$50 |
 
 **Total API budget: ~$70**
 
@@ -199,7 +200,8 @@ chmod +x install.sh
 
 # 4. Configure API keys
 cp .env.example .env
-# Edit .env with your ANTHROPIC_API_KEY, OPENAI_API_KEY, HF_TOKEN
+# ANTHROPIC_API_KEY=sk-ant-xxx  # Optional — not needed for default consensus
+# Edit .env with your OPENAI_API_KEY, HF_TOKEN
 
 # 5. Download models (~1.5 TB total, takes several hours)
 cd /path/to/model/storage
@@ -303,7 +305,7 @@ Or start individually (see [GPU Assignment](#gpu-assignment-6-h200-configuration
 # Initialize all domains
 for domain in cyberops healthcare finance legal; do
   python -m memory.chromadb_setup --domain $domain \
-    --embedding-model <PROJECT_ROOT>/models/Qwen/Qwen3-Embedding-8B
+    --embedding-model <PROJECT_ROOT>/models/Qwen/Qwen3-Embedding-0.6B  # 0.6B is the default (CPU)
   python -m memory.seed_data --domain $domain
 done
 ```
@@ -336,6 +338,8 @@ agenticcyops-experiments/
 ├── start_servers.sh                  # Interactive vLLM server launcher
 ├── monitor.sh                        # Live system monitor
 ├── gpu_monitor.sh                    # nvidia-smi loop
+├── scripts/                          # Experiment runner scripts
+│   └── run_baseline.sh              # Full baseline verification (Phase 2)
 ├── README.md                         # This file
 ├── experiment_plan.md                # Full evaluation protocol
 ├── task_checklist.md                 # 10-day execution checklist
@@ -351,8 +355,10 @@ agenticcyops-experiments/
 │   │   ├── llama4_scout.py
 │   │   ├── claude_sonnet.py
 │   │   ├── gpt4o.py
-│   │   └── qwen3_embedding.py
+│   │   ├── qwen3_embedding.py
+│   │   └── qwen3_embedding_small.py    # Lightweight 0.6B embedding (CPU)
 │   ├── test_scripts/                 # Per-model test notebooks
+│   │   ├── test_qwen3_embedding_small.ipynb
 │   └── (model weight directories, gitignored)
 │
 ├── domains/                          # Domain-specific configs
@@ -415,6 +421,7 @@ agenticcyops-experiments/
 ├── host/                             # SOAR Host orchestrator (DOMAIN-AGNOSTIC)
 │   ├── orchestrator.py               # LangGraph CoT + phase routing
 │   ├── manifest_enforcer.py          # Reads manifests from domains/{domain}/configs/
+│   ├── acl_middleware.py            # HTTP-level ACL for acl_hardened config
 │   └── handoff.py
 │
 ├── agents/                           # Phase agents (DOMAIN-AGNOSTIC)
@@ -429,7 +436,7 @@ agenticcyops-experiments/
 │   ├── seed_data.py
 │   ├── mma_gateway.py                # Reads access_policy from domains/{domain}/configs/
 │   ├── access_control.py
-│   └── write_filter.py               # Cosine similarity via Qwen3-Embedding-8B
+│   └── write_filter.py               # Cosine similarity via Qwen3-Embedding-0.6B (CPU default)
 │
 ├── consensus/                        # Consensus module (DOMAIN-AGNOSTIC)
 │   ├── validator.py
@@ -472,12 +479,16 @@ agenticcyops-experiments/
 │       └── no_p5.yaml
 │
 ├── analysis/
-│   ├── parse_logs.py
-│   ├── compute_metrics.py
-│   ├── statistical_tests.py          # Includes chi-squared homogeneity for cross-domain
-│   ├── generate_tables.py            # Generates R1–R11
-│   ├── generate_figures.py           # Includes cross-domain comparison charts
-│   └── results_explorer.ipynb
+│   ├── __init__.py
+│   ├── verify_baseline.py        # CLI pass/fail readiness gate
+│   ├── baseline_dashboard.py     # Seaborn charts + CSV
+│   ├── generate_report.py        # 9-page PDF report
+│   ├── visualize_pipeline.py     # Pipeline flow diagram
+│   ├── parse_logs.py             # Log parsing utilities
+│   ├── compute_metrics.py        # Metrics computation
+│   ├── statistical_tests.py      # McNemar's, chi-squared, CIs
+│   ├── generate_tables.py        # R1-R11 result tables
+│   └── generate_figures.py       # Publication figures
 │
 ├── logs/                             # (gitignored)
 │   ├── vllm/
@@ -773,7 +784,7 @@ jupyter notebook analysis/results_explorer.ipynb
 | Skip adapter domains | No cross-domain proof | Skip `--domain healthcare/finance/legal` |
 | Skip GLM-4.7 | No model-independence | Skip diversity runs |
 | Skip TAMAS | No independent benchmark | Skip `benchmarks/tamas/` |
-| API validators only | No local V1-V3 | Set all to Claude in `validators.yaml` |
+| API validators only | No local V1-V3 | Set all to GPT-4o in `validators.yaml` |
 | 2-GPU setup | Single model only | Use API providers for everything else |
 
 Minimum viable: CyberOps Eval A (AP-1–4) + Eval B + Ablation = ~500 runs, single model.
@@ -787,7 +798,7 @@ Minimum viable: CyberOps Eval A (AP-1–4) + Eval B + Ablation = ~500 runs, sing
 | vLLM OOM | Reduce `--gpu-memory-utilization` or run validators sequentially |
 | DeepSeek-R1 load error | Requires vLLM nightly |
 | GLM-4.7 FP8 error | Verify vLLM nightly supports FP8; check model path |
-| Claude rate limit | Tenacity retry built in; fallback to all-local validators |
+| GPT-4o rate limit | Tenacity retry built in; or fallback to local_only consensus config |
 | ChromaDB slow | Run embedding on GPU: `CUDA_VISIBLE_DEVICES=3 python -m memory.chromadb_setup` |
 | TAMAS conflicts | Run in separate virtualenv |
 | Domain adapter fails | Verify manifests load: `python -m host.manifest_enforcer --domain healthcare --test` |

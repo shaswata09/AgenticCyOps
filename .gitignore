@@ -216,6 +216,9 @@ results/
 __pycache__/
 *.pyc
 
+# ChromaDB persistent storage
+data/
+
 # Model weights (keep scripts, utils, and tests)
 models/*
 !models/download_models.sh

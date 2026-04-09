@@ -170,13 +170,16 @@ class SOARHost:
                     )
                 return {"status": "escalated", "tool_id": tool_id, "reason": "bulk_action_threshold"}
 
-        # Execute tool
+        # Execute tool with latency tracking
+        import time as _time
+        _t0 = _time.perf_counter()
         if self.tool_registry:
             response = await self.tool_registry.call_tool(
                 tool_id, tc.arguments, source=f"{phase}_agent"
             )
         else:
             response = {"status": "no_registry", "tool_id": tool_id}
+        _latency = (_time.perf_counter() - _t0) * 1000
 
         if self.logger:
             self.logger.log_tool_call(
@@ -184,6 +187,7 @@ class SOARHost:
                 tool=tool_id,
                 auth_decision="allow",
                 mechanism="P2_capability_scoping" if self.config != "flat" else "none",
+                latency_ms=_latency,
             )
 
         return response

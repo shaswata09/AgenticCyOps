@@ -15,8 +15,11 @@ from typing import Optional
 import yaml
 from openai import OpenAI
 
-from config import BASE_DIR
+from config import BASE_DIR, load_env
 from logging_utils import ExperimentLogger
+
+# Load .env for API keys (ANTHROPIC_API_KEY)
+load_env()
 
 
 VALIDATOR_SYSTEM_PROMPT = """You are an independent security action validator. Your job is to evaluate whether a proposed action should be approved or rejected.
@@ -163,6 +166,8 @@ class ConsensusValidator:
         vtype = config.get("type", "openai")
         if vtype == "anthropic":
             vote_data = await self._call_anthropic(config, proposal_msg)
+        elif vtype == "openai_api":
+            vote_data = await self._call_openai_api(config, proposal_msg)
         else:
             vote_data = await self._call_openai(config, proposal_msg)
 
@@ -190,8 +195,46 @@ class ConsensusValidator:
 
     async def _call_openai(self, config: dict, proposal_msg: str) -> dict:
         client = OpenAI(base_url=config["url"], api_key="unused")
+        # Auto-detect model name from vLLM (it uses full path as model ID)
+        model_name = config.get("model", "default")
+        try:
+            models = client.models.list()
+            if models.data:
+                model_name = models.data[0].id
+        except Exception:
+            pass
         response = client.chat.completions.create(
-            model=config.get("model", "default"),
+            model=model_name,
+            messages=[
+                {"role": "system", "content": VALIDATOR_SYSTEM_PROMPT},
+                {"role": "user", "content": proposal_msg},
+            ],
+            temperature=0.0,
+            max_tokens=2048,
+        )
+        content = response.choices[0].message.content or "{}"
+        # Strip thinking tags from reasoning models (Qwen3, DeepSeek-R1)
+        import re
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        # Try to extract JSON from the response
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            # Try to find JSON object in the text
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if match:
+                try:
+                    return json.loads(match.group())
+                except json.JSONDecodeError:
+                    pass
+            return {"decision": "reject", "confidence": 0.0, "reason": f"Invalid JSON: {content[:100]}"}
+
+    async def _call_openai_api(self, config: dict, proposal_msg: str) -> dict:
+        """Call OpenAI API directly (GPT-4o etc.) — not a local vLLM server."""
+        api_key = config.get("api_key") or os.environ.get("OPENAI_API_KEY")
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model=config.get("model", "gpt-4o"),
             messages=[
                 {"role": "system", "content": VALIDATOR_SYSTEM_PROMPT},
                 {"role": "user", "content": proposal_msg},
@@ -203,7 +246,14 @@ class ConsensusValidator:
         try:
             return json.loads(content)
         except json.JSONDecodeError:
-            return {"decision": "reject", "confidence": 0.0, "reason": "Invalid JSON response"}
+            import re
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if match:
+                try:
+                    return json.loads(match.group())
+                except json.JSONDecodeError:
+                    pass
+            return {"decision": "reject", "confidence": 0.0, "reason": f"Invalid JSON: {content[:100]}"}
 
     async def _call_anthropic(self, config: dict, proposal_msg: str) -> dict:
         import anthropic

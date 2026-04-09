@@ -4,7 +4,7 @@
 > **Team:** 3 researchers (A, B, C) working in parallel.  
 > **Priority:** Eval A (CyberOps depth) > Eval F (multi-domain) > Eval D (TAMAS) > B > Ablation + Validator Diversity > E > C  
 > **Hardware:** 6× H200, all BF16 (GLM-4.7-FP8 uses official FP8 weights from zai-org/GLM-4.7-FP8)  
-> **API Budget:** ~$70 (GPT-4o ~$50, Claude Sonnet ~$20)  
+> **API Budget:** ~$50 (GPT-4o ~$50 for TAMAS + consensus validation)  
 > **Target:** ~1,900 instrumented runs, 4 domains, 6 attack paths, 3 configs, 7 model families, zero framework code changes across domains
 
 ---
@@ -18,9 +18,11 @@
 | Validator V1 | Qwen3-32B | Qwen | 2 | 8002 |
 | Validator V2 | DeepSeek-R1-Distill-Qwen-32B | DeepSeek | 3 | 8005 |
 | Validator V3 | Llama-4-Scout-17B-16E | Meta | 4,5 TP=2 | 8004 |
-| Validator V4 | Claude Sonnet | Anthropic | API | — |
+| Validator V4 | Claude Sonnet (optional, needs ANTHROPIC_API_KEY) | Anthropic | API | — |
 | Validator V5 (optional) | Mistral-Small-3.2-24B | Mistral | 3 (swap with V2) | 8003 |
+| Validator V6 (default) | GPT-4o | OpenAI | API | — |
 | Embedding | Qwen3-Embedding-8B | Qwen | CPU/GPU | — |
+| Embedding (fast/CPU) | Qwen3-Embedding-0.6B | Qwen | CPU | — |
 | TAMAS baseline | GPT-4o | OpenAI | API | — |
 
 ---
@@ -30,7 +32,7 @@
 ### 0.1 Environment
 - [x] GitHub repo created
 - [x] Conda env `agenticcyops` active, `./install.sh` complete
-- [x] `.env` configured (ANTHROPIC_API_KEY, OPENAI_API_KEY, HF_TOKEN)
+- [x] `.env` configured (OPENAI_API_KEY, HF_TOKEN; ANTHROPIC_API_KEY optional)
 - [x] All local models verified in `/models/`
 - [x] Structured JSON logger ready (`logging_utils/json_logger.py`)
   - Includes `domain` field in every event (cyberops, healthcare, finance, legal)
@@ -42,7 +44,7 @@
 - [x] V2 DeepSeek-R1 (GPU 3, port 8005) — tested, works
 - [x] V3 Llama-4-Scout (GPU 4,5 TP=2, port 8004) — tested, works with `--enforce-eager`
 - [x] V5 Mistral-Small (GPU 3 swap, port 8003) — tested, works
-- [x] V4 Claude Sonnet — API, always available
+- [ ] V4 Claude Sonnet — API (optional, no key configured)
 - [x] `start_servers.sh` created with interactive group selection (7 groups: A-G)
 - [x] `monitor.sh` created (live GPU/CPU/RAM/server dashboard)
 - [x] FlashInfer disabled (CUTLASS JIT broken on H200) — renamed flashinfer package
@@ -50,7 +52,9 @@
 
 ### 0.3 Project Structure
 - [x] Core (domain-agnostic): host/, agents/, consensus/, attacks/, analysis/, mcp_servers/, tests/
-- [x] `models/` — utils (10 files), test_scripts (9 notebooks), download_models.sh
+  - `host/acl_middleware.py` — HTTP-level ACL for acl_hardened config
+- [x] `scripts/` — run_baseline.sh
+- [x] `models/` — utils (11 files), test_scripts (11 notebooks), download_models.sh
 - [x] `logging_utils/` — json_logger.py with ExperimentLogger
 - [x] `memory/` — embedding_adapter.py + placeholders (chromadb_setup, mma_gateway, write_filter, access_control, seed_data)
 - [x] `config.py` — project base path (no hardcoded paths)
@@ -104,7 +108,7 @@
   - P5 (AccessController) + P4 (WriteFilter) enforcement
   - Returns 403 for access denied, 422 for write filter rejection
 - [x] `memory/access_control.py`: AccessController with can_read/can_write
-- [x] `memory/write_filter.py`: cosine similarity via Qwen3-Embedding-8B
+- [x] `memory/write_filter.py`: cosine similarity, defaults to Qwen3-Embedding-0.6B on CPU
 - [x] `memory/embedding_adapter.py`: ChromaEmbeddingAdapter (ChromaDB 1.5.7 compatible)
 - [x] `domains/cyberops/configs/memory_collections.json`: 12 collections M1-M12
 - [x] `domains/cyberops/configs/access_policy.json`: phase-partitioned permissions
@@ -143,7 +147,7 @@
 - [x] `consensus/recovery_loop.py`: RecoveryLoop (Admin phase, bulk action detection)
 - [x] `consensus/improvement_loop.py`: ImprovementLoop (Report phase memory writes)
 - [x] `consensus/escalation.py`: EscalationHandler (auto-reject in testbed, logs escalation)
-- [x] `configs/validators.yaml`: V1-V5 + default_consensus(V1+V2+V4,t=2) + same_family + all_local_diverse
+- [x] `configs/validators.yaml`: V1-V5 + default_consensus(V1+V2+V6_gpt4o,t=2) + same_family + all_local_diverse
 - [x] Per-validator decision, latency, tokens logged via ExperimentLogger
 
 ---
@@ -151,28 +155,29 @@
 ## Phase 2: CyberOps Configs + Baseline Verification (Day 3)
 
 ### 2.1 Flat MAS — **A**
-- [ ] All agents → all tools, all stores, peer-to-peer
-- [ ] Verify: Monitor calls T8 ✓, any agent writes any store ✓
-- [ ] Run 1 benign incident E2E → completes ✓
+- [x] All agents → all tools, all stores, peer-to-peer
+- [x] Verify: Monitor calls T8 ✓, any agent writes any store ✓
+- [x] Run 1 benign incident E2E → completes ✓
 
 ### 2.2 ACL-Hardened — **B**
-- [ ] Phase restrictions, no consensus/manifests/MMA/filtering
-- [ ] Verify: Monitor → T8 returns 403 ✓
-- [ ] Verify: Monitor → assigned stores accessible without filtering ✓
-- [ ] Run 1 benign incident E2E → completes ✓ (ACLs don't break legitimate flow)
+- [x] Phase restrictions, no consensus/manifests/MMA/filtering
+- [x] Verify: Monitor → T8 returns 403 ✓
+- [x] Verify: Monitor → assigned stores accessible without filtering ✓
+- [x] Run 1 benign incident E2E → completes ✓ (ACLs don't break legitimate flow)
 
 ### 2.3 AgenticCyOps — **C**
-- [ ] Full: Host + manifests + consensus + MMA
-- [ ] Verify: all 5 principles logging ✓
-- [ ] Verify: consensus approves legitimate Admin action ✓
-- [ ] Verify: write-filter accepts legitimate memory write ✓
-- [ ] Run 1 benign incident E2E → completes with zero false blocks ✓
+- [x] Full: Host + manifests + consensus + MMA
+- [x] Verify: all 5 principles logging ✓
+- [x] Verify: consensus approves legitimate Admin action ✓
+- [x] Verify: write-filter accepts legitimate memory write ✓
+- [x] Run 1 benign incident E2E → completes with zero false blocks ✓
+- [x] P4/P5: N/A (no memory ops in benign)
 
 ### 2.4 CyberOps Baseline Status
-- [ ] Flat MAS benign E2E: ☐ PASS
-- [ ] ACL-Hardened benign E2E: ☐ PASS
-- [ ] AgenticCyOps benign E2E: ☐ PASS
-- [ ] **CyberOps ready for attacks: ☐**
+- [x] Flat MAS benign E2E: ✓ PASS
+- [x] ACL-Hardened benign E2E: ✓ PASS
+- [x] AgenticCyOps benign E2E: ✓ PASS
+- [x] **CyberOps ready for attacks: ✓**
 
 ---
 
@@ -267,7 +272,7 @@
 
 | Domain | Flat MAS E2E | ACL-Hardened E2E | AgenticCyOps E2E | Ready |
 |--------|-------------|-----------------|-----------------|-------|
-| CyberOps | ☐ PASS | ☐ PASS | ☐ PASS | ☐ |
+| CyberOps | ✓ PASS | ✓ PASS | ✓ PASS | ✓ |
 | Healthcare | ☐ PASS | ☐ PASS | ☐ PASS | ☐ |
 | Finance | ☐ PASS | ☐ PASS | ☐ PASS | ☐ |
 | Legal | ☐ PASS | ☐ PASS | ☐ PASS | ☐ |

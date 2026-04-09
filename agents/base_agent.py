@@ -40,6 +40,9 @@ class AgentResult:
     summary: str = ""
     memory_reads: list[dict] = field(default_factory=list)
     memory_writes: list[dict] = field(default_factory=list)
+    latency_ms: float = 0.0
+    tokens_prompt: int = 0
+    tokens_completion: int = 0
 
     def to_dict(self) -> dict:
         return {
@@ -50,6 +53,9 @@ class AgentResult:
             "summary": self.summary,
             "memory_reads": self.memory_reads,
             "memory_writes": self.memory_writes,
+            "latency_ms": self.latency_ms,
+            "tokens_prompt": self.tokens_prompt,
+            "tokens_completion": self.tokens_completion,
         }
 
 
@@ -137,6 +143,7 @@ class BaseAgent:
 
     async def execute(self, context: dict) -> AgentResult:
         """Reason about the task and propose tool calls."""
+        import time
         self._detect_model()
 
         user_message = self._format_context(context)
@@ -155,9 +162,39 @@ class BaseAgent:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = "auto"
 
+        start = time.perf_counter()
         response = self._client.chat.completions.create(**kwargs)
+        latency_ms = (time.perf_counter() - start) * 1000
 
-        return self._parse_response(response)
+        # Extract token usage
+        tokens_prompt = 0
+        tokens_completion = 0
+        if response.usage:
+            tokens_prompt = response.usage.prompt_tokens or 0
+            tokens_completion = response.usage.completion_tokens or 0
+
+        # Log the LLM call
+        if self.logger:
+            self.logger.log(
+                source=f"{self.phase}_agent",
+                destination="llm",
+                action="llm_call",
+                auth_decision="allow",
+                latency_ms=latency_ms,
+                tokens_prompt=tokens_prompt,
+                tokens_completion=tokens_completion,
+                extra={
+                    "model": self._model_name,
+                    "tools_visible": len(tools) if tools else 0,
+                    "config": self.config,
+                },
+            )
+
+        result = self._parse_response(response)
+        result.latency_ms = latency_ms
+        result.tokens_prompt = tokens_prompt
+        result.tokens_completion = tokens_completion
+        return result
 
     def _parse_response(self, response) -> AgentResult:
         """Parse LLM response into AgentResult."""

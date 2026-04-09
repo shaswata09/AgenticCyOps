@@ -37,7 +37,7 @@ class WriteFilter:
 
     def __init__(
         self,
-        embedding_model_path: str,
+        embedding_model_path: str = None,
         similarity_threshold: float = 0.5,
     ):
         """
@@ -45,7 +45,10 @@ class WriteFilter:
             embedding_model_path: Path to a SentenceTransformer-compatible model.
             similarity_threshold: Minimum cosine similarity for a write to pass.
         """
-        self._model = SentenceTransformer(embedding_model_path)
+        if embedding_model_path is None:
+            from config import BASE_DIR
+            embedding_model_path = str(BASE_DIR / "models" / "Qwen" / "Qwen3-Embedding-0.6B")
+        self._model = SentenceTransformer(embedding_model_path, device="cpu")
         self._threshold = similarity_threshold
 
     @property

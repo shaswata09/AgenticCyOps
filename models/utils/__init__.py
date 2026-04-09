@@ -7,3 +7,4 @@ from .llama4_scout import Llama4Scout
 from .claude_sonnet import ClaudeSonnet
 from .gpt4o import GPT4o
 from .qwen3_embedding import Qwen3Embedding
+from .qwen3_embedding_small import Qwen3EmbeddingSmall

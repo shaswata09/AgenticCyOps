@@ -52,10 +52,10 @@ def build_embedding_adapter(model_path: str | Path) -> ChromaEmbeddingAdapter:
     Returns:
         ChromaEmbeddingAdapter ready for use with ChromaDB collections.
     """
-    model = SentenceTransformer(str(model_path))
+    model = SentenceTransformer(str(model_path), device="cpu")
 
     def encode_fn(texts: list[str], normalize: bool = True) -> "np.ndarray":
-        return model.encode(texts, normalize_embeddings=normalize)
+        return model.encode(texts, normalize_embeddings=normalize, device="cpu")
 
     adapter = ChromaEmbeddingAdapter(
         encode_fn=encode_fn,
@@ -82,7 +82,8 @@ def setup_collections(
         Dict mapping collection ID (e.g. "M1") to chromadb.Collection.
     """
     if model_path is None:
-        model_path = BASE_DIR / "models" / "Qwen" / "Qwen3-Embedding-8B"
+        # Default to 0.6B for CPU speed; use --model-path for 8B on GPU
+        model_path = BASE_DIR / "models" / "Qwen" / "Qwen3-Embedding-0.6B"
 
     db_path = Path(db_path) / domain
     db_path.mkdir(parents=True, exist_ok=True)

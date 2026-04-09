@@ -28,9 +28,11 @@ These three configurations are applied identically across all domains. The Host 
 | Validator V1 | Qwen3-32B | Qwen (Alibaba) | 2 | 8002 |
 | Validator V2 | DeepSeek-R1-Distill-Qwen-32B | DeepSeek | 3 | 8005 |
 | Validator V3 | Llama-4-Scout-17B-16E | Meta | 4,5 TP=2 | 8004 |
-| Validator V4 | Claude Sonnet | Anthropic | API | — |
+| Validator V4 (optional, needs API key) | Claude Sonnet | Anthropic | API | — |
 | Validator V5 (optional) | Mistral-Small-3.2-24B | Mistral | 3 (swap with V2) | 8003 |
 | Embedding (ChromaDB) | Qwen3-Embedding-8B | Qwen (Alibaba) | CPU/GPU | — |
+| Embedding (fast/CPU) | Qwen3-Embedding-0.6B | Qwen (Alibaba) | CPU | — |
+| Validator V6 (default consensus) | GPT-4o | OpenAI | API | — |
 | TAMAS baseline | GPT-4o | OpenAI | API | — |
 
 **7 model families total:** Qwen, GLM, DeepSeek, Meta, Mistral, Anthropic, OpenAI. Temperature 0.0 for reproducibility.
@@ -179,7 +181,7 @@ Before any attack runs, each domain must pass benign end-to-end workflows in all
 
 | Domain | Flat ✓ | ACL ✓ | AgenticCyOps ✓ | Ready |
 |--------|--------|-------|----------------|-------|
-| CyberOps | ☐ | ☐ | ☐ | ☐ |
+| CyberOps | ☑ | ☑ | ☑ | ☑ |
 | Healthcare | ☐ | ☐ | ☐ | ☐ |
 | Finance | ☐ | ☐ | ☐ | ☐ |
 | Legal | ☐ | ☐ | ☐ | ☐ |
@@ -382,7 +384,7 @@ Cross-domain ablation spot check: Run P2 ablation on Finance AP-1 analogue (30 r
 | Config | Validators | Families | Trials (AP-1) |
 |--------|-----------|----------|---------------|
 | Same-family | 3× Qwen3-32B | 1 | 30 |
-| Default diverse | Qwen3-32B + DeepSeek-R1 + Claude | 3 | 30 |
+| Default diverse | Qwen3-32B + DeepSeek-R1 + GPT-4o | 3 | 30 |
 | All-local diverse | Qwen3-32B + DeepSeek-R1 + Llama-4-Scout | 3 | 30 |
 
 **Total: 90 runs**
