@@ -24,12 +24,12 @@ These three configurations are applied identically across all domains. The Host 
 | Role | Model | Family | GPU | Port |
 |------|-------|--------|-----|------|
 | Primary agents + Host | Qwen3-235B-A22B-Instruct | Qwen (Alibaba) | 0,1,4,5 TP=4 | 8000 |
-| Diversity agents | GLM-4.7 | GLM (Zhipu) | 0,1,4,5 TP=4 FP8 (swap) | 8001 |
+| Diversity agents | GLM-4.7-FP8 | GLM (Zhipu) | 0,1,4,5 TP=4 FP8 (swap) | 8001 |
 | Validator V1 | Qwen3-32B | Qwen (Alibaba) | 2 | 8002 |
-| Validator V2 | DeepSeek-R1-Distill-Qwen-32B | DeepSeek | 2 (swap with V1) | 8005 |
+| Validator V2 | DeepSeek-R1-Distill-Qwen-32B | DeepSeek | 3 | 8005 |
 | Validator V3 | Llama-4-Scout-17B-16E | Meta | 4,5 TP=2 | 8004 |
 | Validator V4 | Claude Sonnet | Anthropic | API | — |
-| Validator V5 (optional) | Mistral-Small-3.2-24B | Mistral | 3 | 8003 |
+| Validator V5 (optional) | Mistral-Small-3.2-24B | Mistral | 3 (swap with V2) | 8003 |
 | Embedding (ChromaDB) | Qwen3-Embedding-8B | Qwen (Alibaba) | CPU/GPU | — |
 | TAMAS baseline | GPT-4o | OpenAI | API | — |
 

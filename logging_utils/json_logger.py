@@ -107,19 +107,22 @@ class ExperimentLogger:
     def __init__(
         self,
         eval_name: str = "eval_a",
+        domain: str = "cyberops",
         config: str = "agenticcyops",
         model: str = "Qwen3-235B-A22B-Instruct-2507",
         logs_dir: Optional[str] = None,
     ):
         """
         Args:
-            eval_name: Evaluation identifier ("eval_a", "eval_c", "ablation", etc.).
+            eval_name: Evaluation identifier ("eval_a", "eval_f", "ablation", etc.).
                        Determines the subdirectory under logs/.
+            domain: Domain identifier ("cyberops", "healthcare", "finance", "legal").
             config: System configuration ("flat", "acl_hardened", "agenticcyops").
             model: Primary model used for this run.
             logs_dir: Override base logs directory. Defaults to project logs/.
         """
         self.config = config
+        self.domain = domain
         self.model = model
         self.eval_name = eval_name
 
@@ -171,7 +174,7 @@ class ExperimentLogger:
         self._ap = ap
         self._variant = variant
         self._trial_num = trial
-        self._trial_id = f"{ap}_v{variant}_t{trial}_{self.config}"
+        self._trial_id = f"{self.domain}_{ap}_v{variant}_t{trial}_{self.config}"
 
     def set_trial_id(self, trial_id: str):
         """Set trial_id directly for custom naming."""
@@ -223,6 +226,7 @@ class ExperimentLogger:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "trial_id": self._trial_id,
             "eval": self.eval_name,
+            "domain": self.domain,
             "config": self.config,
             "model": self.model,
             "source": source,
@@ -508,8 +512,8 @@ def log_event(**kwargs):
     _default_logger.log(**kwargs)
 
 
-def init_logger(eval_name: str, config: str, model: str, **kwargs) -> ExperimentLogger:
+def init_logger(eval_name: str, domain: str, config: str, model: str, **kwargs) -> ExperimentLogger:
     """Initialize and return the module-level default logger."""
     global _default_logger
-    _default_logger = ExperimentLogger(eval_name=eval_name, config=config, model=model, **kwargs)
+    _default_logger = ExperimentLogger(eval_name=eval_name, domain=domain, config=config, model=model, **kwargs)
     return _default_logger

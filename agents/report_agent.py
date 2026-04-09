@@ -1,1 +1,8 @@
-"""TODO: Phase 1 implementation."""
+"""Reporting/Improvement phase agent. Thin wrapper around BaseAgent."""
+
+from agents.base_agent import BaseAgent
+
+
+class ReportAgent(BaseAgent):
+    def __init__(self, domain: str, **kwargs):
+        super().__init__(phase="report", domain=domain, **kwargs)

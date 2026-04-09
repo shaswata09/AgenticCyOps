@@ -142,14 +142,14 @@ With 2× A100: run Qwen3-235B-A22B only (primary agent), use API providers for v
 
 ```
 GPU 0 ─┐
-GPU 1 ─┤ TP=4 ── Qwen3-235B-A22B-Instruct-2507  (Primary agents + Host, Port 8000)
-GPU 4 ─┤          GLM-4.7 FP8                     (Diversity agents, Port 8001; swap with Primary)
+GPU 1 ─┤ TP=4 ── Qwen3-235B-A22B-Instruct-2507  (Primary, Port 8000)
+GPU 4 ─┤          GLM-4.7-FP8                     (Diversity, Port 8001; swap with Primary)
 GPU 5 ─┘
 
 GPU 2 ──────────── Qwen3-32B                      (Validator V1, Port 8002)
-                   DeepSeek-R1-Distill-Qwen-32B    (Validator V2, Port 8005; swap with V1)
 
-GPU 3 ──────────── Mistral-Small-3.2-24B           (Validator V5 optional, Port 8003)
+GPU 3 ──────────── DeepSeek-R1-Distill-Qwen-32B   (Validator V2, Port 8005)
+                   Mistral-Small-3.2-24B           (Validator V5 optional, Port 8003; swap with V2)
 
 GPU 4 ─┐ TP=2 ── Llama-4-Scout-17B-16E            (Validator V3, Port 8004)
 GPU 5 ─┘
@@ -164,12 +164,12 @@ GPU 5 ─┘
 | Model | Role | Family | Size | HuggingFace Repo |
 |-------|------|--------|------|-------------------|
 | Qwen3-235B-A22B-Instruct-2507 | Primary agents + Host | Qwen (Alibaba) | ~438 GB | `Qwen/Qwen3-235B-A22B-Instruct-2507` |
-| GLM-4.7 | Diversity agents | GLM (Zhipu) | ~668 GB | `zai-org/GLM-4.7` |
+| GLM-4.7-FP8 | Diversity agents | GLM (Zhipu) | ~334 GB | `zai-org/GLM-4.7-FP8` |
 | Qwen3-32B | Validator V1 | Qwen (Alibaba) | ~61 GB | `Qwen/Qwen3-32B` |
 | DeepSeek-R1-Distill-Qwen-32B | Validator V2 | DeepSeek | ~64 GB | `deepseek-ai/DeepSeek-R1-Distill-Qwen-32B` |
 | Llama-4-Scout-17B-16E-Instruct | Validator V3 | Meta | ~202 GB | `meta-llama/Llama-4-Scout-17B-16E-Instruct` |
 | Mistral-Small-3.2-24B-Instruct | Validator V5 (optional) | Mistral | ~89 GB | `mistralai/Mistral-Small-3.2-24B-Instruct-2506` |
-| Qwen3-Embedding-0.6B | Embedding (ChromaDB) | Qwen (Alibaba) | ~1.2 GB | `Qwen/Qwen3-Embedding-0.6B` |
+| Qwen3-Embedding-8B | Embedding (ChromaDB) | Qwen (Alibaba) | ~1.2 GB | `Qwen/Qwen3-Embedding-8B` |
 
 ### Proprietary Models (API only)
 
@@ -295,7 +295,7 @@ chmod +x start_servers.sh
 
 Or start individually (see [GPU Assignment](#gpu-assignment-6-h200-configuration) for port/GPU mapping).
 
-**Note:** Primary and GLM-4.7 diversity share GPU 0,1,4,5 (swap — only one runs at a time). V1 and V2 share GPU 2 (swap).
+**Note:** Primary and GLM-4.7-FP8 diversity share GPU 0,1,4,5 (swap — only one runs at a time). V1 is on GPU 2, V2 is on GPU 3 (run simultaneously). V5 Mistral swaps with V2 on GPU 3.
 
 ### Step 6: Initialize Memory Layer
 
@@ -368,7 +368,7 @@ agenticcyops-experiments/
 │   │   │   ├── analyze/             # T5–T7
 │   │   │   ├── admin/               # T8–T12
 │   │   │   └── report/              # T13–T16
-│   │   ├── seed_data/               # 12 collection seeds (30-50 entries each)
+│   │   ├── seed_data/               # 12 collection seeds (760 entries total, 50-100 each)
 │   │   ├── prompts/                 # 4 agent system prompts
 │   │   └── payloads/                # 6 APs × 5 variants + benign
 │   │       ├── ap1_variants.json
@@ -429,7 +429,7 @@ agenticcyops-experiments/
 │   ├── seed_data.py
 │   ├── mma_gateway.py                # Reads access_policy from domains/{domain}/configs/
 │   ├── access_control.py
-│   └── write_filter.py               # Cosine similarity via Qwen3-Embedding-0.6B
+│   └── write_filter.py               # Cosine similarity via Qwen3-Embedding-8B
 │
 ├── consensus/                        # Consensus module (DOMAIN-AGNOSTIC)
 │   ├── validator.py

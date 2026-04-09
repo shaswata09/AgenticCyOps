@@ -3,7 +3,7 @@
 > **Goal:** Empirical results across 4 enterprise domains + TAMAS for CAIS 2026 rebuttal.  
 > **Team:** 3 researchers (A, B, C) working in parallel.  
 > **Priority:** Eval A (CyberOps depth) > Eval F (multi-domain) > Eval D (TAMAS) > B > Ablation + Validator Diversity > E > C  
-> **Hardware:** 6× H200, all BF16 (GLM-4.7 uses FP8 quantization)  
+> **Hardware:** 6× H200, all BF16 (GLM-4.7-FP8 uses official FP8 weights from zai-org/GLM-4.7-FP8)  
 > **API Budget:** ~$70 (GPT-4o ~$50, Claude Sonnet ~$20)  
 > **Target:** ~1,900 instrumented runs, 4 domains, 6 attack paths, 3 configs, 7 model families, zero framework code changes across domains
 
@@ -14,13 +14,13 @@
 | Role | Model | Family | GPU | Port |
 |------|-------|--------|-----|------|
 | Primary agents + Host | Qwen3-235B-A22B-Instruct-2507 | Qwen | 0,1,4,5 TP=4 | 8000 |
-| Diversity agents | GLM-4.7 | GLM (Zhipu) | 0,1,4,5 TP=4 FP8 (swap with Primary) | 8001 |
+| Diversity agents | GLM-4.7-FP8 | GLM (Zhipu) | 0,1,4,5 TP=4 FP8 (swap with Primary) | 8001 |
 | Validator V1 | Qwen3-32B | Qwen | 2 | 8002 |
-| Validator V2 | DeepSeek-R1-Distill-Qwen-32B | DeepSeek | 2 (swap with V1) | 8005 |
+| Validator V2 | DeepSeek-R1-Distill-Qwen-32B | DeepSeek | 3 | 8005 |
 | Validator V3 | Llama-4-Scout-17B-16E | Meta | 4,5 TP=2 | 8004 |
 | Validator V4 | Claude Sonnet | Anthropic | API | — |
-| Validator V5 (optional) | Mistral-Small-3.2-24B | Mistral | 3 | 8003 |
-| Embedding | Qwen3-Embedding-0.6B | Qwen | CPU | — |
+| Validator V5 (optional) | Mistral-Small-3.2-24B | Mistral | 3 (swap with V2) | 8003 |
+| Embedding | Qwen3-Embedding-8B | Qwen | CPU/GPU | — |
 | TAMAS baseline | GPT-4o | OpenAI | API | — |
 
 ---
@@ -90,45 +90,61 @@
 **Everything here is domain-agnostic. Domain content goes in `domains/`.**
 
 ### 1.1 Tool Server Template + CyberOps Tools — **A**
-- [ ] `mcp_servers/base_server.py`: generic FastAPI + MCP template
-  - Takes: tool name, description, input schema, response function
-  - Auto-provides: `/state`, `/reset`, `/health` endpoints
-  - Logs all calls via structured JSON logger
-- [ ] Build CyberOps tools (T1–T16) using template → `domains/cyberops/tools/`
-- [ ] Verify: all 16 respond to MCP calls
+- [x] `mcp_servers/base_server.py`: BaseMCPServer with /call, /schema, /state, /reset, /health
+- [x] `mcp_servers/server_registry.py`: ServerRegistry with dynamic tool discovery + start/stop
+- [x] 16 CyberOps tools built (T1-T16) in `domains/cyberops/tools/{monitor,analyze,admin,report}/`
+  - All have INPUT_SCHEMA, async handler, create_server(logger=None)
+  - Deterministic responses, observable state tracking
+- [x] `domains/cyberops/tools/start_all.py`: launches all 16 on ports 9000-9015
+- [x] Verify: all 16 import + create_server OK (runtime verified)
 
 ### 1.2 Memory Layer — **B**
-- [ ] `memory/chromadb_setup.py`: takes domain config → creates collections + seeds
-  - Domain-agnostic: reads collection names and seed files from `domains/{domain}/`
-- [ ] `memory/mma_gateway.py`: reads access policy from `domains/{domain}/configs/access_policy.json`
-- [ ] `memory/write_filter.py`: cosine similarity via Qwen3-Embedding-0.6B
-- [ ] Seed CyberOps collections (M1–M12, 30–50 entries each)
-- [ ] Verified: access control + write rejection working
+- [x] `memory/chromadb_setup.py`: domain-agnostic, reads `memory_collections.json`
+- [x] `memory/mma_gateway.py`: FastAPI with /memory/read, /memory/write, /memory/list
+  - P5 (AccessController) + P4 (WriteFilter) enforcement
+  - Returns 403 for access denied, 422 for write filter rejection
+- [x] `memory/access_control.py`: AccessController with can_read/can_write
+- [x] `memory/write_filter.py`: cosine similarity via Qwen3-Embedding-8B
+- [x] `memory/embedding_adapter.py`: ChromaEmbeddingAdapter (ChromaDB 1.5.7 compatible)
+- [x] `domains/cyberops/configs/memory_collections.json`: 12 collections M1-M12
+- [x] `domains/cyberops/configs/access_policy.json`: phase-partitioned permissions
+- [x] Seed CyberOps collections (M1-M12, 760 entries total) — `memory/seed_data.py` implemented
+  - threat_repository=100, cti_knowledge_base=100, siem_data_lake=75, detection_rules=75, case_management=60, all others=50
+  - Semantic coherence verified: legit writes >0.5, junk <0.25, threshold=0.5
+- [x] Verified: access control 15/15 tests + write filter legit=0.652/junk=0.150 (runtime verified)
 
 ### 1.3 Manifests + Enforcer — **C**
-- [ ] CyberOps manifests → `domains/cyberops/configs/`
-- [ ] `host/manifest_enforcer.py`: reads manifests from any `domains/{domain}/configs/`
-- [ ] `validate_action(agent_phase, tool_id) → bool`
+- [x] 4 CyberOps manifests in `domains/cyberops/configs/`
+  - monitor: T1-T4, reads M1/M4/M7/M10, no writes, no consensus
+  - analyze: T5-T7, reads M1/M2/M6/M7, writes M1/M6, no consensus
+  - admin: T8-T12, reads M2/M3/M8/M12, no writes, consensus=true, critical=[T8,T9,T12]
+  - report: T13-T16, reads+writes M8/M9/M10/M11, consensus=true
+- [x] `host/manifest_enforcer.py`: ManifestEnforcer with validate_tool_call, validate_memory_read/write, requires_consensus, check_bulk_action
 
-### 1.4 Host Orchestrator — **A** (after 1.1)
-- [ ] `host/orchestrator.py`: domain-agnostic LangGraph Host
-  - Takes `--domain cyberops` to load correct configs/tools/prompts
-  - CoT → phase routing → manifest enforcement → handoffs
-  - **Zero code changes** when domain switches — only config path changes
+### 1.4 Host Orchestrator — **A**
+- [x] `host/orchestrator.py`: SOARHost with run_incident, run_phase
+  - Supports 3 configs: flat (no enforcement), acl_hardened (P2 only), agenticcyops (P1-P5)
+  - Sequential routing: Monitor -> Analyze -> Admin -> Report
+  - MMA gateway integration for agenticcyops memory writes
+- [x] `host/handoff.py`: PhaseHandoff with create_handoff, get_handoff_summary
 
-### 1.5 Phase Agents — **B** (after 1.2)
-- [ ] `agents/base_agent.py`: domain-agnostic agent class
-  - System prompt loaded from `domains/{domain}/prompts/{phase}.txt`
-  - Tool schemas loaded from domain manifest
-  - LLM client switchable (Qwen3 primary, GLM-4.7 diversity)
-- [ ] CyberOps system prompts → `domains/cyberops/prompts/`
+### 1.5 Phase Agents — **B**
+- [x] `agents/base_agent.py`: BaseAgent + AgentResult + ToolCallProposal
+  - Loads prompts from `domains/{domain}/prompts/{phase}.txt`
+  - LLM client switchable via switch_model(url)
+  - OpenAI-compatible tool calling
+- [x] 4 phase agents: MonitorAgent, AnalyzeAgent, AdminAgent, ReportAgent
+- [x] 4 CyberOps prompts in `domains/cyberops/prompts/`
 
-### 1.6 Consensus Module — **C** (after 1.3)
-- [ ] `consensus/validator.py`: domain-agnostic ConsensusValidator
-  - Default: V1 (Qwen3-32B) + V2 (DeepSeek-R1) + V4 (Claude)
-  - Configurable for diversity experiments
-- [ ] Wired into Admin Recovery Loop + Report Improvement Loop
-- [ ] Instrumented: per-validator decision, latency, tokens
+### 1.6 Consensus Module — **C**
+- [x] `consensus/validator.py`: ConsensusValidator with validate + validate_with_details
+  - Calls validators concurrently (asyncio.gather)
+  - Supports OpenAI-compatible (vLLM) and Anthropic validators
+- [x] `consensus/recovery_loop.py`: RecoveryLoop (Admin phase, bulk action detection)
+- [x] `consensus/improvement_loop.py`: ImprovementLoop (Report phase memory writes)
+- [x] `consensus/escalation.py`: EscalationHandler (auto-reject in testbed, logs escalation)
+- [x] `configs/validators.yaml`: V1-V5 + default_consensus(V1+V2+V4,t=2) + same_family + all_local_diverse
+- [x] Per-validator decision, latency, tokens logged via ExperimentLogger
 
 ---
 
