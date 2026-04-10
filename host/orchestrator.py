@@ -92,7 +92,14 @@ class SOARHost:
         agent = self.agents[phase]
 
         # Agent proposes actions
-        result = await agent.execute(context)
+        try:
+            result = await agent.execute(context)
+        except Exception as e:
+            from agents.base_agent import AgentResult
+            result = AgentResult(phase=phase, summary=f"Agent error: {str(e)[:200]}")
+            if self.logger:
+                self.logger.log(source=f"{phase}_agent", destination="error",
+                               action="agent_error", extra={"error": str(e)[:200]})
 
         # Process proposed tool calls
         executed_responses = []

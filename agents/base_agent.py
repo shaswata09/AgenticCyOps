@@ -312,7 +312,7 @@ class BaseAgent:
         except (json.JSONDecodeError, TypeError):
             result.summary = content[:200] if content else "No content"
 
-        # Extract tool calls
+        # Extract tool calls from structured response
         if message.tool_calls:
             for tc in message.tool_calls:
                 try:
@@ -324,6 +324,30 @@ class BaseAgent:
                         tool_id=tc.function.name,
                         arguments=args,
                         justification=f"LLM proposed: {tc.function.name}",
+                    )
+                )
+
+        # Fallback: parse pythonic tool calls from text content
+        # Llama-4 outputs [func_name(arg="val")] in text instead of structured calls
+        if not result.proposed_tool_calls and content:
+            import re
+            # Match patterns like [func_name(key="val", ...)] or func_name(key="val")
+            pattern = r'\[?(\w+)\(([^)]*)\)\]?'
+            for match in re.finditer(pattern, content):
+                func_name = match.group(1)
+                args_str = match.group(2)
+                # Only accept known tool IDs (starts with T/H/F/L followed by digit)
+                if not re.match(r'^[THFL]\d', func_name):
+                    continue
+                # Parse args: key="val" or key='val'
+                args = {}
+                for arg_match in re.finditer(r'(\w+)\s*=\s*["\']([^"\']*)["\']', args_str):
+                    args[arg_match.group(1)] = arg_match.group(2)
+                result.proposed_tool_calls.append(
+                    ToolCallProposal(
+                        tool_id=func_name,
+                        arguments=args,
+                        justification=f"Parsed from text: {func_name}",
                     )
                 )
 

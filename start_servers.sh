@@ -120,13 +120,13 @@ echo "    Largest NVLink group: GPU [$NVLINK_GROUP]"
 # V5 Mistral swaps onto GPU 2 or 3 when replacing V1 or V2.
 
 SERVER_GROUPS=(
-    "A: Main Experiments"
-    "B: GLM Diversity (30 trials)"
-    "C: Validator Same-Family"
-    "D: Validator All-Local Diverse"
-    "E: With Mistral"
-    "F: Qwen3-235B Only"
-    "G: Custom"
+    "A: Main Experiments — Qwen3-235B + V1 + V2"
+    "B: GLM Diversity — GLM-4.7-FP8 + V1 + V2"
+    "C: Same-Family — Qwen3-235B + V1 only"
+    "D: Llama Primary — Llama-4-Scout + V1 + V2"
+    "E: With Mistral — Qwen3-235B + V1 + V5"
+    "F: Claude Primary — V1 + V2 + V3 + V5 (all local validators)"
+    "G: Custom — pick individual servers"
 )
 
 GROUP_COUNT=${#SERVER_GROUPS[@]}
@@ -156,7 +156,7 @@ ALL_CMDS=(
     "vllm serve $MODELS_DIR/Qwen/Qwen3-32B --dtype bfloat16 --gpu-memory-utilization 0.9 --max-model-len 32768 --port 8002"
     "vllm serve $MODELS_DIR/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B --dtype bfloat16 --gpu-memory-utilization 0.9 --max-model-len 32768 --port 8005"
     "vllm serve $MODELS_DIR/mistralai/Mistral-Small-3.2-24B-Instruct-2506 --dtype bfloat16 --tokenizer-mode mistral --gpu-memory-utilization 0.9 --max-model-len 32768 --port 8003"
-    "vllm serve $MODELS_DIR/meta-llama/Llama-4-Scout-17B-16E-Instruct --tensor-parallel-size 2 --dtype bfloat16 --gpu-memory-utilization 0.9 --max-model-len 32768 --enforce-eager --port 8004"
+    "vllm serve $MODELS_DIR/meta-llama/Llama-4-Scout-17B-16E-Instruct --tensor-parallel-size 2 --dtype bfloat16 --enable-auto-tool-choice --tool-call-parser llama4_pythonic --gpu-memory-utilization 0.9 --max-model-len 32768 --enforce-eager --port 8004"
 )
 POOL_COUNT=${#ALL_NAMES[@]}
 
@@ -175,12 +175,12 @@ POOL_COUNT=${#ALL_NAMES[@]}
 #   Eval E (latency):                  Extracted from A logs
 #   Eval H (cross-domain):            Structural, no servers needed
 #
-GROUP_A_IDX=(0 2 3)    # Qwen3-235B(0,1,4,5) + V1(2) + V2(3)  [+V4 Claude API]
-GROUP_B_IDX=(1 2 3)    # GLM-4.7 FP8(0,1,4,5) + V1(2) + V2(3)
-GROUP_C_IDX=(0 2)      # Qwen3-235B(0,1,4,5) + V1(2) only  [same-family: 3× Qwen3-32B]
-GROUP_D_IDX=(5 2 3)    # Llama(4,5) + V1(2) + V2(3)  [all-local diverse, no Primary]
-GROUP_E_IDX=(0 2 4)    # Qwen3-235B(0,1,4,5) + V1(2) + V5 Mistral(3)
-GROUP_F_IDX=(0)        # Qwen3-235B only
+GROUP_A_IDX=(0 2 3)    # Qwen3-235B(0,1,4,5) + V1(2) + V2(3) [+V4 Claude +V6 GPT-4o API]
+GROUP_B_IDX=(1 2 3)    # GLM-4.7 FP8(0,1,4,5) + V1(2) + V2(3) [+V4 Claude +V6 GPT-4o API]
+GROUP_C_IDX=(0 2)      # Qwen3-235B(0,1,4,5) + V1(2) [same-family: 3x Qwen3-32B]
+GROUP_D_IDX=(5 2 3)    # Llama(4,5) + V1(2) + V2(3) [+V4 Claude +V6 GPT-4o API]
+GROUP_E_IDX=(0 2 4)    # Qwen3-235B(0,1,4,5) + V1(2) + V5 Mistral(3) [+V4 Claude +V6 GPT-4o API]
+GROUP_F_IDX=(2 3 5)    # Claude API primary — V1(2)+V2(3)+V3(4,5) [V5 swaps with V2, not simultaneous]
 
 # ---- Selection menu ----
 cursor=0
@@ -196,12 +196,12 @@ draw_group_menu() {
     echo ""
 
     local descs=(
-        "Qwen3-235B (GPU 0,1,4,5) + Qwen3-32B (GPU 2) + DeepSeek-R1 (GPU 3) + Claude API"
-        "GLM-4.7 FP8 (GPU 0,1,4,5) + Qwen3-32B (GPU 2) + DeepSeek-R1 (GPU 3)"
-        "Qwen3-235B (GPU 0,1,4,5) + Qwen3-32B only (GPU 2) -- same-family consensus"
-        "Llama-4-Scout (GPU 4,5) + Qwen3-32B (GPU 2) + DeepSeek-R1 (GPU 3) -- no Primary"
-        "Qwen3-235B (GPU 0,1,4,5) + Qwen3-32B (GPU 2) + Mistral-Small (GPU 3)"
-        "Qwen3-235B (GPU 0,1,4,5) only -- maximum context length"
+        "Qwen3-235B (0,1,4,5) + V1 Qwen3-32B (2) + V2 DeepSeek-R1 (3) + V4 Claude + V6 GPT-4o"
+        "GLM-4.7 FP8 (0,1,4,5) + V1 (2) + V2 (3) + V4 Claude + V6 GPT-4o"
+        "Qwen3-235B (0,1,4,5) + V1 Qwen3-32B (2) only -- same-family consensus"
+        "Llama-4-Scout (4,5) + V1 (2) + V2 (3) + V4 Claude + V6 GPT-4o -- Llama as primary"
+        "Qwen3-235B (0,1,4,5) + V1 (2) + V5 Mistral (3) + V4 Claude + V6 GPT-4o"
+        "Claude API primary + V1 (2) + V2 (3) + V3 Llama (4,5) -- frees GPU for V3"
         "Pick individual servers manually"
     )
 

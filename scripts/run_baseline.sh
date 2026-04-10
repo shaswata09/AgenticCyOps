@@ -60,17 +60,17 @@ GROUP_PORTS[E]="8000 8002 8003"
 GROUP_CONSENSUS[E]="with_mistral"
 GROUP_DESC[E]="Qwen3-235B (8000) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
 
-GROUP_NAMES[F]="Group F: Full Diversity (Claude primary + all validators)"
+GROUP_NAMES[F]="Group F: Claude Primary + V3 Llama"
 GROUP_PRIMARY[F]="anthropic"
-GROUP_PORTS[F]="8002 8005 8004 8003"
-GROUP_CONSENSUS[F]="full_diversity"
-GROUP_DESC[F]="Claude (API primary) + ALL local validators V1-V5 + V6(GPT-4o) [need 4 of 5 to approve, max diversity]"
+GROUP_PORTS[F]="8002 8005 8004"
+GROUP_CONSENSUS[F]="all_with_gpt4o"
+GROUP_DESC[F]="Claude (API primary) + V1(Qwen) + V2(DeepSeek) + V3(Llama) + V6(GPT-4o) [need 3 of 4 to approve]"
 
-GROUP_NAMES[G]="Group G: Claude as Primary (max local validators)"
+GROUP_NAMES[G]="Group G: Claude Primary (lean)"
 GROUP_PRIMARY[G]="anthropic"
-GROUP_PORTS[G]="8002 8005 8004"
-GROUP_CONSENSUS[G]="all_with_gpt4o"
-GROUP_DESC[G]="Claude (API primary) + V1(Qwen) + V2(DeepSeek) + V3(Llama) + V6(GPT-4o) [need 3 of 4 to approve]"
+GROUP_PORTS[G]="8002 8005"
+GROUP_CONSENSUS[G]="default_no_claude"
+GROUP_DESC[G]="Claude (API primary) + V1(Qwen) + V2(DeepSeek) + V6(GPT-4o) [need 2 of 3 to approve, no V3]"
 
 ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G")
 

@@ -51,12 +51,12 @@ class Llama4Scout:
         dtype: str = "bfloat16",
         quantization: Optional[str] = None,
         enable_tool_choice: bool = False,
-        tool_call_parser: str = "llama3_json",
+        tool_call_parser: str = "llama4_pythonic",
         extra_args: Optional[list[str]] = None,
     ) -> subprocess.Popen:
         """Start vLLM server with full configuration control.
 
-        Llama 4 Scout uses the 'llama3_json' tool-call parser.
+        Llama 4 Scout uses the 'llama4_pythonic' tool-call parser.
         Default TP=2 on NVLink pair — model is 203GB at BF16, requires 2× H200.
         Default enable_tool_choice=False — validators primarily do structured validation, not tool calling.
         """
@@ -304,5 +304,5 @@ class Llama4Scout:
             "gpu_assignment": self.gpus,
             "port": self.port,
             "base_url": self.base_url,
-            "tool_call_parser": "llama3_json",
+            "tool_call_parser": "llama4_pythonic",
         }
