@@ -53,7 +53,7 @@
 ### 0.3 Project Structure
 - [x] Core (domain-agnostic): host/, agents/, consensus/, attacks/, analysis/, mcp_servers/, tests/
   - `host/acl_middleware.py` — HTTP-level ACL for acl_hardened config
-- [x] `scripts/` — run_baseline.sh, run_eval_a.sh, run_eval_f.sh
+- [x] `scripts/` — run_baseline.sh, run_attack_paths.sh
 - [x] `models/` — utils (11 files), test_scripts (11 notebooks), download_models.sh
 - [x] `logging_utils/` — json_logger.py with ExperimentLogger
 - [x] `memory/` — embedding_adapter.py + placeholders (chromadb_setup, mma_gateway, write_filter, access_control, seed_data)
@@ -292,7 +292,7 @@ Same framework code, swap domain config:
 
 ```bash
 # Or use the evaluation script:
-bash scripts/run_eval_f.sh
+bash scripts/run_attack_paths.sh A all auto all 10
 
 # Healthcare
 python -m attacks.harness --domain healthcare --ap ap1 --config all --trials 10

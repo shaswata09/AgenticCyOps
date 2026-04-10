@@ -220,10 +220,10 @@ done
 python -m attacks.harness --domain cyberops --benign --config agenticcyops --trials 1
 
 # 9. Run CyberOps full evaluation (auto charts + PDF)
-bash scripts/run_eval_a.sh
+bash scripts/run_attack_paths.sh A cyberops all all 6
 
 # 10. Run multi-domain evaluation (auto charts + PDF)
-bash scripts/run_eval_f.sh
+bash scripts/run_attack_paths.sh A all auto all 10
 ```
 
 ---
@@ -337,8 +337,7 @@ agenticcyops-experiments/
 ├── gpu_monitor.sh                    # nvidia-smi loop
 ├── scripts/                          # Experiment runner scripts
 │   ├── run_baseline.sh              # Interactive domain baseline verification
-│   ├── run_eval_a.sh               # CyberOps attack evaluation (auto charts + PDF)
-│   └── run_eval_f.sh               # Multi-domain evaluation (auto charts + PDF)
+│   ├── run_attack_paths.sh          # Attack path experiments (all groups/domains)
 ├── README.md                         # This file
 ├── experiment_plan.md                # Full evaluation protocol
 ├── task_checklist.md                 # 10-day execution checklist
@@ -652,7 +651,6 @@ Seven model groups test different primary agent / validator combinations:
 
 **GPU constraint:** V3(Llama) on GPU 4,5 conflicts with Qwen3-235B on GPU 0,1,4,5. V3 can only be a validator in Groups F and G, where Claude (API) is the primary agent and GPU 4,5 are free. Claude is NOT used as a validator when it is the primary agent (no self-judging).
 
-Scripts (`run_baseline.sh`, `run_eval_a.sh`, `run_eval_f.sh`) provide interactive group selection menus.
 
 ---
 
@@ -669,7 +667,7 @@ Scripts (`run_baseline.sh`, `run_eval_a.sh`, `run_eval_f.sh`) provide interactiv
 
 ```bash
 # Recommended: use the evaluation script (auto charts + PDF report)
-bash scripts/run_eval_a.sh
+bash scripts/run_attack_paths.sh A cyberops all all 6
 
 # Or run manually: all 6 APs × 3 configs × 30 trials
 python -m attacks.harness --domain cyberops --eval A --config all --trials 30
@@ -685,7 +683,7 @@ python -m attacks.harness --domain cyberops --benign --config all --trials 20
 
 ```bash
 # Recommended: use the evaluation script (auto charts + PDF report)
-bash scripts/run_eval_f.sh
+bash scripts/run_attack_paths.sh A all auto all 10
 
 # Or run manually: all 3 adapter domains
 for domain in healthcare finance legal; do

@@ -210,6 +210,17 @@ run_domain_baseline() {
     echo "  BASELINE: ${domain} / Group ${GROUP}"
     echo "============================================================"
 
+    # Check for existing data — prompt before overwriting
+    if [ -d "logs/${domain}_baseline_${GROUP}" ] || [ -d "${RESULT_DIR}/${domain}" ]; then
+        echo ""
+        echo "  WARNING: Existing baseline data found for ${domain}/Group ${GROUP}."
+        read -p "  Overwrite? (y/N): " confirm
+        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+            echo "  Skipping ${domain}."
+            return 0
+        fi
+    fi
+
     # Clean previous data for this group+domain
     echo "[step 0/7] Cleaning previous run data + stale ports..."
     rm -rf "logs/${domain}_baseline_${GROUP}" 2>/dev/null || true

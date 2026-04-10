@@ -1,0 +1,541 @@
+#!/bin/bash
+# ============================================================
+# AgenticCyOps — Unified Experiment Runner
+#
+# Single script for all evaluations: baseline, Eval A, Eval F.
+# Select group, domain(s), APs, configs, trials interactively or via CLI.
+#
+# Usage:
+#   ./scripts/run_attack_paths.sh                              # Interactive
+#   ./scripts/run_attack_paths.sh A cyberops ap1 agenticcyops 1    # Quick test
+#   ./scripts/run_attack_paths.sh A cyberops all all 6             # Full Eval A
+#   ./scripts/run_attack_paths.sh A healthcare all all 10          # Eval F healthcare
+#   ./scripts/run_attack_paths.sh C all benign all 1               # Baseline all domains
+#   ./scripts/run_attack_paths.sh F cyberops ap1 agenticcyops 1    # Claude primary test
+# ============================================================
+
+set -eE
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
+
+CONDA_ENV="agenticcyops"
+TOOL_BASE_PORT=9000
+MMA_PORT=9100
+PIDS=()
+
+ALL_DOMAINS=("cyberops" "healthcare" "finance" "legal")
+ALL_CONFIGS=("flat" "acl_hardened" "agenticcyops")
+
+# ---- Group definitions ----
+declare -A GP_PRIMARY GP_PROVIDER GP_PORTS GP_CONSENSUS GP_DESC
+
+GP_PRIMARY[A]="http://localhost:8000/v1"; GP_PROVIDER[A]="openai"; GP_PORTS[A]="8000 8002 8005"; GP_CONSENSUS[A]="default_consensus"
+GP_DESC[A]="Qwen3-235B + V1(Qwen) + V2(DeepSeek) + V4(Claude) + V6(GPT-4o)"
+
+GP_PRIMARY[B]="http://localhost:8001/v1"; GP_PROVIDER[B]="openai"; GP_PORTS[B]="8001 8002 8005"; GP_CONSENSUS[B]="default_consensus"
+GP_DESC[B]="GLM-4.7-FP8 + V1 + V2 + V4 + V6"
+
+GP_PRIMARY[C]="http://localhost:8000/v1"; GP_PROVIDER[C]="openai"; GP_PORTS[C]="8000 8002"; GP_CONSENSUS[C]="same_family"
+GP_DESC[C]="Qwen3-235B + V1 x3 (same-family, need 2/3)"
+
+GP_PRIMARY[D]="http://localhost:8004/v1"; GP_PROVIDER[D]="openai"; GP_PORTS[D]="8004 8002 8005"; GP_CONSENSUS[D]="default_consensus"
+GP_DESC[D]="Llama-4-Scout + V1 + V2 + V4 + V6"
+
+GP_PRIMARY[E]="http://localhost:8000/v1"; GP_PROVIDER[E]="openai"; GP_PORTS[E]="8000 8002 8003"; GP_CONSENSUS[E]="with_mistral"
+GP_DESC[E]="Qwen3-235B + V1 + V5(Mistral) + V4 + V6"
+
+GP_PRIMARY[F]="anthropic"; GP_PROVIDER[F]="anthropic"; GP_PORTS[F]="8002 8005 8004"; GP_CONSENSUS[F]="all_with_gpt4o"
+GP_DESC[F]="Claude (API primary) + V1 + V2 + V3(Llama) + V6"
+
+ALL_GROUPS=("A" "B" "C" "D" "E" "F")
+
+# ---- Helpers ----
+run_py() { conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"; }
+
+wait_for_health() {
+    local url="$1" name="$2" timeout="${3:-60}" elapsed=0
+    while ! curl -s --max-time 1 "$url" > /dev/null 2>&1; do
+        sleep 1; elapsed=$((elapsed + 1))
+        [ $elapsed -ge $timeout ] && echo "[FAIL] $name timeout" && return 1
+    done
+    echo "[  ok] $name (${elapsed}s)"
+}
+
+cleanup() {
+    echo ""; echo "[cleanup] Stopping background services..."
+    for pid in "${PIDS[@]}"; do pkill -P "$pid" 2>/dev/null || true; kill "$pid" 2>/dev/null || true; done
+    for port in $(seq ${TOOL_BASE_PORT} $((TOOL_BASE_PORT + 15))) ${MMA_PORT}; do
+        pid=$(lsof -ti :$port 2>/dev/null || true); [ -n "$pid" ] && kill -9 $pid 2>/dev/null || true
+    done
+    wait 2>/dev/null || true; echo "[cleanup] Done."
+}
+trap cleanup EXIT INT TERM
+
+# ---- Interactive or CLI ----
+if [ -z "$1" ]; then
+    echo ""
+    echo "  AgenticCyOps — Experiment Runner"
+    echo "  ──────────────────────────────────────────────"
+    echo ""
+
+    # Group
+    echo "  Model Groups:"
+    for g in "${ALL_GROUPS[@]}"; do
+        echo "    $g) ${GP_DESC[$g]}"
+    done
+    echo ""
+    read -p "  Select group [A]: " input_group
+    GROUP="${input_group:-A}"; GROUP="${GROUP^^}"
+
+    # Domains
+    echo ""
+    echo "  Domains:"
+    echo "    1) cyberops   2) healthcare   3) finance   4) legal   5) all"
+    read -p "  Select (e.g. 1, or 5 for all): " dom_choices
+    SELECTED_DOMAINS=()
+    for c in $dom_choices; do
+        case "$c" in
+            1) SELECTED_DOMAINS+=("cyberops") ;; 2) SELECTED_DOMAINS+=("healthcare") ;;
+            3) SELECTED_DOMAINS+=("finance") ;; 4) SELECTED_DOMAINS+=("legal") ;;
+            5) SELECTED_DOMAINS=("${ALL_DOMAINS[@]}"); break ;;
+        esac
+    done
+    [ ${#SELECTED_DOMAINS[@]} -eq 0 ] && echo "  No domains." && exit 0
+
+    # APs (show domain-appropriate options)
+    echo ""
+    echo "  Attack Paths:"
+    echo "    1) ap1   2) ap2   3) ap3   4) ap4   5) ap5   6) ap6"
+    echo "    7) all CyberOps (1-6)   8) benign only   9) auto (domain-appropriate)"
+    read -p "  Select (e.g. 1 2, or 9 for auto): " ap_choices
+    AP_MODE="custom"
+    SELECTED_APS=()
+    for c in $ap_choices; do
+        case "$c" in
+            1) SELECTED_APS+=("ap1") ;; 2) SELECTED_APS+=("ap2") ;; 3) SELECTED_APS+=("ap3") ;;
+            4) SELECTED_APS+=("ap4") ;; 5) SELECTED_APS+=("ap5") ;; 6) SELECTED_APS+=("ap6") ;;
+            7) SELECTED_APS=("ap1" "ap2" "ap3" "ap4" "ap5" "ap6"); break ;;
+            8) AP_MODE="benign"; break ;;
+            9) AP_MODE="auto"; break ;;
+        esac
+    done
+
+    # Configs
+    echo ""
+    echo "  Configs: 1) flat  2) acl_hardened  3) agenticcyops  4) all"
+    read -p "  Select (e.g. 3, or 4 for all): " cfg_choices
+    SELECTED_CONFIGS=()
+    for c in $cfg_choices; do
+        case "$c" in
+            1) SELECTED_CONFIGS+=("flat") ;; 2) SELECTED_CONFIGS+=("acl_hardened") ;;
+            3) SELECTED_CONFIGS+=("agenticcyops") ;; 4) SELECTED_CONFIGS=("${ALL_CONFIGS[@]}"); break ;;
+        esac
+    done
+    [ ${#SELECTED_CONFIGS[@]} -eq 0 ] && echo "  No configs." && exit 0
+
+    # Trials
+    echo ""
+    read -p "  Trials per variant [6]: " input_trials
+    TRIALS="${input_trials:-6}"
+
+else
+    # CLI: GROUP DOMAIN AP_FILTER CONFIG_FILTER TRIALS
+    GROUP="${1^^}"
+    DOM_ARG="${2:-cyberops}"
+    AP_ARG="${3:-all}"
+    CFG_ARG="${4:-all}"
+    TRIALS="${5:-6}"
+
+    # Parse domains
+    if [ "$DOM_ARG" = "all" ]; then
+        SELECTED_DOMAINS=("${ALL_DOMAINS[@]}")
+    else
+        SELECTED_DOMAINS=("$DOM_ARG")
+    fi
+
+    # Parse APs
+    AP_MODE="custom"
+    if [ "$AP_ARG" = "all" ]; then
+        SELECTED_APS=("ap1" "ap2" "ap3" "ap4" "ap5" "ap6")
+    elif [ "$AP_ARG" = "benign" ]; then
+        AP_MODE="benign"
+    elif [ "$AP_ARG" = "auto" ]; then
+        AP_MODE="auto"
+    else
+        SELECTED_APS=("$AP_ARG")
+    fi
+
+    # Parse configs
+    [ "$CFG_ARG" = "all" ] && SELECTED_CONFIGS=("${ALL_CONFIGS[@]}") || SELECTED_CONFIGS=("$CFG_ARG")
+fi
+
+# Validate group
+if [ -z "${GP_PRIMARY[$GROUP]}" ]; then
+    echo "  Unknown group: $GROUP"; exit 1
+fi
+
+LLM_URL="${GP_PRIMARY[$GROUP]}"
+LLM_PROVIDER="${GP_PROVIDER[$GROUP]}"
+CONSENSUS_CFG="${GP_CONSENSUS[$GROUP]}"
+
+echo ""
+echo "============================================================"
+echo "  AgenticCyOps Experiment — Group ${GROUP}"
+echo "  ${GP_DESC[$GROUP]}"
+echo "  Domains: ${SELECTED_DOMAINS[*]}"
+echo "  APs: ${AP_MODE} ${SELECTED_APS[*]}"
+echo "  Configs: ${SELECTED_CONFIGS[*]}"
+echo "  Trials: ${TRIALS}"
+echo "============================================================"
+
+# ---- Check servers ----
+echo ""
+echo "[check] Verifying servers for Group ${GROUP}..."
+all_up=true
+for port in ${GP_PORTS[$GROUP]}; do
+    curl -s --max-time 2 http://localhost:$port/health > /dev/null 2>&1 && echo "[  ok] $port" || { echo "[FAIL] $port"; all_up=false; }
+done
+[ "$all_up" = false ] && echo "  Start servers: ./start_servers.sh" && exit 1
+
+START_TIME=$(date +%s)
+
+# ---- Run per domain ----
+run_domain() {
+    local domain="$1"
+    local eval_type="eval_a"
+    [ "$domain" != "cyberops" ] && eval_type="eval_f"
+    local log_dir="logs/${domain}_${eval_type}_${GROUP}"
+    local result_dir="results/${eval_type}/group_${GROUP}/${domain}"
+
+    echo ""
+    echo "============================================================"
+    echo "  ${domain} / Group ${GROUP}"
+    echo "============================================================"
+
+    # Check for existing data — prompt before overwriting
+    if [ -d "$log_dir" ] || [ -d "$result_dir" ]; then
+        echo ""
+        echo "  WARNING: Existing attack data found for ${domain}/Group ${GROUP}."
+        read -p "  Overwrite? (y/N): " confirm
+        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+            echo "  Skipping ${domain}."
+            return 0
+        fi
+    fi
+
+    # Clean previous run data
+    rm -rf "$log_dir" "$result_dir" "data/chromadb/${domain}" 2>/dev/null || true
+    mkdir -p "$result_dir"
+
+    # Kill stale tool/MMA ports
+    for port in $(seq ${TOOL_BASE_PORT} $((TOOL_BASE_PORT + 15))) ${MMA_PORT}; do
+        pid=$(lsof -ti :$port 2>/dev/null || true); [ -n "$pid" ] && kill -9 $pid 2>/dev/null || true
+    done
+    sleep 1; PIDS=()
+
+    # ChromaDB
+    echo "[setup] ChromaDB..."
+    run_py -m memory.chromadb_setup --domain "$domain" --db-path ./data/chromadb 2>&1 | tail -2
+    run_py -m memory.seed_data --domain "$domain" --db-path ./data/chromadb 2>&1 | tail -2
+
+    # Tools
+    echo "[tools] Starting ${domain} servers..."
+    run_py -m domains.${domain}.tools.start_all &
+    PIDS+=($!); sleep 3
+    wait_for_health "http://localhost:${TOOL_BASE_PORT}/health" "${domain} tools" 30
+
+    # MMA
+    run_py -m memory.mma_gateway --domain "$domain" --port $MMA_PORT &
+    PIDS+=($!); wait_for_health "http://localhost:${MMA_PORT}/health" "MMA" 30 || true
+
+    # Determine APs for this domain
+    local domain_aps=()
+    if [ "$AP_MODE" = "benign" ]; then
+        domain_aps=()  # benign only, no attack APs
+    elif [ "$AP_MODE" = "auto" ]; then
+        # Auto-detect from payload files
+        for f in domains/${domain}/payloads/ap*_variants.json; do
+            [ -f "$f" ] && domain_aps+=($(basename "$f" _variants.json))
+        done
+    else
+        domain_aps=("${SELECTED_APS[@]}")
+    fi
+
+    # Run attacks
+    echo "[attack] Running trials..."
+    for config in "${SELECTED_CONFIGS[@]}"; do
+        echo "--- ${config} ---"
+
+        for ap in "${domain_aps[@]}"; do
+            echo "  $ap ($TRIALS trials/variant)..."
+            run_py -m attacks.harness \
+                --domain "$domain" --ap "$ap" --config "$config" \
+                --group "$GROUP" --model-url "$LLM_URL" --llm-provider "$LLM_PROVIDER" \
+                --consensus-config "$CONSENSUS_CFG" \
+                --trials "$TRIALS" --tool-port $TOOL_BASE_PORT \
+                --verbose 2>&1 | grep -E "v[0-9]+ t[0-9]+|Error|SUMMARY" || true
+        done
+
+        # Benign (only if explicitly requested via "benign" AP mode)
+        if [ "$AP_MODE" = "benign" ]; then
+            local benign_count=20
+            [ "$domain" != "cyberops" ] && benign_count=5
+            echo "  benign ($benign_count scenarios)..."
+            run_py -m attacks.harness \
+                --domain "$domain" --benign --config "$config" \
+                --group "$GROUP" --model-url "$LLM_URL" --llm-provider "$LLM_PROVIDER" \
+                --consensus-config "$CONSENSUS_CFG" \
+                --trials "$benign_count" --tool-port $TOOL_BASE_PORT \
+                2>&1 | grep -E "benign|Error|SUMMARY" || true
+        fi
+        echo ""
+    done
+
+    # Generate CSV + charts + PDF report
+    echo "[report] Generating analysis..."
+    run_py -c "
+import json, sys, csv, os
+from pathlib import Path
+from collections import defaultdict
+from datetime import datetime
+sys.path.insert(0, '.')
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
+
+sns.set_theme(style='whitegrid', font_scale=1.0, palette='muted')
+CONFIGS = ['flat', 'acl_hardened', 'agenticcyops']
+CONFIG_LABELS = {'flat': 'Flat MAS', 'acl_hardened': 'ACL-Hardened', 'agenticcyops': 'AgenticCyOps'}
+CONFIG_COLORS = {'flat': '#e74c3c', 'acl_hardened': '#f39c12', 'agenticcyops': '#2ecc71'}
+HEADER_COLOR = '#2c3e50'
+
+log_dir = Path('${log_dir}')
+result_dir = Path('${result_dir}')
+domain = '${domain}'
+group = '${GROUP}'
+
+# Collect trial results
+trials = []
+for f in sorted(log_dir.rglob('*.jsonl')) if log_dir.exists() else []:
+    with open(f) as fh:
+        for line in fh:
+            if line.strip():
+                e = json.loads(line)
+                if e.get('action') == 'trial_complete':
+                    trials.append(e)
+
+if not trials:
+    print('No trial results'); sys.exit(0)
+
+# ---- CSV ----
+csv_path = result_dir / 'results.csv'
+with open(csv_path, 'w', newline='') as f:
+    w = csv.writer(f)
+    w.writerow(['Domain','AP','Variant','Trial','Config','Group','Succeeded','Step','Mechanism'])
+    for t in trials:
+        w.writerow([domain, t.get('ap',''), t.get('variant',''), t.get('trial',''),
+                     t.get('config',''), group, t.get('attack_succeeded',''),
+                     t.get('interception_step',''), t.get('blocking_mechanism','')])
+print(f'Saved: {csv_path} ({len(trials)} trials)')
+
+# ---- Compute ASR ----
+attack_trials = [t for t in trials if t.get('ap','').startswith('ap')]
+aps = sorted(set(t.get('ap','') for t in attack_trials))
+ap_labels = {'ap1':'AP-1 Tool Redir.','ap2':'AP-2 Mem Poison','ap3':'AP-3 Confused Dep.',
+             'ap4':'AP-4 Cross-Phase','ap5':'AP-5 Irreversible','ap6':'AP-6 Replay'}
+
+asr = {}
+for ap in aps:
+    for config in CONFIGS:
+        mt = [t for t in attack_trials if t.get('ap')==ap and t.get('config')==config]
+        if mt:
+            s = sum(1 for t in mt if t.get('attack_succeeded'))
+            asr[(ap,config)] = s/len(mt)*100
+
+# ---- CLI Summary ----
+print()
+print(f'ASR SUMMARY — {domain.upper()} / Group {group}')
+print('='*60)
+for ap in aps:
+    for config in CONFIGS:
+        mt = [t for t in attack_trials if t.get('ap')==ap and t.get('config')==config]
+        if mt:
+            s = sum(1 for t in mt if t.get('attack_succeeded'))
+            print(f'  {ap:<8} {config:<18} {s}/{len(mt)} ({s/len(mt)*100:.0f}% ASR)')
+
+if not aps:
+    print('  No attack trials found')
+    sys.exit(0)
+
+# ---- Chart 1: ASR Bar Chart ----
+fig, ax = plt.subplots(figsize=(max(10, len(aps)*2), 6))
+x = np.arange(len(aps))
+width = 0.25
+for i, config in enumerate(CONFIGS):
+    vals = [asr.get((ap,config), 0) for ap in aps]
+    bars = ax.bar(x + i*width, vals, width, label=CONFIG_LABELS.get(config,config),
+                  color=CONFIG_COLORS.get(config,'#95a5a6'), edgecolor='white', linewidth=1.5)
+    for bar, val in zip(bars, vals):
+        if val > 0:
+            ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+1,
+                    f'{val:.0f}%', ha='center', va='bottom', fontsize=8, fontweight='bold')
+ax.set_xticks(x + width)
+ax.set_xticklabels([ap_labels.get(ap,ap) for ap in aps], fontsize=9)
+ax.set_ylabel('Attack Success Rate (%)')
+ax.set_title(f'Attack Success Rate — {domain.title()} / Group {group}', fontsize=14, fontweight='bold')
+ax.set_ylim(0, 110)
+ax.legend(title='Configuration', frameon=True)
+sns.despine(ax=ax)
+plt.tight_layout()
+plt.savefig(result_dir / 'asr_by_ap.png', dpi=150)
+plt.close()
+print(f'Saved: {result_dir}/asr_by_ap.png')
+
+# ---- Chart 2: Interception Heatmap ----
+matrix = np.zeros((len(aps), len(CONFIGS)))
+for i, ap in enumerate(aps):
+    for j, config in enumerate(CONFIGS):
+        mt = [t for t in attack_trials if t.get('ap')==ap and t.get('config')==config]
+        if mt:
+            blocked = sum(1 for t in mt if not t.get('attack_succeeded'))
+            matrix[i,j] = blocked/len(mt)*100
+fig, ax = plt.subplots(figsize=(8, max(4, len(aps)*0.8)))
+sns.heatmap(matrix, annot=True, fmt='.0f', cmap='RdYlGn',
+            xticklabels=[CONFIG_LABELS.get(c,c) for c in CONFIGS],
+            yticklabels=[ap_labels.get(ap,ap) for ap in aps],
+            vmin=0, vmax=100, linewidths=1, linecolor='white',
+            cbar_kws={'label': 'Interception Rate (%)'}, ax=ax)
+ax.set_title(f'Interception Rate — {domain.title()} / Group {group}', fontsize=14, fontweight='bold')
+plt.tight_layout()
+plt.savefig(result_dir / 'interception_heatmap.png', dpi=150)
+plt.close()
+print(f'Saved: {result_dir}/interception_heatmap.png')
+
+# ---- Chart 3: Mechanism breakdown (agenticcyops only) ----
+aco_trials = [t for t in attack_trials if t.get('config')=='agenticcyops']
+if aco_trials:
+    mechs = defaultdict(int)
+    for t in aco_trials:
+        if not t.get('attack_succeeded'):
+            m = t.get('blocking_mechanism','unknown')
+            mechs[m] += 1
+    if mechs:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        labels = list(mechs.keys())
+        values = list(mechs.values())
+        colors = sns.color_palette('Set2', len(labels))
+        bars = ax.barh(labels, values, color=colors, edgecolor='white')
+        for bar, val in zip(bars, values):
+            ax.text(bar.get_width()+0.3, bar.get_y()+bar.get_height()/2,
+                    str(val), va='center', fontweight='bold')
+        ax.set_xlabel('Blocks')
+        ax.set_title(f'Blocking Mechanisms — {domain.title()} / Group {group}', fontsize=14, fontweight='bold')
+        sns.despine(ax=ax)
+        plt.tight_layout()
+        plt.savefig(result_dir / 'mechanism_breakdown.png', dpi=150)
+        plt.close()
+        print(f'Saved: {result_dir}/mechanism_breakdown.png')
+
+# ---- PDF Report ----
+with PdfPages(str(result_dir / 'attack_report.pdf')) as pdf:
+    # Title
+    fig, ax = plt.subplots(figsize=(11, 8.5)); ax.axis('off')
+    ax.text(0.5, 0.72, 'AgenticCyOps', transform=ax.transAxes,
+            ha='center', fontsize=36, fontweight='bold', color=HEADER_COLOR)
+    ax.text(0.5, 0.62, 'Attack Path Evaluation Report', transform=ax.transAxes,
+            ha='center', fontsize=22, color='#7f8c8d')
+    ax.text(0.5, 0.52, f'Domain: {domain.title()} | Group {group}', transform=ax.transAxes,
+            ha='center', fontsize=16, color='#2980b9')
+    ax.text(0.5, 0.44, f'{len(trials)} trials across {len(aps)} attack paths', transform=ax.transAxes,
+            ha='center', fontsize=14, color='#2980b9')
+    ax.plot([0.2, 0.8], [0.48, 0.48], transform=ax.transAxes, color='#2980b9', linewidth=2)
+    ax.text(0.5, 0.35, datetime.now().strftime('%B %d, %Y %H:%M'), transform=ax.transAxes,
+            ha='center', fontsize=12, color='#95a5a6')
+    pdf.savefig(fig, bbox_inches='tight'); plt.close()
+
+    # R1 Table
+    fig, ax = plt.subplots(figsize=(11, 8.5)); ax.axis('off')
+    ax.set_title('Attack Interception Results', fontsize=18, fontweight='bold', color=HEADER_COLOR, pad=30)
+    headers = ['Attack Path'] + [CONFIG_LABELS.get(c,c) for c in CONFIGS]
+    cell_data = []
+    for ap in aps:
+        row = [ap_labels.get(ap,ap)]
+        for config in CONFIGS:
+            mt = [t for t in attack_trials if t.get('ap')==ap and t.get('config')==config]
+            if mt:
+                s = sum(1 for t in mt if t.get('attack_succeeded'))
+                b = len(mt) - s
+                row.append(f'{b}/{len(mt)} blocked ({s/len(mt)*100:.0f}% ASR)')
+            else:
+                row.append('--')
+        cell_data.append(row)
+    if cell_data:
+        table = ax.table(cellText=cell_data, colLabels=headers, cellLoc='center',
+                         loc='center', bbox=[0.05, 0.1, 0.9, 0.75])
+        table.auto_set_font_size(False); table.set_fontsize(10); table.scale(1, 2.2)
+        for j in range(len(headers)):
+            table[0,j].set_facecolor(HEADER_COLOR)
+            table[0,j].set_text_props(color='white', fontweight='bold')
+        for i in range(1, len(cell_data)+1):
+            table[i,0].set_text_props(fontweight='bold')
+            for j, c in enumerate(['', '#fdedec', '#fef9e7', '#eafaf1']):
+                if c: table[i,j].set_facecolor(c)
+    pdf.savefig(fig, bbox_inches='tight'); plt.close()
+
+    # Charts
+    for img_name in ['asr_by_ap.png', 'interception_heatmap.png', 'mechanism_breakdown.png']:
+        img_path = result_dir / img_name
+        if img_path.exists():
+            img = plt.imread(str(img_path))
+            fig, ax = plt.subplots(figsize=(11, 8.5)); ax.axis('off'); ax.imshow(img)
+            pdf.savefig(fig, bbox_inches='tight'); plt.close()
+
+    # Summary
+    fig, ax = plt.subplots(figsize=(11, 8.5)); ax.axis('off')
+    ax.set_title('Key Findings', fontsize=18, fontweight='bold', color=HEADER_COLOR, pad=30)
+    y = 0.8
+    for config in CONFIGS:
+        ct = [t for t in attack_trials if t.get('config')==config]
+        if ct:
+            s = sum(1 for t in ct if t.get('attack_succeeded'))
+            b = len(ct) - s
+            color = CONFIG_COLORS.get(config, '#2c3e50')
+            ax.text(0.08, y, f'{CONFIG_LABELS.get(config,config)}: {s/len(ct)*100:.0f}% ASR ({s}/{len(ct)} succeeded, {b} blocked)',
+                    transform=ax.transAxes, fontsize=13, color=color, fontweight='bold')
+            y -= 0.07
+    ax.text(0.08, y-0.05, f'Domain: {domain.title()} | Group: {group} | Trials: {len(trials)}',
+            transform=ax.transAxes, fontsize=11, color='#7f8c8d')
+    ax.text(0.5, 0.05, datetime.now().strftime('%Y-%m-%d %H:%M'), transform=ax.transAxes,
+            ha='center', fontsize=10, color='#bdc3c7')
+    pdf.savefig(fig, bbox_inches='tight'); plt.close()
+
+print(f'Saved: {result_dir}/attack_report.pdf')
+" 2>&1
+
+    # Stop domain services
+    for pid in "${PIDS[@]}"; do pkill -P "$pid" 2>/dev/null || true; kill "$pid" 2>/dev/null || true; done
+    for port in $(seq ${TOOL_BASE_PORT} $((TOOL_BASE_PORT + 15))) ${MMA_PORT}; do
+        pid=$(lsof -ti :$port 2>/dev/null || true); [ -n "$pid" ] && kill -9 $pid 2>/dev/null || true
+    done
+    wait 2>/dev/null || true; PIDS=()
+}
+
+# ---- Main ----
+for domain in "${SELECTED_DOMAINS[@]}"; do
+    run_domain "$domain"
+done
+
+END_TIME=$(date +%s)
+ELAPSED=$((END_TIME - START_TIME))
+
+echo ""
+echo "============================================================"
+echo "  Experiment Complete — Group ${GROUP}"
+echo "  Domains: ${SELECTED_DOMAINS[*]}"
+echo "  Time: $((ELAPSED / 60))m $((ELAPSED % 60))s"
+echo "============================================================"
