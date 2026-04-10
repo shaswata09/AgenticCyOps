@@ -211,7 +211,7 @@ __marimo__/
 
 .vscode/
 .env
-logs/
+# logs/ — tracked in git (baseline + experiment JSONL logs)
 __pycache__/
 *.pyc
 
