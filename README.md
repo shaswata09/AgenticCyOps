@@ -261,14 +261,17 @@ for port in 8000 8002 8003 8004; do
   curl -s http://localhost:$port/v1/models | python -m json.tool | head -3
 done
 
-# 8. Run a benign end-to-end test (CyberOps)
+# 8. Run autonomous baseline (all groups, all domains, ~3-4.5 hours)
+bash scripts/run_autonomous_baseline.sh
+
+# 9. Run a benign end-to-end test (CyberOps, single trial)
 python -m attacks.harness --domain cyberops --benign --config agenticcyops --trials 1
 
-# 9. Run CyberOps full evaluation (auto charts + PDF)
+# 10. Run CyberOps full evaluation (auto charts + PDF)
 # Menu supports AP-1 through AP-15, options: "all original (1-6)", "all new (7-15)", "ALL (1-15)"
 bash scripts/run_attack_paths.sh A cyberops all all 6
 
-# 10. Run multi-domain evaluation (auto charts + PDF)
+# 11. Run multi-domain evaluation (auto charts + PDF)
 bash scripts/run_attack_paths.sh A all auto all 10
 ```
 
@@ -383,6 +386,7 @@ agenticcyops-experiments/
 ├── gpu_monitor.sh                    # nvidia-smi loop
 ├── scripts/                          # Experiment runner scripts
 │   ├── run_baseline.sh              # Interactive domain baseline verification (overwrite protection prompt)
+│   ├── run_autonomous_baseline.sh   # Fully automated baseline runner (all groups, domains, configs; --skip-existing, --groups)
 │   ├── run_attack_paths.sh          # Unified attack path experiments -- replaced run_eval_a.sh and run_eval_f.sh (overwrite protection prompt)
 ├── README.md                         # This file
 ├── experiment_plan.md                # Full evaluation protocol
@@ -883,7 +887,16 @@ done
 ### Baseline Verification
 
 ```bash
-# Interactive group (A-G) + domain selection menu
+# Recommended: fully automated baseline (starts/stops servers, all groups × domains × configs)
+bash scripts/run_autonomous_baseline.sh
+
+# Resume interrupted run (skip groups with existing results):
+bash scripts/run_autonomous_baseline.sh --skip-existing
+
+# Run specific groups only:
+bash scripts/run_autonomous_baseline.sh --groups A,C
+
+# Interactive group (A-G) + domain selection menu (single group, manual server management)
 bash scripts/run_baseline.sh
 
 # Or non-interactive: Group A, CyberOps only

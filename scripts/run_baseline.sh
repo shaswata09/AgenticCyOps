@@ -386,10 +386,11 @@ asyncio.run(run())
     run_py -m analysis.verify_baseline --domain "$domain" --config all 2>&1
 
     echo ""
-    echo "Generating dashboard + report..."
+    echo "Generating dashboard + report + analytics..."
     mkdir -p "${RESULT_DIR}/${domain}"
     run_py -m analysis.baseline_dashboard --domain "$domain" --output "${RESULT_DIR}/${domain}/" 2>&1 || true
     run_py -m analysis.generate_report --domain "$domain" --output "${RESULT_DIR}/${domain}/" 2>&1 || true
+    run_py -m analysis.baseline_analytics --domain "$domain" --group "$GROUP" --output "${RESULT_DIR}/${domain}/" 2>&1 || true
 
     # Clean up standard location
     rm -rf "logs/${domain}_baseline" 2>/dev/null || true

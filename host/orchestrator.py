@@ -406,9 +406,13 @@ class SOARHost:
         # ── Step 5: Execute tool with latency tracking ──
         _t0 = _time.perf_counter()
         if self.tool_registry:
-            response = await self.tool_registry.call_tool(
-                tool_id, tc.arguments, source=f"{phase}_agent"
-            )
+            try:
+                response = await self.tool_registry.call_tool(
+                    tool_id, tc.arguments, source=f"{phase}_agent"
+                )
+            except Exception as _e:
+                response = {"status": "error", "tool_id": tool_id,
+                            "error": str(_e)[:200]}
         else:
             response = {"status": "no_registry", "tool_id": tool_id}
         _latency = (_time.perf_counter() - _t0) * 1000

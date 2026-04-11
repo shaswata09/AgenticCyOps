@@ -89,7 +89,7 @@
   - `validators.yaml` — V1-V6 + 10 consensus configs
   - `hmac_key.txt` — shared HMAC secret for component authentication
   - `flat_config.yaml`, `acl_config.yaml`, `agenticcyops_config.yaml`
-- [x] `scripts/` — run_baseline.sh, run_attack_paths.sh (unified attack runner, replaces old run_eval_a.sh / run_eval_f.sh)
+- [x] `scripts/` — run_baseline.sh, run_attack_paths.sh (unified attack runner, replaces old run_eval_a.sh / run_eval_f.sh), run_autonomous_baseline.sh (fully automated baseline runner)
 - [x] `models/` — utils (11 files), test_scripts (11 notebooks), download_models.sh
 - [x] `logging_utils/` — json_logger.py with ExperimentLogger
 - [x] `config.py` — project base path (no hardcoded paths)
@@ -294,6 +294,11 @@
 - [x] `scripts/run_attack_paths.sh`: unified attack runner (replaces previous separate run_eval_a.sh / run_eval_f.sh)
   - Supports all groups, domains, APs, and trial counts via CLI args
   - Menu supports AP-1 through AP-15, options for "all original (1-6)", "all new (7-15)", "ALL (1-15)"
+- [x] `scripts/run_autonomous_baseline.sh`: fully automated baseline runner
+  - Sequentially starts servers for each group (A-F), runs all 4 domains × 3 configs, shuts down servers before next group
+  - Supports `--skip-existing` flag to resume interrupted runs and `--groups A,C` for specific group selection
+  - Runs `verify_baseline.py` at the end for automated pass/fail verification
+  - Estimated time: ~30-45 min per group, ~3-4.5 hours total
 - [x] Harness `evaluate_success` updated with 18 new check_types: chain_check, parameter_check, handoff_check, sanitization_check, operational_context_check, sequential_check, global_pattern_check, accumulation_check, memory_contradiction_check, memory_metadata_check, memory_drift_check, output_classification_check, memory_replay_check, read_injection_check, query_scope_check, toctou_check, response_integrity_check, config_integrity_check, data_integrity_check
 
 ### 3.2–3.8 CyberOps Attack Scripts — **A + B**
@@ -333,7 +338,7 @@
   - [x] AP-8 analogue: Wrong patient, wildcard, dangerous dosage
 - [x] Benign clinical workflows
 - [ ] **Baseline verification (all 3 configs):** STALE — re-run required with P1-P5 layers
-  - Baseline run via `./scripts/run_baseline.sh` with interactive group + domain selection
+  - Autonomous run via `./scripts/run_autonomous_baseline.sh` (or interactive via `./scripts/run_baseline.sh`)
   - Results in `results/baseline/group_{A-F}/healthcare/`
 
 ### 3.10 Finance Adapter — **C** (Day 4)
@@ -384,7 +389,19 @@
 - [ ] Log files confirm: Flat no defenses, ACL HTTP 403, AgenticCyOps P1+P2+P3+P4+P5 all active
 - [ ] **Proceed to Phase 4** — blocked until baselines pass with new layers
 
-**PENDING: Baseline re-run required.** Old baselines (Apr 9) are stale and deleted. All prerequisites for re-run are now met:
+**PENDING: Baseline re-run required.** Old baselines (Apr 9) are stale and deleted. All prerequisites for re-run are now met. Run via autonomous script:
+
+```bash
+# Full autonomous baseline (all groups, all domains, all configs):
+bash scripts/run_autonomous_baseline.sh
+
+# Resume interrupted run (skip groups with existing results):
+bash scripts/run_autonomous_baseline.sh --skip-existing
+
+# Run specific groups only:
+bash scripts/run_autonomous_baseline.sh --groups A,C
+```
+
 - `verify_baseline.py` checks all P1-P5 layers individually, supports `--group` parameter, tracks false positives per principle, displays principle activity
 - `memory_ops_present` is a critical pass criterion
 - Benign payloads include memory_ops (reads + writes) across all 4 phases for all 4 domains

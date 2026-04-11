@@ -329,6 +329,8 @@ Before any attack runs, each domain must pass benign end-to-end workflows in all
 
 **Benign scenario payloads validated** — all 4 domains have zero access policy violations and include memory_ops across all phases. Old baselines deleted. Baseline re-run required with updated verify_baseline.py (checks P1-P5 layers individually, memory_ops_present as critical criterion).
 
+**Autonomous baseline runner:** `scripts/run_autonomous_baseline.sh` automates the full baseline process — sequentially starts servers for each group (A-F), runs baselines for all 4 domains × 3 configs, shuts down servers before moving to the next group, and runs `verify_baseline.py` at the end. Supports `--skip-existing` to resume interrupted runs and specific group selection (e.g., `--groups A,C`). Estimated time: ~30-45 min per group, ~3-4.5 hours total.
+
 **All 12 config cells must pass before attack evaluations (Eval A, Eval F) begin.**
 
 Failure diagnosis:
