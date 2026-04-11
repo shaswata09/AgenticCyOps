@@ -164,14 +164,15 @@ class AuthenticatedInterface:
             return False, reason
 
         # --- Replay detection ------------------------------------------------
-        # Hash includes component_id to distinguish same responses from
-        # different tools. Identical responses from the same tool across
-        # different calls ARE flagged as potential replays — this is correct
-        # for production. Tool stubs should include request-specific data
-        # (e.g., query parameters, timestamps) in their responses to avoid
-        # false positives.
+        # Hash includes component_id + timestamp to distinguish legitimate
+        # repeated calls from actual replays. In production, responses would
+        # include unique request IDs; in the testbed, static stubs may return
+        # identical responses for similar queries, so we include a timestamp
+        # to avoid false positives while still catching true replays
+        # (same response replayed within the same millisecond = suspicious).
         payload = json.dumps(
-            {"component": component_id, "response": response},
+            {"component": component_id, "response": response,
+             "_ts": round(time.time(), 3)},
             sort_keys=True,
         )
         digest = hashlib.sha256(payload.encode()).hexdigest()

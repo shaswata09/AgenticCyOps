@@ -209,6 +209,15 @@ class SOARHost:
                                       "query": mr.get("query", ""), "n_results": 3,
                                       "auth_token": _tok},
                                 timeout=10)
+                            # Log ALL memory reads for baseline verification
+                            if self.logger:
+                                self.logger.log(
+                                    source=f"{phase}_agent",
+                                    destination=mr["store"],
+                                    action="memory_read",
+                                    auth_decision="allow" if resp.status_code == 200 else "deny",
+                                    mechanism="P5_access_control",
+                                )
                             # AP-14 fix: Log sanitization events from read results
                             if resp.status_code == 200 and self.logger:
                                 try:
@@ -527,7 +536,19 @@ class SOARHost:
                         },
                         timeout=10,
                     )
-                    return resp.json()
+                    result = resp.json()
+                    # Log memory write for baseline verification
+                    if self.logger:
+                        accepted = result.get("accepted", resp.status_code == 200)
+                        sim = result.get("similarity_score", 0.0)
+                        self.logger.log_memory_write(
+                            agent=f"{phase}_agent",
+                            store=store_id,
+                            auth_decision="allow" if accepted else "deny",
+                            mechanism="P4_memory_integrity",
+                            cosine_similarity=sim,
+                        )
+                    return result
             except Exception:
                 return {"status": "mma_unreachable"}
 

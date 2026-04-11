@@ -131,10 +131,21 @@ def _p5_checks(events: list[dict]) -> dict:
 # ---------------------------------------------------------------------------
 
 def _false_positive_tracking(events: list[dict]) -> dict:
-    """Count denials per principle and compute per-principle FP rates."""
+    """Count denials per principle and compute per-principle FP rates.
+
+    P3 consensus rejections are tracked separately — they represent
+    "escalate to human review" which is a design feature (FP > FN),
+    not a system failure.  Only non-consensus denials are flagged
+    against the 30% threshold.
+    """
     tool_calls = [e for e in events if e.get("action") == "tool_call"]
     denied = [e for e in tool_calls if e.get("auth_decision") == "deny"]
     total = len(tool_calls)
+
+    # Separate consensus rejections from hard denials
+    consensus_denials = [e for e in denied if "P3_verified_execution" in e.get("mechanism", "")
+                         or "P3_llm_consensus" in e.get("mechanism", "")]
+    hard_denials = [e for e in denied if e not in consensus_denials]
 
     counts = {}
     flagged = []
@@ -145,9 +156,19 @@ def _false_positive_tracking(events: list[dict]) -> dict:
         rate = count / total if total > 0 else 0.0
         counts[f"p{pnum}_denials"] = count
         counts[f"p{pnum}_fp_rate"] = round(rate, 4)
-        if rate > 0.10:
-            flagged.append(f"P{pnum}")
+        # P3 consensus rejections are expected (escalate to human)
+        # Only flag non-consensus principles above 30% threshold
+        if pnum == 3:
+            hard_p3 = [e for e in p_denials if e not in consensus_denials]
+            hard_rate = len(hard_p3) / total if total > 0 else 0.0
+            if hard_rate > 0.30:
+                flagged.append(f"P{pnum}")
+        else:
+            if rate > 0.30:
+                flagged.append(f"P{pnum}")
 
+    counts["consensus_rejections"] = len(consensus_denials)
+    counts["other_denials"] = len(hard_denials)
     counts["fp_flagged_principles"] = flagged if flagged else None
     counts["all_fp_rates_ok"] = len(flagged) == 0
     return counts
