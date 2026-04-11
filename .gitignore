@@ -223,3 +223,4 @@ models/*
 !models/download_models.sh
 !models/utils/
 !models/test_scripts/
+configs/hmac_key.txt

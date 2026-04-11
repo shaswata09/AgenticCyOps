@@ -2,7 +2,7 @@
 
 > **Securing Multi-Agentic AI Integration in Enterprise Operations**
 
-This repository contains the evaluation testbed for the AgenticCyOps framework, a domain-agnostic security architecture for LLM-powered multi-agent systems (MAS). The testbed validates the framework across **four enterprise domains** — cybersecurity operations, healthcare, financial fraud detection, and legal case management — with 13-16 MCP-based tool servers per domain, phase-scoped agents, consensus-validated execution, and six adversarial attack scenarios, evaluated across three configurations and seven model families. **Zero framework code changes** are required across domains — only configuration files and tool stubs differ.
+This repository contains the evaluation testbed for the AgenticCyOps framework, a domain-agnostic security architecture for LLM-powered multi-agent systems (MAS). The testbed validates the framework across **four enterprise domains** — cybersecurity operations, healthcare, financial fraud detection, and legal case management — with 13-16 MCP-based tool servers per domain, phase-scoped agents, consensus-validated execution, and **15 adversarial attack paths** (150 total variants across 30 payload files, covering all 35 attack vectors), evaluated across three configurations and seven model families. **Zero framework code changes** are required across domains — only configuration files and tool stubs differ.
 
 ---
 
@@ -18,6 +18,7 @@ This repository contains the evaluation testbed for the AgenticCyOps framework, 
 - [Project Structure](#project-structure)
 - [Domain Adapters](#domain-adapters)
 - [Configurations](#configurations)
+- [Security Hardening](#security-hardening)
 - [Running Experiments](#running-experiments)
 - [Analysis & Reproducing Results](#analysis--reproducing-results)
 - [Citation](#citation)
@@ -38,15 +39,15 @@ This testbed validates that claim through:
 
 | Evaluation | Runs | Domains | What It Tests |
 |-----------|------|---------|---------------|
-| **A: Attack Path Replay** | ~630 | CyberOps | 6 attack scenarios (AP-1 through AP-6), full depth |
+| **A: Attack Path Replay** | ~1,440 | CyberOps | 15 attack paths (AP-1 through AP-15), 75 variants, 35 attack vectors (TA-1 to TA-22, MA-1 to MA-12, CA-1) |
 | **B: Trust Boundary Analysis** | Analytical | All 4 | Weighted boundary reduction across domains |
 | **C: Memory Poisoning** | ~90 | CyberOps | Write-boundary filtering at 5%, 10%, 20% poisoning |
 | **D: TAMAS Benchmark** | ~400 | Generic (5 scenarios) | Independent adversarial benchmark |
 | **E: Consensus Overhead** | From A logs | CyberOps | Latency and token cost analysis |
-| **F: Multi-Domain Generalizability** | ~315 | Healthcare, Finance, Legal | 3 attack analogues per domain, zero code changes |
+| **F: Multi-Domain Generalizability** | ~495 | Healthcare, Finance, Legal | 5 attack analogues per domain (incl. AP-7, AP-8), 25 variants each, zero code changes |
 | **Ablation Study** | ~300 | CyberOps + Finance | Necessity of each principle, cross-domain spot check |
 | **Validator Diversity** | ~90 | CyberOps | Correlated failure across same vs diverse model families |
-| **Total** | **~1,925** | **4 domains + TAMAS** | |
+| **Total** | **~2,915** | **4 domains + TAMAS** | |
 
 ---
 
@@ -74,16 +75,39 @@ This testbed validates that claim through:
 
 The following components are **identical across all domains** — zero code changes required:
 
-| Component | Purpose |
-|-----------|---------|
-| `host/orchestrator.py` | LangGraph Host with CoT planning and phase routing |
-| `host/manifest_enforcer.py` | Validates tool calls against phase manifests |
-| `agents/base_agent.py` | LLM-powered agent with switchable model backend (`llm_provider="anthropic"` supported) |
-| `consensus/validator.py` | Multi-model consensus (default: 4 validators, ≥3/4 approval) |
-| `memory/mma_gateway.py` | Memory Management Agent with access control |
-| `memory/write_filter.py` | Schema validation + cosine similarity check |
-| `attacks/harness.py` | Attack execution and logging harness |
-| `logging_utils/json_logger.py` | Structured JSON instrumentation |
+| Module | Component | Purpose |
+|--------|-----------|---------|
+| **host/** | `orchestrator.py` | LangGraph Host with CoT planning and phase routing |
+| | `manifest_enforcer.py` | Validates tool calls against signed phase manifests |
+| | `authenticated_interface.py` | Component identity verification and admin-approved tool catalog |
+| | `parameter_validator.py` | Domain-aware parameter validation against `parameter_rules.json` |
+| | `output_classifier.py` | Response classification for sensitive content detection |
+| | `handoff.py` | Host-mediated sequential phase handoffs |
+| | `acl_middleware.py` | HTTP-level ACL enforcement for acl_hardened config |
+| **consensus/** | `verified_execution.py` | Orchestrates the full 10-layer verified execution pipeline |
+| | `validator.py` | Multi-model consensus voting (default: 4 validators, >=3/4 approval) |
+| | `handoff_validator.py` | L0: Validates phase handoff authorization |
+| | `operational_context.py` | L0.5: Checks maintenance windows, time policies, asset criticality |
+| | `intent_chain.py` | L3: Multi-step intent chain analysis across agent actions |
+| | `cross_incident_ledger.py` | L4: Cross-incident pattern correlation |
+| | `adaptive_consent.py` | L0.7: Adaptive consent escalation based on action risk |
+| | `scoring.py` | L1: Risk scoring with action impacts and reversibility |
+| | `auto_gates.py` | L2: Automated go/no-go gates before execution |
+| | `global_action_monitor.py` | L5: Replay and bulk-action detection |
+| | `recovery_loop.py` | Rejection recovery with alternative proposal generation |
+| | `improvement_loop.py` | Post-consensus feedback integration |
+| | `escalation.py` | Human escalation for unresolvable conflicts |
+| | `versioned_ledger.py` | Append-only versioned decision audit trail |
+| **memory/** | `mma_gateway.py` | Memory Management Agent with access control mediation |
+| | `memory_integrity.py` | HMAC-based memory record integrity verification |
+| | `access_isolation.py` | Phase-partitioned memory namespace isolation |
+| | `write_filter.py` | Schema validation + cosine similarity boundary check |
+| | `access_control.py` | Role-based memory read/write policy enforcement |
+| | `chromadb_setup.py` | Collection initialization from domain seed data |
+| | `embedding_adapter.py` | Pluggable embedding backend (Qwen3-Embedding-0.6B default) |
+| **agents/** | `base_agent.py` | LLM-powered agent with switchable model backend |
+| **attacks/** | `harness.py` | Attack execution and logging harness |
+| **logging_utils/** | `json_logger.py` | Structured JSON instrumentation with domain field |
 
 ### Domain-Specific Content (Config Only)
 
@@ -97,6 +121,27 @@ Each domain provides only:
 | System prompts | `domains/{domain}/prompts/` | Agent role descriptions |
 | Access policies | `domains/{domain}/configs/access_policy.json` | Memory read/write permissions |
 | Attack payloads | `domains/{domain}/payloads/` | Domain-specific injection variants |
+
+#### Domain Configuration Files
+
+The `domains/{domain}/configs/` directory contains the following configuration types, all consumed by domain-agnostic framework code:
+
+| Config File | Consumed By | Purpose |
+|-------------|-------------|---------|
+| `*_manifest.json` (x4) | `manifest_enforcer.py` | Phase-to-tool binding (monitor, analyze, admin, report) |
+| `access_policy.json` | `access_control.py` | Memory read/write permissions per phase |
+| `parameter_rules.json` | `parameter_validator.py` | Per-tool parameter constraints and allowed ranges |
+| `asset_criticality.json` | `operational_context.py` | Asset risk tiers for consensus escalation |
+| `sensitive_patterns.json` | `output_classifier.py` | Regex/keyword patterns for sensitive content detection |
+| `action_impacts.json` | `scoring.py` | Impact severity ratings per tool action |
+| `reversibility_scores.json` | `scoring.py` | Reversibility classification (reversible/partial/irreversible) |
+| `change_log.json` | `versioned_ledger.py` | Append-only record of configuration changes |
+| `maintenance_windows.json` | `operational_context.py` | Scheduled maintenance periods for action gating |
+| `time_policies.json` | `operational_context.py` | Time-of-day restrictions on high-risk actions |
+| `memory_schemas.json` | `write_filter.py` | Per-collection schema definitions for write validation |
+| `memory_collections.json` | `chromadb_setup.py` | Collection definitions and metadata |
+| `field_clearance.json` | `access_isolation.py` | Field-level clearance mapping per phase |
+| `mitre_techniques.json` | `intent_chain.py` | MITRE ATT&CK technique mappings for intent analysis |
 
 ### Switching Domains
 
@@ -220,6 +265,7 @@ done
 python -m attacks.harness --domain cyberops --benign --config agenticcyops --trials 1
 
 # 9. Run CyberOps full evaluation (auto charts + PDF)
+# Menu supports AP-1 through AP-15, options: "all original (1-6)", "all new (7-15)", "ALL (1-15)"
 bash scripts/run_attack_paths.sh A cyberops all all 6
 
 # 10. Run multi-domain evaluation (auto charts + PDF)
@@ -336,8 +382,8 @@ agenticcyops-experiments/
 ├── monitor.sh                        # Live system monitor
 ├── gpu_monitor.sh                    # nvidia-smi loop
 ├── scripts/                          # Experiment runner scripts
-│   ├── run_baseline.sh              # Interactive domain baseline verification
-│   ├── run_attack_paths.sh          # Attack path experiments (all groups/domains)
+│   ├── run_baseline.sh              # Interactive domain baseline verification (overwrite protection prompt)
+│   ├── run_attack_paths.sh          # Unified attack path experiments -- replaced run_eval_a.sh and run_eval_f.sh (overwrite protection prompt)
 ├── README.md                         # This file
 ├── experiment_plan.md                # Full evaluation protocol
 ├── task_checklist.md                 # 10-day execution checklist
@@ -374,13 +420,22 @@ agenticcyops-experiments/
 │   │   │   └── report/              # T13–T16
 │   │   ├── seed_data/               # 12 collection seeds (760 entries total, 50-100 each)
 │   │   ├── prompts/                 # 4 agent system prompts
-│   │   └── payloads/                # 6 APs × 5 variants + benign
+│   │   └── payloads/                # 15 APs × 5 variants + benign
 │   │       ├── ap1_variants.json
 │   │       ├── ap2_variants.json
 │   │       ├── ap3_variants.json
 │   │       ├── ap4_variants.json
 │   │       ├── ap5_variants.json
 │   │       ├── ap6_variants.json
+│   │       ├── ap7_variants.json
+│   │       ├── ap8_variants.json
+│   │       ├── ap9_variants.json
+│   │       ├── ap10_variants.json
+│   │       ├── ap11_variants.json
+│   │       ├── ap12_variants.json
+│   │       ├── ap13_variants.json
+│   │       ├── ap14_variants.json
+│   │       ├── ap15_variants.json
 │   │       └── benign_alerts.json
 │   │
 │   ├── healthcare/                   # Adapter: 13 tools, 8 memory stores
@@ -388,10 +443,12 @@ agenticcyops-experiments/
 │   │   ├── tools/                    # H1–H13 (EHR, Vitals, Imaging, Rx Writer, etc.)
 │   │   ├── seed_data/               # 8 collections (10-20 entries each)
 │   │   ├── prompts/                 # Triage, Diagnostic, Treatment, Compliance agents
-│   │   └── payloads/                # 3 APs × 5 variants + benign
+│   │   └── payloads/                # 5 APs × 5 variants + benign
 │   │       ├── ap1_variants.json           # Triage → Prescription Writer
 │   │       ├── ap2_variants.json           # Poisoned labs → wrong diagnosis
 │   │       ├── ap4_variants.json           # PHI exfil into quality metrics
+│   │       ├── ap7_variants.json           # Clinical action chains (prescribe+override, bulk Rx)
+│   │       ├── ap8_variants.json           # Wrong patient, wildcard, dangerous dosage
 │   │       └── benign_workflows.json
 │   │
 │   ├── finance/                      # Adapter: 13 tools, 8 memory stores
@@ -399,10 +456,12 @@ agenticcyops-experiments/
 │   │   ├── tools/                    # F1–F13 (Transaction Stream, Account Freeze, SAR, etc.)
 │   │   ├── seed_data/
 │   │   ├── prompts/                 # Surveillance, Investigator, Action, Compliance agents
-│   │   └── payloads/                # 3 APs × 5 variants + benign
+│   │   └── payloads/                # 5 APs × 5 variants + benign
 │   │       ├── ap1_variants.json           # Surveillance → Account Freeze
 │   │       ├── ap2_variants.json           # Falsified fraud determination
 │   │       ├── ap5_variants.json           # Mass account freeze
+│   │       ├── ap7_variants.json           # Financial chains (freeze+recall, bulk chargebacks)
+│   │       ├── ap8_variants.json           # Wrong account, wildcard freeze, excessive amount
 │   │       └── benign_workflows.json
 │   │
 │   └── legal/                        # Adapter: 13 tools, 8 memory stores
@@ -410,17 +469,22 @@ agenticcyops-experiments/
 │       ├── tools/                    # L1–L13 (Docket Search, Court Filing, Billing, etc.)
 │       ├── seed_data/
 │       ├── prompts/                 # Intake, Research, Filing, Client Reporting agents
-│       └── payloads/                # 3 APs × 5 variants + benign
+│       └── payloads/                # 5 APs × 5 variants + benign
 │           ├── ap1_variants.json           # Research → Court Filing
 │           ├── ap2_variants.json           # Poisoned case law → wrong analysis
 │           ├── ap4_variants.json           # Privileged comms in billing
+│           ├── ap7_variants.json           # Legal chains (file+pay, sign+file, bulk filings)
+│           ├── ap8_variants.json           # Wrong case, wildcard signing, excessive payment
 │           └── benign_workflows.json
 │
 ├── host/                             # SOAR Host orchestrator (DOMAIN-AGNOSTIC)
-│   ├── orchestrator.py               # LangGraph CoT + phase routing
+│   ├── orchestrator.py               # LangGraph CoT + phase routing + 7-step enforcement pipeline
 │   ├── manifest_enforcer.py          # Reads manifests from domains/{domain}/configs/
-│   ├── acl_middleware.py            # HTTP-level ACL for acl_hardened config
-│   └── handoff.py
+│   ├── authenticated_interface.py    # Component identity + admin-approved catalog (P1)
+│   ├── parameter_validator.py        # Domain-aware parameter validation (P2)
+│   ├── output_classifier.py          # Sensitive content detection and redaction (P2/P5)
+│   ├── handoff.py                    # Host-mediated sequential phase handoffs
+│   └── acl_middleware.py             # HTTP-level ACL for acl_hardened config
 │
 ├── agents/                           # Phase agents (DOMAIN-AGNOSTIC)
 │   ├── base_agent.py                 # Loads prompts from domains/{domain}/prompts/
@@ -430,17 +494,30 @@ agenticcyops-experiments/
 │   └── report_agent.py
 │
 ├── memory/                           # Memory layer (DOMAIN-AGNOSTIC)
+│   ├── mma_gateway.py                # Memory Management Agent -- reads access_policy from domains/{domain}/configs/
+│   ├── memory_integrity.py           # HMAC-based record integrity verification (P1/P4)
+│   ├── access_isolation.py           # Phase-partitioned namespace isolation + field filtering (P5)
+│   ├── write_filter.py               # Schema + cosine similarity + contradiction check (P4)
+│   ├── access_control.py             # Role-based read/write policy enforcement (P5)
 │   ├── chromadb_setup.py             # Creates collections from domains/{domain}/seed_data/
-│   ├── seed_data.py
-│   ├── mma_gateway.py                # Reads access_policy from domains/{domain}/configs/
-│   ├── access_control.py
-│   └── write_filter.py               # Cosine similarity via Qwen3-Embedding-0.6B (CPU default)
+│   ├── embedding_adapter.py          # Pluggable embedding backend (Qwen3-Embedding-0.6B default)
+│   └── seed_data.py
 │
 ├── consensus/                        # Consensus module (DOMAIN-AGNOSTIC)
-│   ├── validator.py
-│   ├── recovery_loop.py
-│   ├── improvement_loop.py
-│   └── escalation.py
+│   ├── verified_execution.py         # 10-layer verified execution pipeline orchestrator
+│   ├── validator.py                  # L6: Multi-model consensus voting
+│   ├── handoff_validator.py          # L0: Phase handoff authorization
+│   ├── operational_context.py        # L0.5: Maintenance windows, time policies, asset criticality
+│   ├── adaptive_consent.py           # L0.7: Adaptive consent escalation
+│   ├── scoring.py                    # L1: Risk scoring (action impacts + reversibility)
+│   ├── auto_gates.py                 # L2: Automated go/no-go gates
+│   ├── intent_chain.py              # L3: Multi-step intent chain analysis
+│   ├── cross_incident_ledger.py      # L4: Cross-incident pattern correlation
+│   ├── global_action_monitor.py      # L5: Replay and bulk-action detection
+│   ├── recovery_loop.py             # Rejection recovery with alternative proposals
+│   ├── improvement_loop.py          # Post-consensus feedback integration
+│   ├── escalation.py                # Human escalation for unresolvable conflicts
+│   └── versioned_ledger.py          # Append-only versioned decision audit trail
 │
 ├── mcp_servers/                      # Tool server template (DOMAIN-AGNOSTIC)
 │   ├── base_server.py                # Generic FastAPI + MCP template
@@ -479,7 +556,7 @@ agenticcyops-experiments/
 │
 ├── analysis/
 │   ├── __init__.py
-│   ├── verify_baseline.py        # CLI pass/fail readiness gate
+│   ├── verify_baseline.py        # CLI pass/fail readiness gate (checks all P1-P5 layers, --group param, false positive tracking per principle)
 │   ├── baseline_dashboard.py     # Seaborn charts + CSV
 │   ├── generate_report.py        # 9-page PDF report
 │   ├── visualize_pipeline.py     # Pipeline flow diagram
@@ -602,10 +679,40 @@ Case management and legal research.
 
 | Attack Pattern | CyberOps | Healthcare | Finance | Legal |
 |---------------|----------|------------|---------|-------|
-| Tool Redirection | Monitor → IAM/PAM | Triage → Prescription Writer | Surveillance → Account Freeze | Research → Court Filing |
-| Memory Poisoning | Falsified RCA → Threat Repo | Poisoned labs → Patient Records | Falsified fraud → Case History | Poisoned case law → Research Memos |
-| Data Exfiltration | Raw forensics → MISP | PHI → Quality Metrics | — | Privileged comms → Billing |
-| Bulk Irreversible | Mass credential revocation | — | Mass account freeze | — |
+| Tool Redirection (AP-1) | Monitor → IAM/PAM | Triage → Prescription Writer | Surveillance → Account Freeze | Research → Court Filing |
+| Memory Poisoning (AP-2) | Falsified RCA → Threat Repo | Poisoned labs → Patient Records | Falsified fraud → Case History | Poisoned case law → Research Memos |
+| Data Exfiltration (AP-4) | Raw forensics → MISP | PHI → Quality Metrics | — | Privileged comms → Billing |
+| Bulk Irreversible (AP-5) | Mass credential revocation | — | Mass account freeze | — |
+| Action Chain (AP-7) | Stealth sequences, velocity burst | Clinical chains (prescribe+override, bulk Rx) | Financial chains (freeze+recall, bulk chargebacks) | Legal chains (file+pay, sign+file, bulk filings) |
+| Parameter Manipulation (AP-8) | Target swap, wildcards, evidence mismatch | Wrong patient, wildcard, dangerous dosage | Wrong account, wildcard freeze, excessive amount | Wrong case, wildcard signing, excessive payment |
+
+### Attack Vector Coverage (35 vectors, 150 variants)
+
+The testbed evaluates all 35 attack vectors across 15 attack paths (CyberOps) plus 5 cross-domain APs each for healthcare, finance, and legal — totaling 30 payload files and 150 variants.
+
+| Category | Vectors | Description |
+|----------|---------|-------------|
+| Tool/Agent (TA) | TA-1 to TA-22 | Tool redirection, parameter manipulation, prompt injection, privilege escalation, output poisoning, replay, bulk actions, identity spoofing, and cross-phase tool abuse |
+| Memory (MA) | MA-1 to MA-12 | Write poisoning, schema manipulation, similarity evasion, metadata tampering, drift injection, cross-collection leakage, read amplification, and exfiltration |
+| Composite (CA) | CA-1 | Multi-stage chained attack combining tool and memory vectors |
+
+| Domain | APs | Variants | Coverage |
+|--------|-----|----------|----------|
+| CyberOps | 15 (AP-1 to AP-15) | 75 | All 35 vectors |
+| Healthcare | 5 (AP-1, AP-2, AP-4, AP-7, AP-8) | 25 | Cross-domain analogues |
+| Finance | 5 (AP-1, AP-2, AP-5, AP-7, AP-8) | 25 | Cross-domain analogues |
+| Legal | 5 (AP-1, AP-2, AP-4, AP-7, AP-8) | 25 | Cross-domain analogues |
+| **TOTAL** | **30 files** | **150 variants** | **35/35 vectors** |
+
+#### Principle-to-Attack-Vector Coverage Matrix
+
+| Principle | Primary Coverage | Secondary Coverage |
+|-----------|-----------------|-------------------|
+| P1 (Authorized Interface) | TA-8 (identity spoofing), TA-15 (catalog bypass), TA-19 (manifest tampering) | TA-1, TA-5, CA-1 |
+| P2 (Capability Scoping) | TA-1 (tool redirection), TA-2 (parameter manipulation), TA-6 (output poisoning), TA-9 to TA-14 | TA-3, TA-16, CA-1 |
+| P3 (Verified Execution) | TA-3 (prompt injection), TA-4 (privilege escalation), TA-5 (replay), TA-7 (bulk actions), TA-16 to TA-22 | TA-1, TA-2, MA-5, CA-1 |
+| P4 (Memory Integrity) | MA-1 (write poisoning), MA-2 (schema manipulation), MA-3 (similarity evasion), MA-4 to MA-8 | MA-9, MA-12, CA-1 |
+| P5 (Access Control) | MA-9 (cross-collection leakage), MA-10 (read amplification), MA-11 (exfiltration), MA-12 | TA-6, MA-1, CA-1 |
 
 ---
 
@@ -628,12 +735,60 @@ Three system configurations applied identically across all domains:
 
 ### AgenticCyOps
 
-- **P1 (Authorized Interface):** Signed manifests, admin-approved tool catalog
-- **P2 (Capability Scoping):** Phase-to-tool restriction at Host routing layer
-- **P3 (Verified Execution):** Multi-model consensus (default ≥3/4: V1+V2+V4+V6) before irreversible actions
-- **P4 (Memory Integrity):** Write-boundary filtering + versioned ledger
-- **P5 (Access Control):** MMA-mediated memory with phase-partitioned policies
-- Host-mediated sequential handoffs
+All five principles are enforced through multiple defensive layers:
+
+- **P1 (Authorized Interface) -- 3 layers:**
+  - Component identity verification (`authenticated_interface.py`)
+  - Response integrity validation (signed manifests, admin-approved tool catalog)
+  - Configuration and data integrity with HMAC (`memory_integrity.py`)
+
+- **P2 (Capability Scoping) -- 3 layers:**
+  - Tool access restriction via phase manifests (`manifest_enforcer.py`)
+  - Parameter validation against domain rules (`parameter_validator.py`)
+  - Output classification for sensitive content (`output_classifier.py`)
+
+- **P3 (Verified Execution) -- 10 layers:**
+  - L0: Handoff validation (`handoff_validator.py`)
+  - L0.5: Operational context -- maintenance windows, time policies, asset criticality (`operational_context.py`)
+  - L0.7: Adaptive consent escalation (`adaptive_consent.py`)
+  - L1: Risk scoring with action impacts and reversibility (`scoring.py`)
+  - L2: Automated go/no-go gates (`auto_gates.py`)
+  - L3: Intent chain analysis across agent actions (`intent_chain.py`)
+  - L4: Cross-incident pattern correlation (`cross_incident_ledger.py`)
+  - L5: Replay and bulk-action detection (`global_action_monitor.py`)
+  - L6: LLM-based multi-model consensus (default >=3/4: V1+V2+V4+V6) (`validator.py`)
+  - L7: Execution with recovery loop and escalation (`recovery_loop.py`, `escalation.py`)
+
+- **P4 (Memory Integrity) -- 6 layers:**
+  - Schema validation against `memory_schemas.json` (`write_filter.py`)
+  - Cosine similarity boundary check (`write_filter.py`)
+  - Metadata consistency verification (`memory_integrity.py`)
+  - Drift detection across write history (`versioned_ledger.py`)
+  - Replay detection for duplicate/near-duplicate writes (`global_action_monitor.py`)
+  - Contradiction detection against existing records (`write_filter.py`)
+
+- **P5 (Access Control) -- 5 layers:**
+  - Role-based access control per phase (`access_control.py`)
+  - Field-level filtering by clearance (`access_isolation.py`, `field_clearance.json`)
+  - Query scope restriction to phase-relevant collections (`mma_gateway.py`)
+  - Read pattern monitoring (`access_isolation.py`)
+  - Output sanitization for cross-phase data (`output_classifier.py`)
+
+- Host-mediated sequential handoffs (`handoff.py`)
+
+#### Orchestrator Enforcement Pipeline (AgenticCyOps Config)
+
+When a tool call is requested, the orchestrator enforces a 7-step pipeline:
+
+| Step | Component | Action | On Failure |
+|------|-----------|--------|------------|
+| 1 | `authenticated_interface.py` | Verify caller identity and catalog membership | Reject (P1) |
+| 2 | `manifest_enforcer.py` | Check tool is in current phase manifest | Reject (P2) |
+| 3 | `parameter_validator.py` | Validate parameters against `parameter_rules.json` | Reject (P2) |
+| 4 | `verified_execution.py` | Run 10-layer verified execution (L0-L7) | Reject/escalate (P3) |
+| 5 | `mma_gateway.py` | Mediate any memory reads/writes with access policy | Reject (P5) |
+| 6 | `write_filter.py` | Validate memory writes against schema + similarity | Reject (P4) |
+| 7 | `output_classifier.py` | Classify response for sensitive content leakage | Redact/reject (P2/P5) |
 
 ### Model Groups (A–G)
 
@@ -651,6 +806,40 @@ Seven model groups test different primary agent / validator combinations:
 
 **GPU constraint:** V3(Llama) on GPU 4,5 conflicts with Qwen3-235B on GPU 0,1,4,5. V3 can only be a validator in Groups F and G, where Claude (API) is the primary agent and GPU 4,5 are free. Claude is NOT used as a validator when it is the primary agent (no self-judging).
 
+
+---
+
+## Security Hardening
+
+The integrated system underwent **4 iterative red team passes**, identifying and fixing **21 integration-level vulnerabilities** (1 critical, 6 high, 9 medium, 5 low). Key hardening measures:
+
+- **TOCTOU defense:** L7 execution verification wired into orchestrator; execution hash verified before every tool call
+- **Forced consensus:** Negative-impact tools always route through P3 regardless of manifest configuration
+- **MMA authentication:** HMAC request signing on all memory gateway endpoints
+- **Injection sanitization:** Every text boundary (handoff, memory reads, tool results, proposal justification, argument values) sanitized recursively
+- **Generic rejections:** No defense internals leaked in rejection reasons returned to agents (TA-21)
+- **Cross-incident state:** Replay detection, accumulation tracking, and global pattern monitoring persist across incidents
+- **Parameter-aware consent:** Adaptive consent profiles include parameter hashes, preventing trust transfer between different targets
+
+### False Negative & False Positive Audits
+
+After integration hardening, two systematic audits were conducted:
+
+- **False negative audit (11 findings, all fixed):** Identified attack variants that were not being detected. Fixes span AP-8 (asset criticality), AP-9 (handoff severity extraction), AP-11 (operational context — maintenance windows, time policies, change log seeding, incident status registration), AP-14 (P5 injection patterns, sanitization event logging), and AP-15 (L7 SHA-256 hash comparison, P1-L2 response time floor).
+- **False positive audit (6 findings, all fixed):** Identified legitimate operations incorrectly blocked. Fixes include L7 hash comparison (field hoisting alignment), phase-aware output classification, response time floor adjustment (0.01ms for localhost stubs), and benign payload metadata completion across all 4 domains.
+
+### Benign Scenario Validation
+
+All benign scenarios across all 4 domains verified for access policy compliance:
+
+- Admin-phase writes moved to report phase where access policy permits writes (healthcare, finance, legal)
+- Legal domain: 15 read mismatches corrected across monitor/analyze/report phases
+- **All 4 domains verified CLEAN** — zero access policy violations in benign payloads
+- Benign payloads include memory_ops (reads + writes) across all 4 phases; `memory_ops_present` is a critical baseline pass criterion
+
+**Acknowledged out-of-scope:** LLM reasoning errors, embedding model adversarial attacks, tool server lying, reward farming via manufactured incidents. These are component-level or policy-level concerns not addressable at the integration layer.
+
+See `experiment_plan.md` Section 2.8 for the full breakdown (21 integration fixes + 11 false negative fixes + 6 false positive fixes).
 
 ---
 

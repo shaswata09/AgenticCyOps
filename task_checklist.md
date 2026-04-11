@@ -5,7 +5,7 @@
 > **Priority:** Eval A (CyberOps depth) > Eval F (multi-domain) > Eval D (TAMAS) > B > Ablation + Validator Diversity > E > C  
 > **Hardware:** 6× H200, all BF16 (GLM-4.7-FP8 uses official FP8 weights from zai-org/GLM-4.7-FP8)  
 > **API Budget:** ~$12 GPT-4o + ~$4 Claude for consensus validation (~$16 total); ~$50 additional if TAMAS included (~$66 total)  
-> **Target:** ~1,900 instrumented runs, 4 domains, 6 attack paths, 3 configs, 7 model families, zero framework code changes across domains
+> **Target:** ~2,900 instrumented runs, 4 domains, 15 attack paths (CyberOps) + 5 per adapter domain, 150 total variants, 3 configs, 7 model families, zero framework code changes across domains
 
 ---
 
@@ -52,40 +52,89 @@
 
 ### 0.3 Project Structure
 - [x] Core (domain-agnostic): host/, agents/, consensus/, attacks/, analysis/, mcp_servers/, tests/
-  - `host/acl_middleware.py` — HTTP-level ACL for acl_hardened config
-- [x] `scripts/` — run_baseline.sh, run_attack_paths.sh
+- [x] `host/` — 7 modules:
+  - `authenticated_interface.py` — P1: HMAC-signed tool identity verification
+  - `parameter_validator.py` — P2-L2: parameter bounds + asset criticality checks
+  - `output_classifier.py` — P2-L3: sensitive data pattern detection in outputs
+  - `manifest_enforcer.py` — P3: per-phase tool/memory/consensus manifest enforcement
+  - `orchestrator.py` — SOARHost with run_incident, run_phase, reason sanitization (TA-21)
+  - `handoff.py` — PhaseHandoff with create_handoff, get_handoff_summary
+  - `acl_middleware.py` — HTTP-level ACL for acl_hardened config
+- [x] `consensus/` — 14 modules:
+  - `verified_execution.py` — P3: cryptographic execution verification with HMAC chains
+  - `handoff_validator.py` — P3: validates phase transition data integrity
+  - `operational_context.py` — P3: maintains operational state across consensus rounds
+  - `intent_chain.py` — P3: tracks and validates action intent provenance
+  - `cross_incident_ledger.py` — P3: cross-incident action logging and pattern detection
+  - `global_action_monitor.py` — P3: async-locked global monitor for concurrent action tracking (TA-22)
+  - `versioned_ledger.py` — P3: append-only versioned ledger with hash chaining (replay detection)
+  - `adaptive_consent.py` — P3: dynamic consent thresholds based on action risk
+  - `scoring.py` — P3: multi-factor trust scoring for consensus decisions
+  - `auto_gates.py` — P3: automatic gating rules for pre-consensus filtering
+  - `validator.py` — ConsensusValidator with validate + validate_with_details (concurrent validators)
+  - `escalation.py` — EscalationHandler (auto-reject in testbed, logs escalation)
+  - `recovery_loop.py` — RecoveryLoop (Admin phase, bulk action detection)
+  - `improvement_loop.py` — ImprovementLoop (Report phase memory writes)
+- [x] `memory/` — 8 modules:
+  - `memory_integrity.py` — P4: write filter with schema validation + MITRE technique matching
+  - `access_isolation.py` — P5: field-level clearance enforcement per agent phase
+  - `write_filter.py` — cosine similarity filter, defaults to Qwen3-Embedding-0.6B on CPU
+  - `access_control.py` — AccessController with can_read/can_write
+  - `mma_gateway.py` — FastAPI with /memory/read, /memory/write, /memory/list (P4+P5 enforcement)
+  - `chromadb_setup.py` — domain-agnostic ChromaDB initialization from memory_collections.json
+  - `seed_data.py` — collection seeding with domain-specific data
+  - `embedding_adapter.py` — ChromaEmbeddingAdapter (ChromaDB 1.5.7 compatible)
+- [x] `configs/` — 6 files:
+  - `component_registry.json` — P1: registered tool identities with HMAC keys
+  - `validators.yaml` — V1-V6 + 10 consensus configs
+  - `hmac_key.txt` — shared HMAC secret for component authentication
+  - `flat_config.yaml`, `acl_config.yaml`, `agenticcyops_config.yaml`
+- [x] `scripts/` — run_baseline.sh, run_attack_paths.sh (unified attack runner, replaces old run_eval_a.sh / run_eval_f.sh)
 - [x] `models/` — utils (11 files), test_scripts (11 notebooks), download_models.sh
 - [x] `logging_utils/` — json_logger.py with ExperimentLogger
-- [x] `memory/` — embedding_adapter.py + placeholders (chromadb_setup, mma_gateway, write_filter, access_control, seed_data)
 - [x] `config.py` — project base path (no hardcoded paths)
 - [x] `domains/` — 4 domains (cyberops, healthcare, finance, legal), each with configs/, tools/, seed_data/, prompts/, payloads/
-- [x] `configs/` — flat_config.yaml, acl_config.yaml, agenticcyops_config.yaml, validators.yaml (placeholders)
 - [x] `ablation/configs/` — no_p1 through no_p5 yaml placeholders
 - [x] `benchmarks/` — tamas/ and boundary/ with placeholder scripts
 - [x] `results/` — tables/ and figures/ directories
 - [x] `docs/`, `cross_domain/`, `tests/` — all placeholder files created
 - [x] All Python packages have `__init__.py`
 - [x] All Phase 1+ files have TODO docstrings marking which phase implements them
-- [x] Domain configs:
+- [x] Domain configs (per domain):
   ```
   domains/
   ├── cyberops/
-  │   ├── configs/        # 4 manifests
+  │   ├── configs/        # 17 files (4 manifests + 13 config files, see below)
   │   ├── tools/          # 16 MCP stubs
   │   ├── seed_data/      # 12 collection seeds
   │   ├── prompts/        # 4 agent system prompts
-  │   └── payloads/       # 6 APs × 5 variants + benign
+  │   └── payloads/       # 15 APs × 5 variants + benign
   ├── healthcare/
-  │   ├── configs/        # 4 manifests
+  │   ├── configs/        # 16 files (4 manifests + 12 config files, no mitre_techniques.json)
   │   ├── tools/          # 13 tool stubs (~20 lines each)
   │   ├── seed_data/      # 8 collection seeds (10-20 entries each)
   │   ├── prompts/        # 4 agent system prompts
-  │   └── payloads/       # 3 APs × 5 variants + benign
+  │   └── payloads/       # 5 APs × 5 variants + benign
   ├── finance/
   │   └── (same structure as healthcare)
   └── legal/
       └── (same structure as healthcare)
   ```
+- [x] Domain config file types (per domain):
+  - **4 manifests:** `monitor_manifest.json`, `analyze_manifest.json`, `admin_manifest.json`, `report_manifest.json`
+  - **P1:** `access_policy.json` — phase-partitioned tool/memory permissions
+  - **P2-L2:** `parameter_rules.json` — parameter bounds and validation rules per tool
+  - **P2-L2:** `asset_criticality.json` — asset risk scores for parameter validation
+  - **P2-L3:** `sensitive_patterns.json` — regex/keyword patterns for output classification
+  - **P4:** `memory_collections.json` — collection definitions for ChromaDB
+  - **P4:** `memory_schemas.json` — write schema validation rules per collection
+  - **P4:** `mitre_techniques.json` — MITRE ATT&CK technique mappings (cyberops only)
+  - **P5:** `field_clearance.json` — field-level access clearances per agent phase
+  - **P3:** `action_impacts.json` — impact scores for consensus decision weighting
+  - **P3:** `reversibility_scores.json` — reversibility ratings per action type
+  - **P3:** `change_log.json` — action change tracking configuration
+  - **P3:** `maintenance_windows.json` — time-based action restriction windows
+  - **P3:** `time_policies.json` — temporal policies for action gating
 
 ---
 
@@ -117,6 +166,47 @@
   - Semantic coherence verified: legit writes >0.5, junk <0.25, threshold=0.5
 - [x] Verified: access control 15/15 tests + write filter legit=0.652/junk=0.150 (runtime verified)
 
+### 1.2a P1: Authenticated Interface — **COMPLETED**
+- [x] `host/authenticated_interface.py`: HMAC-signed tool identity verification
+- [x] `configs/component_registry.json`: registered tool identities with HMAC keys
+
+### 1.2b P2-L2: Parameter Validator — **COMPLETED**
+- [x] `host/parameter_validator.py`: parameter bounds + asset criticality checks
+- [x] Per-domain `parameter_rules.json`: parameter validation rules per tool
+- [x] Per-domain `asset_criticality.json`: asset risk scores
+
+### 1.2c P2-L3: Output Classifier — **COMPLETED**
+- [x] `host/output_classifier.py`: sensitive data pattern detection in outputs
+- [x] Per-domain `sensitive_patterns.json`: regex/keyword patterns for output classification
+
+### 1.2d P3: Consensus Modules — **COMPLETED** (14 modules)
+- [x] `consensus/verified_execution.py`: cryptographic execution verification with HMAC chains
+- [x] `consensus/handoff_validator.py`: validates phase transition data integrity
+- [x] `consensus/operational_context.py`: maintains operational state across consensus rounds
+- [x] `consensus/intent_chain.py`: tracks and validates action intent provenance
+- [x] `consensus/cross_incident_ledger.py`: cross-incident action logging and pattern detection
+- [x] `consensus/global_action_monitor.py`: async-locked global monitor for concurrent action tracking (TA-22)
+- [x] `consensus/versioned_ledger.py`: append-only versioned ledger with hash chaining (replay detection)
+- [x] `consensus/adaptive_consent.py`: dynamic consent thresholds based on action risk
+- [x] `consensus/scoring.py`: multi-factor trust scoring for consensus decisions
+- [x] `consensus/auto_gates.py`: automatic gating rules for pre-consensus filtering
+- [x] Per-domain config files: `action_impacts.json`, `reversibility_scores.json`, `change_log.json`, `maintenance_windows.json`, `time_policies.json`
+
+### 1.2e P4: Memory Integrity — **COMPLETED**
+- [x] `memory/memory_integrity.py`: write filter with schema validation + MITRE technique matching
+- [x] Per-domain `memory_schemas.json`: write schema validation rules per collection
+- [x] Per-domain `mitre_techniques.json`: MITRE ATT&CK technique mappings (cyberops only)
+
+### 1.2f P5: Access Isolation — **COMPLETED**
+- [x] `memory/access_isolation.py`: field-level clearance enforcement per agent phase
+- [x] Per-domain `field_clearance.json`: field-level access clearances per agent phase
+
+### 1.2g TA-21: Reason Sanitization — **COMPLETED**
+- [x] Reason sanitization implemented in `host/orchestrator.py`
+
+### 1.2h TA-22: Global Action Monitor — **COMPLETED**
+- [x] `consensus/global_action_monitor.py`: async lock on cross-incident ledger
+
 ### 1.3 Manifests + Enforcer — **C**
 - [x] 4 CyberOps manifests in `domains/cyberops/configs/`
   - monitor: T1-T4, reads M1/M4/M7/M10, no writes, no consensus
@@ -141,13 +231,23 @@
 - [x] 4 phase agents: MonitorAgent, AnalyzeAgent, AdminAgent, ReportAgent
 - [x] 4 CyberOps prompts in `domains/cyberops/prompts/`
 
-### 1.6 Consensus Module — **C**
+### 1.6 Consensus Module — **C** (expanded from 3 to 14 modules)
 - [x] `consensus/validator.py`: ConsensusValidator with validate + validate_with_details
   - Calls validators concurrently (asyncio.gather)
   - Supports OpenAI-compatible (vLLM) and Anthropic validators
 - [x] `consensus/recovery_loop.py`: RecoveryLoop (Admin phase, bulk action detection)
 - [x] `consensus/improvement_loop.py`: ImprovementLoop (Report phase memory writes)
 - [x] `consensus/escalation.py`: EscalationHandler (auto-reject in testbed, logs escalation)
+- [x] `consensus/verified_execution.py`: cryptographic execution verification with HMAC chains
+- [x] `consensus/handoff_validator.py`: validates phase transition data integrity
+- [x] `consensus/operational_context.py`: maintains operational state across consensus rounds
+- [x] `consensus/intent_chain.py`: tracks and validates action intent provenance
+- [x] `consensus/cross_incident_ledger.py`: cross-incident action logging and pattern detection
+- [x] `consensus/global_action_monitor.py`: async-locked global monitor (TA-22)
+- [x] `consensus/versioned_ledger.py`: append-only versioned ledger with hash chaining
+- [x] `consensus/adaptive_consent.py`: dynamic consent thresholds based on action risk
+- [x] `consensus/scoring.py`: multi-factor trust scoring for consensus decisions
+- [x] `consensus/auto_gates.py`: automatic gating rules for pre-consensus filtering
 - [x] `configs/validators.yaml`: V1-V6 + 10 consensus configs (default_consensus=V1+V2+V4+V6, need 3 of 4; full_diversity, all_with_gpt4o, with_mistral, same_family, all_local_diverse, local_only, mixed_with_claude, mixed_with_gpt4o, default_no_claude)
 - [x] Per-validator decision, latency, tokens logged via ExperimentLogger
 
@@ -168,17 +268,18 @@
 
 ### 2.3 AgenticCyOps — **C**
 - [x] Full: Host + manifests + consensus + MMA
-- [x] Verify: all 5 principles logging ✓
-- [x] Verify: consensus approves legitimate Admin action ✓
-- [x] Verify: write-filter accepts legitimate memory write ✓
-- [x] Run 1 benign incident E2E → completes with zero false blocks ✓
-- [x] P4/P5: N/A (no memory ops in benign)
+- [ ] Verify: all 5 principles logging (P1-P5 layers individually)
+- [ ] Verify: consensus approves legitimate Admin action
+- [ ] Verify: write-filter accepts legitimate memory write
+- [ ] Verify: memory reads exercise P5-L2/L3/L4/L5
+- [ ] Run 1 benign incident E2E → completes with zero false blocks
+- [ ] P4/P5 active (benign workflows now include memory_ops)
 
-### 2.4 CyberOps Baseline Status
-- [x] Flat MAS benign E2E: ✓ PASS
-- [x] ACL-Hardened benign E2E: ✓ PASS
-- [x] AgenticCyOps benign E2E: ✓ PASS
-- [x] **CyberOps ready for attacks: ✓**
+### 2.4 CyberOps Baseline Status (STALE — re-run required)
+- [ ] Flat MAS benign E2E
+- [ ] ACL-Hardened benign E2E
+- [ ] AgenticCyOps benign E2E (must verify P1-P5 all layers active)
+- [ ] **CyberOps ready for attacks**
 
 ---
 
@@ -188,7 +289,12 @@
 - [x] `attacks/harness.py`: domain-agnostic attack execution engine with log-based success evaluation
   - Takes: `--domain cyberops --ap ap1 --config agenticcyops --trials 30`
   - Loads payloads from `domains/{domain}/payloads/`
+  - Attack payloads include `attacker_phase` field for correct evaluation routing
   - Logs to `logs/{domain}_{eval}/`
+- [x] `scripts/run_attack_paths.sh`: unified attack runner (replaces previous separate run_eval_a.sh / run_eval_f.sh)
+  - Supports all groups, domains, APs, and trial counts via CLI args
+  - Menu supports AP-1 through AP-15, options for "all original (1-6)", "all new (7-15)", "ALL (1-15)"
+- [x] Harness `evaluate_success` updated with 18 new check_types: chain_check, parameter_check, handoff_check, sanitization_check, operational_context_check, sequential_check, global_pattern_check, accumulation_check, memory_contradiction_check, memory_metadata_check, memory_drift_check, output_classification_check, memory_replay_check, read_injection_check, query_scope_check, toctou_check, response_integrity_check, config_integrity_check, data_integrity_check
 
 ### 3.2–3.8 CyberOps Attack Scripts — **A + B**
 - [x] AP-1: Tool Redirection (5 variants) — **B**
@@ -197,8 +303,17 @@
 - [x] AP-4: Cross-Phase Exfiltration (5 variants) — **B**
 - [x] AP-5: Unauthorized Irreversible Action (5 variants) — **A**
 - [x] AP-6: Replay Attack (5 variants) — **C**
+- [x] AP-7: Action Chain (5 variants) — stealth sequences, velocity burst, posture degradation (TA-6, TA-10)
+- [x] AP-8: Parameter Manipulation (5 variants) — target swap, wildcards, bulk targets, evidence mismatch (TA-4)
+- [x] AP-9: Handoff Poisoning (5 variants) — scope inflation, severity jump/drop, deflation phrases (TA-11, TA-20)
+- [x] AP-10: Validator Manipulation (5 variants) — injection in justification, urgency pressure (TA-12, TA-21)
+- [x] AP-11: Operational Context Bypass (5 variants) — change conflict, closed incident, maintenance, time (TA-15-18)
+- [x] AP-12: Concurrent Bypass (5 variants) — batch stealth, cross-incident patterns, accumulation (TA-19, TA-22)
+- [x] AP-13: Adversarial Memory Write (5 variants) — high-sim adversarial, metadata poison, drift, output embedding, replay (MA-4-6, MA-12)
+- [x] AP-14: Memory Read Injection (5 variants) — override instruction, skip triage, mandatory action, broad query (MA-9, MA-2)
+- [x] AP-15: Infrastructure Integrity (5 variants) — TOCTOU, validator forgery, MMA forgery, config tamper, reward tamper (TA-13-14, MA-10-11, CA-1)
 - [x] Benign: 20 scenarios — **C**
-- [x] All payloads → `domains/cyberops/payloads/` (6 APs × 5 variants + 20 benign = 50 payloads)
+- [x] All payloads → `domains/cyberops/payloads/` (15 APs × 5 variants + 20 benign = 95 payloads)
 
 ### 3.9 Healthcare Adapter — **C** (Day 4)
 - [x] 4 manifests → `domains/healthcare/configs/` (+ memory_collections.json, access_policy.json)
@@ -210,12 +325,14 @@
 - [x] 8 memory collections (HM1–HM8), ~400 seed entries total
 - [x] 4 system prompts → `domains/healthcare/prompts/`
 - [x] Access policy JSON → `domains/healthcare/configs/access_policy.json`
-- [x] Attack payloads (3 APs × 5 variants + 1 benign = 20 payloads):
+- [x] Attack payloads (5 APs × 5 variants + 1 benign = 30 payloads):
   - [x] AP-1 analogue: Triage agent tricked into writing prescriptions (H8)
   - [x] AP-2 analogue: Poisoned lab results → wrong diagnosis in patient records
   - [x] AP-4 analogue: Compliance agent exfiltrates PHI into quality metrics
+  - [x] AP-7 analogue: Clinical action chains (prescribe+override, bulk prescription)
+  - [x] AP-8 analogue: Wrong patient, wildcard, dangerous dosage
 - [x] Benign clinical workflows
-- [x] **Baseline verification (all 3 configs):** PASSED for Groups A-F
+- [ ] **Baseline verification (all 3 configs):** STALE — re-run required with P1-P5 layers
   - Baseline run via `./scripts/run_baseline.sh` with interactive group + domain selection
   - Results in `results/baseline/group_{A-F}/healthcare/`
 
@@ -226,12 +343,14 @@
   - Admin: F8-F10 (Account Freeze, Chargeback Processor, Wire Recall)
   - Report: F11-F13 (SAR Generator, Audit Compiler, Regulatory Submission)
 - [x] 13 tool stubs (F1-F13), 8 memory collections (FM1-FM8, ~396 seed entries), 4 system prompts, access policy
-- [x] Attack payloads (3 APs × 5 variants + 1 benign = 20 payloads):
+- [x] Attack payloads (5 APs × 5 variants + 1 benign = 30 payloads):
   - [x] AP-1 analogue: Surveillance agent tricked into freezing accounts (F8)
   - [x] AP-2 analogue: Falsified fraud determination poisons case history
   - [x] AP-5 analogue: Account action agent proposes mass account freezes
+  - [x] AP-7 analogue: Financial chains (freeze+recall, bulk chargebacks)
+  - [x] AP-8 analogue: Wrong account, wildcard freeze, excessive amount
 - [x] Benign fraud investigation workflows
-- [x] **Baseline verification (all 3 configs):** PASSED for Groups A-F
+- [ ] **Baseline verification (all 3 configs):** STALE — re-run required with P1-P5 layers
 
 ### 3.11 Legal Adapter — **C** (Day 4)
 - [x] 4 manifests → `domains/legal/configs/` (+ memory_collections.json, access_policy.json)
@@ -240,12 +359,14 @@
   - Admin: L8-L10 (Court Filing, Document Signing, Payment Processing)
   - Report: L11-L13 (Client Memo Generator, Billing System, Matter Close)
 - [x] 13 tool stubs (L1-L13), 8 memory collections (LM1-LM8, ~400 seed entries), 4 system prompts, access policy
-- [x] Attack payloads (3 APs × 5 variants + 1 benign = 20 payloads):
+- [x] Attack payloads (5 APs × 5 variants + 1 benign = 30 payloads):
   - [x] AP-1 analogue: Research agent tricked into filing court documents (L8)
   - [x] AP-2 analogue: Poisoned case law → wrong legal analysis in research memos
   - [x] AP-4 analogue: Client reporting agent exfiltrates privileged comms into billing
+  - [x] AP-7 analogue: Legal chains (file+pay, sign+file, bulk filings)
+  - [x] AP-8 analogue: Wrong case, wildcard signing, excessive payment
 - [x] Benign case management workflows
-- [x] **Baseline verification (all 3 configs):** PASSED for Groups A-F
+- [ ] **Baseline verification (all 3 configs):** STALE — re-run required with P1-P5 layers
 
 
 ### 3.12 Baseline Readiness Gate — **All** (End of Day 4)
@@ -254,14 +375,23 @@
 
 | Domain | Flat MAS E2E | ACL-Hardened E2E | AgenticCyOps E2E | Ready |
 |--------|-------------|-----------------|-----------------|-------|
-| CyberOps | ✓ PASS | ✓ PASS | ✓ PASS | ✓ |
-| Healthcare | ✓ PASS | ✓ PASS | ✓ PASS | ✓ |
-| Finance | ✓ PASS | ✓ PASS | ✓ PASS | ✓ |
-| Legal | ✓ PASS | ✓ PASS | ✓ PASS | ✓ |
+| CyberOps | STALE | STALE | STALE | NO |
+| Healthcare | STALE | STALE | STALE | NO |
+| Finance | STALE | STALE | STALE | NO |
+| Legal | STALE | STALE | STALE | NO |
 
-- [x] All 12 cells PASS (verified across Groups A-F, 72 baseline runs total)
-- [x] Log files confirm: Flat has no defenses, ACL has HTTP 403, AgenticCyOps has P2+P3 active
-- [x] **Proceed to Phase 4** — ready for attack runs
+- [ ] All 12 cells PASS (re-run needed with P1-P5 layers active)
+- [ ] Log files confirm: Flat no defenses, ACL HTTP 403, AgenticCyOps P1+P2+P3+P4+P5 all active
+- [ ] **Proceed to Phase 4** — blocked until baselines pass with new layers
+
+**PENDING: Baseline re-run required.** Old baselines (Apr 9) are stale and deleted. All prerequisites for re-run are now met:
+- `verify_baseline.py` checks all P1-P5 layers individually, supports `--group` parameter, tracks false positives per principle, displays principle activity
+- `memory_ops_present` is a critical pass criterion
+- Benign payloads include memory_ops (reads + writes) across all 4 phases for all 4 domains
+- All memory_ops match access_policy.json permissions (verified clean — zero access policy violations)
+- All benign metadata fields present (rule_id, incident_id, date, patient_id, etc.)
+- False negative audit (11 fixes) and false positive audit (6 fixes) complete — system hardened
+- Expected result: flat=zero enforcement, acl_hardened=ACL only, agenticcyops=P1-P5 all active with zero false blocks
 
 **If any cell fails:**
 - Flat fails → tool stub or memory seed issue → fix tool/seed, not framework
@@ -272,51 +402,128 @@
 
 **Adapter build time estimate:** ~4 hours per domain. Person C builds all 3 on Day 4 while A+B finish CyberOps attack scripts.
 
+### 3.13 Red Team Hardening — **COMPLETED** (4 passes, 21 fixes)
+
+Four iterative red team passes against the integrated system. All findings fixed and verified.
+
+- [x] **Pass 1:** 10 findings (1 critical, 4 high, 4 medium, 1 low)
+  - [x] L7 execution verification wired into orchestrator (TOCTOU defense)
+  - [x] Negative-impact tools forced through P3 regardless of manifest config
+  - [x] P2-L2 evidence threshold raised 0.3 to 0.5 with literal fallback
+  - [x] MMA gateway HMAC request signing (auth_token on read/write/list)
+  - [x] Handoff injection sanitization (summary, reasoning, tool_results, memory_reads, prior_phases)
+  - [x] P4-L6 rule-based contradiction check on critical stores
+  - [x] Adaptive consent param hash includes target fields
+  - [x] Cross-incident P1-L2 replay cache (last 5 incidents)
+  - [x] P2-L3 actual content redaction (not just annotation)
+  - [x] Precedent scoring queries versioned ledger (0.1 to 0.9 by match count)
+- [x] **Pass 2:** 4 findings (2 high, 1 medium, 1 low)
+  - [x] Proposal arguments sanitized recursively before LLM validators
+  - [x] Nested dict/list wildcard scanning in P2-L2
+  - [x] Bulk action off-by-one fixed (count + 1)
+  - [x] Rejection reasons sanitized before returning to agents (TA-21)
+- [x] **Pass 3:** 5 findings (3 medium, 2 low)
+  - [x] Break-on-danger in tool call loop (TA-19)
+  - [x] Proposal field hoisting (action/target from arguments to top level for P3)
+  - [x] All text boundaries sanitized for injection (handoff, memory reads, tool results, justification, arguments)
+  - [x] Generic rejection reasons (no defense internals leaked)
+  - [x] Cross-incident state maintained for replay, accumulation, global pattern monitoring
+- [x] **Pass 4:** 2 findings (1 medium-high, 1 low-medium)
+  - [x] Adaptive consent parameter hashing prevents trust transfer between different targets
+  - [x] Final injection surface audit complete
+- [x] **Out-of-scope acknowledged:** LLM reasoning errors, embedding adversarial attacks, tool server lying, reward farming, non-critical store contradiction (performance tradeoff)
+
+### 3.14 False Negative Audit — **COMPLETED** (11 findings, all fixed)
+
+- [x] AP-8 v1: Added 10.0.1.10 to asset_criticality.json as critical
+- [x] AP-9 v2: Handoff extracts assessed_severity into structured field
+- [x] AP-11 (all 4 variants): Fixed operational_context.py — maintenance window key (`affected_assets`), time policy nested traversal + key names (`allowed_start`/`allowed_end`)
+- [x] AP-11 (all 4 variants): Orchestrator seeds change_log from payload, calls register_incident_status
+- [x] AP-14 v1: Added "system override" to P5-L5 injection patterns
+- [x] AP-14: Orchestrator logs P5 sanitization events from MMA read results
+- [x] AP-15 v1: L7 SHA-256 hash comparison for TOCTOU detection
+- [x] AP-15 v2: P1-L2 minimum response time check (0.01ms floor)
+
+### 3.15 False Positive Audit — **COMPLETED** (6 findings, all fixed)
+
+- [x] L7 execution verification: Fixed hash comparison — was comparing tc.to_proposal() vs tc.arguments (always mismatch). Now compares approved proposal vs freshly-built executed proposal with same field hoisting
+- [x] P2-L3 output classification: Now phase-aware — skips internal IP regex for monitor/analyze/admin phases
+- [x] P1-L2 min response time: Lowered from 1ms to 0.01ms for localhost tool stubs
+- [x] Benign metadata: Added missing required fields (rule_id, incident_id, date, patient_id, etc.) to all 4 domains' benign memory_ops writes
+- [x] Tool stub response format: Verified BaseMCPServer wraps to {"status", "result"} — no fix needed
+- [x] Replay detection: Kept correct by design (includes component_id in hash)
+
+### 3.16 Benign Scenario Access Policy Validation — **COMPLETED**
+
+- [x] Healthcare/Finance/Legal: Admin-phase writes moved to report phase (admin has write=[] in access policy)
+- [x] Legal: 15 read mismatches fixed (monitor LM2 to analyze, analyze LM5 to monitor, report LM7 to analyze)
+- [x] All 4 domains verified CLEAN — zero access policy violations in benign payloads
+
 ---
 
 ## Phase 4: Run Eval A — CyberOps Attack Paths (Days 5–6)
 
+**Status:** Previous Group C test run (6 APs × 1 trial) was deleted — stale, used old defense layers. Re-run baseline first, then full attack experiments with all 15 APs.
+
 ### 4.1 Execution — **A + B**
-- [ ] AP-1: 90 runs ✓
-- [ ] AP-2: 90 runs ✓
-- [ ] AP-3: 90 runs ✓
-- [ ] AP-4: 90 runs ✓
-- [ ] AP-5: 90 runs ✓
-- [ ] AP-6: 90 runs ✓
-- [ ] Benign: 60 runs ✓
-- [ ] **Total CyberOps: 600 runs** (Qwen3-235B, temp 0.0)
+- [ ] AP-1: 90 runs
+- [ ] AP-2: 90 runs
+- [ ] AP-3: 90 runs
+- [ ] AP-4: 90 runs
+- [ ] AP-5: 90 runs
+- [ ] AP-6: 90 runs
+- [ ] AP-7: 90 runs (Action Chain)
+- [ ] AP-8: 90 runs (Parameter Manipulation)
+- [ ] AP-9: 90 runs (Handoff Poisoning)
+- [ ] AP-10: 90 runs (Validator Manipulation)
+- [ ] AP-11: 90 runs (Operational Context Bypass)
+- [ ] AP-12: 90 runs (Concurrent Bypass)
+- [ ] AP-13: 90 runs (Adversarial Memory Write)
+- [ ] AP-14: 90 runs (Memory Read Injection)
+- [ ] AP-15: 90 runs (Infrastructure Integrity)
+- [ ] Benign: 60 runs
+- [ ] **Total CyberOps: 1,410 runs** (Qwen3-235B, temp 0.0)
+
+**run_attack_paths.sh updated:** Menu supports AP-1 through AP-15, with options for "all original (1-6)", "all new (7-15)", "ALL (1-15)".
 
 ### 4.2 Run Eval F — Multi-Domain (Day 6) — **C**
 
-Same framework code, swap domain config:
+Same framework code, swap domain config. Use unified attack runner:
 
 ```bash
-# Or use the evaluation script:
+# Run all domains via unified script:
 bash scripts/run_attack_paths.sh A all auto all 10
 
-# Healthcare
+# Or run individually:
+# Healthcare (AP-1, AP-2, AP-4, AP-7, AP-8)
 python -m attacks.harness --domain healthcare --ap ap1 --config all --trials 10
 python -m attacks.harness --domain healthcare --ap ap2 --config all --trials 10
 python -m attacks.harness --domain healthcare --ap ap4 --config all --trials 10
+python -m attacks.harness --domain healthcare --ap ap7 --config all --trials 10
+python -m attacks.harness --domain healthcare --ap ap8 --config all --trials 10
 python -m attacks.harness --domain healthcare --benign --config all --trials 5
 
-# Finance
+# Finance (AP-1, AP-2, AP-5, AP-7, AP-8)
 python -m attacks.harness --domain finance --ap ap1 --config all --trials 10
 python -m attacks.harness --domain finance --ap ap2 --config all --trials 10
 python -m attacks.harness --domain finance --ap ap5 --config all --trials 10
+python -m attacks.harness --domain finance --ap ap7 --config all --trials 10
+python -m attacks.harness --domain finance --ap ap8 --config all --trials 10
 python -m attacks.harness --domain finance --benign --config all --trials 5
 
-# Legal
+# Legal (AP-1, AP-2, AP-4, AP-7, AP-8)
 python -m attacks.harness --domain legal --ap ap1 --config all --trials 10
 python -m attacks.harness --domain legal --ap ap2 --config all --trials 10
 python -m attacks.harness --domain legal --ap ap4 --config all --trials 10
+python -m attacks.harness --domain legal --ap ap7 --config all --trials 10
+python -m attacks.harness --domain legal --ap ap8 --config all --trials 10
 python -m attacks.harness --domain legal --benign --config all --trials 5
 ```
 
-- [ ] Healthcare: 3 APs × 10 trials × 3 configs + 15 benign = **105 runs** ✓
-- [ ] Finance: 3 APs × 10 trials × 3 configs + 15 benign = **105 runs** ✓
-- [ ] Legal: 3 APs × 10 trials × 3 configs + 15 benign = **105 runs** ✓
-- [ ] **Total Eval F: 315 runs**
+- [ ] Healthcare: 5 APs × 10 trials × 3 configs + 15 benign = **165 runs** ✓
+- [ ] Finance: 5 APs × 10 trials × 3 configs + 15 benign = **165 runs** ✓
+- [ ] Legal: 5 APs × 10 trials × 3 configs + 15 benign = **165 runs** ✓
+- [ ] **Total Eval F: 495 runs**
 - [ ] **Key verification:** confirm zero code changes — only `--domain` flag differs
 
 ### 4.3 GLM-4.7 Diversity Check — **A** (Day 7)
@@ -432,7 +639,7 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
 
 - [ ] **R1: CyberOps Attack Interception**
   | AP | Flat | ACL-Hard | AgenticCyOps | Step | Mechanism |
-  (6 rows: AP-1 through AP-6)
+  (15 rows: AP-1 through AP-15)
 
 - [ ] **R2: Weighted Boundary Reduction**
   | Config | Boundaries | Unweighted | Weighted |
@@ -465,7 +672,9 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
   |---------------|----------|------------|---------|-------|-------------|
   | Tool Redirection (AP-1) | ?/30 | ?/10 | ?/10 | ?/10 | 0 |
   | Memory Poisoning (AP-2) | ?/30 | ?/10 | ?/10 | ?/10 | 0 |
-  | Exfil / Bulk Action | ?/30 | ?/10 | ?/10 | ?/10 | 0 |
+  | Exfil / Bulk Action (AP-4/5) | ?/30 | ?/10 | ?/10 | ?/10 | 0 |
+  | Action Chain (AP-7) | ?/30 | ?/10 | ?/10 | ?/10 | 0 |
+  | Parameter Manipulation (AP-8) | ?/30 | ?/10 | ?/10 | ?/10 | 0 |
   | Benign Completion | ?% | ?% | ?% | ?% | 0 |
   | **Principle Modifications** | **—** | **None** | **None** | **None** | **—** |
 
@@ -473,7 +682,7 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
   | Domain | Tools | Memory | Flat | AgenticCyOps | Reduction |
 
 ### 9.2 Figures — **B**
-- [ ] Bar chart: ASR by AP by config (3 bars × 6 APs, CyberOps)
+- [ ] Bar chart: ASR by AP by config (3 bars × 15 APs, CyberOps)
 - [ ] **Bar chart: Cross-domain ASR comparison (4 grouped bars per AP analogue)**
 - [ ] Bar chart: Weighted vs unweighted boundary reduction
 - [ ] Heatmap: Ablation (5 principles × relevant APs)

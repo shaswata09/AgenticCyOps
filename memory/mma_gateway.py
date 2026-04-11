@@ -27,6 +27,8 @@ from config import BASE_DIR
 from logging_utils import ExperimentLogger
 from memory.access_control import AccessController
 from memory.write_filter import WriteFilter
+from memory.memory_integrity import MemoryIntegrity
+from memory.access_isolation import AccessIsolation
 
 
 # ------------------------------------------------------------------ #
@@ -38,6 +40,7 @@ class MemoryReadRequest(BaseModel):
     store_id: str
     query: str
     n_results: int = 5
+    auth_token: str = ""  # Fix #7: request signing (no underscore for Pydantic)
 
 
 class MemoryWriteRequest(BaseModel):
@@ -47,6 +50,7 @@ class MemoryWriteRequest(BaseModel):
     doc_id: str
     incident_evidence: str
     metadata: Optional[dict] = None
+    auth_token: str = ""  # Fix #7: request signing
 
 
 class MemoryListRequest(BaseModel):
@@ -106,6 +110,28 @@ def create_app(
         version="0.1.0",
     )
 
+    # -- Fix #7: Load shared secret for request signing ----------------
+    import os as _os
+    import hmac as _hmac
+    import hashlib as _hashlib
+
+    _mma_secret = _os.environ.get("MMA_SHARED_SECRET", "")
+    if not _mma_secret:
+        _secret_path = BASE_DIR / "configs" / "hmac_key.txt"
+        if _secret_path.exists():
+            _mma_secret = _secret_path.read_text().strip()
+
+    def _verify_auth_token(phase: str, store_id: str, token: str) -> bool:
+        """Verify request came from the orchestrator, not a rogue caller."""
+        if not _mma_secret:
+            return True  # No secret configured — skip verification
+        expected = _hmac.new(
+            _mma_secret.encode(),
+            f"{phase}:{store_id}".encode(),
+            _hashlib.sha256,
+        ).hexdigest()[:16]
+        return token == expected
+
     # -- Dependencies ---------------------------------------------------
 
     access_controller = AccessController(domain=domain)
@@ -113,6 +139,20 @@ def create_app(
     write_filter = WriteFilter(
         embedding_model_path=embedding_model_path,
         similarity_threshold=similarity_threshold,
+    )
+
+    # Enhanced P4: multi-layer memory integrity (wraps WriteFilter)
+    memory_integrity = MemoryIntegrity(
+        domain=domain,
+        write_filter=write_filter,
+        embedding_model=write_filter._model,  # share the loaded model
+    )
+
+    # Enhanced P5: multi-layer access isolation (wraps AccessController)
+    access_isolation = AccessIsolation(
+        domain=domain,
+        access_controller=access_controller,
+        embedding_model=write_filter._model,
     )
 
     chroma_path = Path(db_path) / domain
@@ -150,10 +190,14 @@ def create_app(
 
     @app.post("/memory/read", response_model=MemoryReadResponse)
     def memory_read(req: MemoryReadRequest):
-        """Query a collection. Enforces P5 access control."""
+        """Query a collection. Enforces P5 L1-L5."""
         start = time.perf_counter()
 
-        # P5 check
+        # Fix #7: Verify request came from orchestrator
+        if _mma_secret and not _verify_auth_token(req.phase, req.store_id, req.auth_token):
+            raise HTTPException(status_code=403, detail="Invalid auth token.")
+
+        # P5-L1: Phase-store access control
         if not access_controller.can_read(req.phase, req.store_id):
             latency = (time.perf_counter() - start) * 1000
             logger.log_memory_read(
@@ -168,6 +212,38 @@ def create_app(
                 detail=f"Phase '{req.phase}' is not allowed to read from '{req.store_id}'.",
             )
 
+        # P5-L3: Query scope validation
+        context = getattr(req, "_context", {})  # context passed if available
+        ok, reason, details = access_isolation.validate_query(
+            req.phase, req.store_id, req.query, context
+        )
+        if not ok:
+            latency = (time.perf_counter() - start) * 1000
+            logger.log_memory_read(
+                agent=req.phase,
+                store=req.store_id,
+                auth_decision="deny",
+                mechanism=reason,
+                latency_ms=latency,
+            )
+            raise HTTPException(status_code=422, detail=reason)
+
+        # P5-L4: Read pattern monitoring
+        ok, reason, details = access_isolation.check_read_pattern(
+            req.phase, req.store_id, req.query
+        )
+        if not ok:
+            latency = (time.perf_counter() - start) * 1000
+            logger.log_memory_read(
+                agent=req.phase,
+                store=req.store_id,
+                auth_decision="deny",
+                mechanism=reason,
+                latency_ms=latency,
+            )
+            raise HTTPException(status_code=429, detail=reason)
+
+        # Execute query
         collection = _get_collection(req.store_id)
         results = collection.query(
             query_texts=[req.query],
@@ -177,6 +253,23 @@ def create_app(
         documents = results["documents"][0] if results["documents"] else []
         metadatas = results["metadatas"][0] if results["metadatas"] else []
         distances = results["distances"][0] if results["distances"] else []
+
+        # P5-L5: Sanitize results (strip prompt injections)
+        result_entries = [
+            {"text": doc, "metadata": meta}
+            for doc, meta in zip(documents, metadatas)
+        ]
+        sanitized = access_isolation.sanitize_results(result_entries, req.phase)
+        documents = [e.get("text", "") for e in sanitized]
+        metadatas = [e.get("metadata", {}) for e in sanitized]
+
+        # P5-L2: Field-level filtering
+        filtered = access_isolation.filter_fields(
+            req.phase, req.store_id,
+            [{"text": d, "metadata": m} for d, m in zip(documents, metadatas)]
+        )
+        documents = [e.get("text", "") for e in filtered]
+        metadatas = [e.get("metadata", {}) for e in filtered]
 
         latency = (time.perf_counter() - start) * 1000
         logger.log_memory_read(
@@ -197,10 +290,14 @@ def create_app(
 
     @app.post("/memory/write", response_model=MemoryWriteResponse)
     def memory_write(req: MemoryWriteRequest):
-        """Write to a collection. Enforces P5 access control then P4 write filtering."""
+        """Write to a collection. Enforces P5-L1 then P4 L1-L6."""
         start = time.perf_counter()
 
-        # P5 check
+        # Fix #7: Verify request came from orchestrator
+        if _mma_secret and not _verify_auth_token(req.phase, req.store_id, req.auth_token):
+            raise HTTPException(status_code=403, detail="Invalid auth token.")
+
+        # P5-L1: Phase-store access control
         if not access_controller.can_write(req.phase, req.store_id):
             latency = (time.perf_counter() - start) * 1000
             logger.log_memory_write(
@@ -215,11 +312,16 @@ def create_app(
                 detail=f"Phase '{req.phase}' is not allowed to write to '{req.store_id}'.",
             )
 
-        # P4 write-boundary filter
-        allowed, score = write_filter.validate_write(
+        # P4: Multi-layer memory integrity (L1-L6)
+        metadata = req.metadata or {}
+        allowed, reason, details = memory_integrity.validate_write(
+            store_id=req.store_id,
             content=req.document,
+            metadata=metadata,
             incident_evidence=req.incident_evidence,
         )
+
+        score = details.get("similarity", 0.0)
 
         if not allowed:
             latency = (time.perf_counter() - start) * 1000
@@ -227,22 +329,18 @@ def create_app(
                 agent=req.phase,
                 store=req.store_id,
                 auth_decision="deny",
-                mechanism="P4_memory_integrity",
+                mechanism=reason,
                 latency_ms=latency,
                 payload=req.document,
                 cosine_similarity=score,
             )
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    f"Write rejected by P4 filter: cosine similarity {score:.4f} "
-                    f"< threshold {write_filter.threshold}."
-                ),
+                detail=f"Write rejected: {reason}. {details}",
             )
 
-        # Write accepted -- upsert into ChromaDB
+        # Write accepted — upsert into ChromaDB
         collection = _get_collection(req.store_id)
-        metadata = req.metadata or {}
         metadata["phase"] = req.phase
         metadata["store_id"] = req.store_id
 
@@ -271,8 +369,10 @@ def create_app(
         )
 
     @app.get("/memory/list", response_model=MemoryListResponse)
-    def memory_list(phase: str, mode: str = "read"):
+    def memory_list(phase: str, mode: str = "read", auth_token: str = ""):
         """List accessible stores for a given phase and mode."""
+        if _mma_secret and not _verify_auth_token(phase, f"list_{mode}", auth_token):
+            raise HTTPException(status_code=403, detail="Invalid auth token.")
         stores = access_controller.accessible_stores(phase, mode)
 
         logger.log(

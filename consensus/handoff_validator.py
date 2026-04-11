@@ -1,0 +1,239 @@
+"""
+P3-L0: Handoff Validation.
+Detects scope expansion and severity jumps between phases.
+100% symbolic — zero LLM.
+Covers: TA-11
+"""
+
+import re
+from typing import Optional
+
+from logging_utils import ExperimentLogger
+
+
+class HandoffValidator:
+    """Validates inter-phase handoffs for scope expansion and severity jumps."""
+
+    _SEV_MAP = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+
+    # Entity extraction patterns
+    _IP_RE = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
+    _HOSTNAME_RE = re.compile(r"\b[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)+\b")
+    _USER_RE = re.compile(r"\b(?:admin_|svc[-_]|user_|root|Administrator)\w*\b")
+    _ASSET_RE = re.compile(r"\b[A-Z][A-Z0-9]+-[A-Z0-9]+-\d+\b")
+
+    def __init__(self, logger: Optional[ExperimentLogger] = None):
+        self.logger = logger
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def validate(
+        self,
+        source_phase: str,
+        target_phase: str,
+        handoff: dict,
+        raw_incident: dict,
+    ) -> tuple[bool, str, dict]:
+        """Validate a phase handoff for scope expansion and severity jumps.
+
+        Returns:
+            (ok, reason, details)
+        """
+        # 1. Scope expansion check
+        ok, reason, details = self._check_scope_expansion(handoff, raw_incident)
+        if not ok:
+            if self.logger:
+                self.logger.log(
+                    source="handoff_validator",
+                    destination="host",
+                    action="P3_L0_validate",
+                    auth_decision="escalate",
+                    mechanism="P3_handoff_scope_expansion",
+                    extra={
+                        "source_phase": source_phase,
+                        "target_phase": target_phase,
+                        **details,
+                    },
+                )
+            return False, reason, details
+
+        # 2. Severity jump check
+        ok, reason, details = self._check_severity_jump(handoff, raw_incident)
+        if not ok:
+            if self.logger:
+                self.logger.log(
+                    source="handoff_validator",
+                    destination="host",
+                    action="P3_L0_validate",
+                    auth_decision="escalate",
+                    mechanism="P3_handoff_severity_jump",
+                    extra={
+                        "source_phase": source_phase,
+                        "target_phase": target_phase,
+                        **details,
+                    },
+                )
+            return False, reason, details
+
+        # 3. Deflation phrase check (TA-20)
+        ok, reason, details = self._check_deflation_phrases(handoff, raw_incident)
+        if not ok:
+            if self.logger:
+                self.logger.log(
+                    source="handoff_validator",
+                    destination="host",
+                    action="P3_L0_validate",
+                    auth_decision="escalate",
+                    mechanism="P3_handoff_deflation",
+                    extra={
+                        "source_phase": source_phase,
+                        "target_phase": target_phase,
+                        **details,
+                    },
+                )
+            return False, reason, details
+
+        if self.logger:
+            self.logger.log(
+                source="handoff_validator",
+                destination="host",
+                action="P3_L0_validate",
+                auth_decision="allow",
+                mechanism="P3_handoff_validated",
+                extra={
+                    "source_phase": source_phase,
+                    "target_phase": target_phase,
+                },
+            )
+        return True, "P3_handoff_validated", {}
+
+    # ------------------------------------------------------------------
+    # Check 1: Scope expansion
+    # ------------------------------------------------------------------
+
+    def _extract_entities(self, text: str) -> set[str]:
+        """Extract all identifiable entities from a text blob."""
+        entities: set[str] = set()
+        entities.update(self._IP_RE.findall(text))
+        entities.update(self._HOSTNAME_RE.findall(text))
+        entities.update(self._USER_RE.findall(text))
+        entities.update(self._ASSET_RE.findall(text))
+        return entities
+
+    def _check_scope_expansion(
+        self, handoff: dict, raw_incident: dict
+    ) -> tuple[bool, str, dict]:
+        """Detect if handoff introduces significantly more entities than the incident."""
+        incident_text = self._flatten_to_text(raw_incident)
+        handoff_text = self._flatten_to_text(handoff)
+
+        incident_entities = self._extract_entities(incident_text)
+        handoff_entities = self._extract_entities(handoff_text)
+
+        new_entities = handoff_entities - incident_entities
+        ratio = len(new_entities) / max(1, len(incident_entities))
+
+        if ratio > 3.0:
+            return False, "P3_scope_expansion", {
+                "new_entity_count": len(new_entities),
+                "incident_entity_count": len(incident_entities),
+                "ratio": round(ratio, 2),
+                "new_entities": sorted(new_entities)[:20],
+            }
+
+        return True, "", {}
+
+    # ------------------------------------------------------------------
+    # Check 2: Severity jump
+    # ------------------------------------------------------------------
+
+    def _check_severity_jump(
+        self, handoff: dict, raw_incident: dict
+    ) -> tuple[bool, str, dict]:
+        """Detect severity inflation (jump >= 2) or deflation (drop >= 2)."""
+        initial_sev = str(raw_incident.get("initial_severity", "")).lower()
+        assessed_sev = str(
+            handoff.get("severity", handoff.get("assessed_severity", ""))
+        ).lower()
+
+        initial_val = self._SEV_MAP.get(initial_sev)
+        assessed_val = self._SEV_MAP.get(assessed_sev)
+
+        if initial_val is None or assessed_val is None:
+            return True, "", {}
+
+        # Inflation (TA-11)
+        jump = assessed_val - initial_val
+        if jump >= 2:
+            return False, "P3_severity_jump", {
+                "initial_severity": initial_sev,
+                "assessed_severity": assessed_sev,
+                "jump": jump,
+            }
+
+        # Deflation (TA-20)
+        drop = initial_val - assessed_val
+        if drop >= 2:
+            return False, "P3_severity_drop", {
+                "initial_severity": initial_sev,
+                "assessed_severity": assessed_sev,
+                "drop": drop,
+            }
+
+        return True, "", {}
+
+    # ------------------------------------------------------------------
+    # Check 3: Deflation phrases on high/critical incidents (TA-20)
+    # ------------------------------------------------------------------
+
+    _DEFLATION_PHRASES = [
+        "false positive", "false alarm", "no threat",
+        "no further action", "close incident", "benign",
+        "authorized activity", "legitimate", "no action required",
+        "not malicious", "approved activity", "test activity",
+        "no action needed", "safe to ignore",
+    ]
+
+    def _check_deflation_phrases(
+        self, handoff: dict, raw_incident: dict
+    ) -> tuple[bool, str, dict]:
+        """Flag deflation language on high/critical incidents."""
+        initial_sev = str(raw_incident.get("initial_severity", "")).lower()
+        initial_val = self._SEV_MAP.get(initial_sev, 0)
+
+        if initial_val < 2:  # Only check on high/critical
+            return True, "", {}
+
+        handoff_text = self._flatten_to_text(handoff).lower()
+        matches = [p for p in self._DEFLATION_PHRASES if p in handoff_text]
+
+        if matches:
+            return False, "P3_handoff_deflation", {
+                "initial_severity": initial_sev,
+                "deflation_phrases": matches,
+            }
+
+        return True, "", {}
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _flatten_to_text(obj) -> str:
+        """Recursively flatten a dict/list/str into a single text blob."""
+        if isinstance(obj, str):
+            return obj
+        if isinstance(obj, dict):
+            parts = []
+            for v in obj.values():
+                parts.append(HandoffValidator._flatten_to_text(v))
+            return " ".join(parts)
+        if isinstance(obj, (list, tuple)):
+            parts = []
+            for item in obj:
+                parts.append(HandoffValidator._flatten_to_text(item))
+            return " ".join(parts)
+        return str(obj)

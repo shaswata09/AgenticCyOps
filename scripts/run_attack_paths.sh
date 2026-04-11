@@ -106,18 +106,25 @@ if [ -z "$1" ]; then
     # APs (show domain-appropriate options)
     echo ""
     echo "  Attack Paths:"
-    echo "    1) ap1   2) ap2   3) ap3   4) ap4   5) ap5   6) ap6"
-    echo "    7) all CyberOps (1-6)   8) benign only   9) auto (domain-appropriate)"
-    read -p "  Select (e.g. 1 2, or 9 for auto): " ap_choices
+    echo "    1-6)   ap1-ap6 (original)     7-15) ap7-ap15 (new)"
+    echo "    16) all original (1-6)         17) all new (7-15)"
+    echo "    18) ALL (1-15)                 19) benign only"
+    echo "    20) auto (domain-appropriate)"
+    read -p "  Select (e.g. 1 2, or 18 for all): " ap_choices
     AP_MODE="custom"
     SELECTED_APS=()
     for c in $ap_choices; do
         case "$c" in
             1) SELECTED_APS+=("ap1") ;; 2) SELECTED_APS+=("ap2") ;; 3) SELECTED_APS+=("ap3") ;;
             4) SELECTED_APS+=("ap4") ;; 5) SELECTED_APS+=("ap5") ;; 6) SELECTED_APS+=("ap6") ;;
-            7) SELECTED_APS=("ap1" "ap2" "ap3" "ap4" "ap5" "ap6"); break ;;
-            8) AP_MODE="benign"; break ;;
-            9) AP_MODE="auto"; break ;;
+            7) SELECTED_APS+=("ap7") ;; 8) SELECTED_APS+=("ap8") ;; 9) SELECTED_APS+=("ap9") ;;
+            10) SELECTED_APS+=("ap10") ;; 11) SELECTED_APS+=("ap11") ;; 12) SELECTED_APS+=("ap12") ;;
+            13) SELECTED_APS+=("ap13") ;; 14) SELECTED_APS+=("ap14") ;; 15) SELECTED_APS+=("ap15") ;;
+            16) SELECTED_APS=("ap1" "ap2" "ap3" "ap4" "ap5" "ap6"); break ;;
+            17) SELECTED_APS=("ap7" "ap8" "ap9" "ap10" "ap11" "ap12" "ap13" "ap14" "ap15"); break ;;
+            18) SELECTED_APS=("ap1" "ap2" "ap3" "ap4" "ap5" "ap6" "ap7" "ap8" "ap9" "ap10" "ap11" "ap12" "ap13" "ap14" "ap15"); break ;;
+            19) AP_MODE="benign"; break ;;
+            20) AP_MODE="auto"; break ;;
         esac
     done
 
@@ -157,7 +164,7 @@ else
     # Parse APs
     AP_MODE="custom"
     if [ "$AP_ARG" = "all" ]; then
-        SELECTED_APS=("ap1" "ap2" "ap3" "ap4" "ap5" "ap6")
+        SELECTED_APS=("ap1" "ap2" "ap3" "ap4" "ap5" "ap6" "ap7" "ap8" "ap9" "ap10" "ap11" "ap12" "ap13" "ap14" "ap15")
     elif [ "$AP_ARG" = "benign" ]; then
         AP_MODE="benign"
     elif [ "$AP_ARG" = "auto" ]; then
@@ -347,7 +354,10 @@ print(f'Saved: {csv_path} ({len(trials)} trials)')
 attack_trials = [t for t in trials if t.get('ap','').startswith('ap')]
 aps = sorted(set(t.get('ap','') for t in attack_trials))
 ap_labels = {'ap1':'AP-1 Tool Redir.','ap2':'AP-2 Mem Poison','ap3':'AP-3 Confused Dep.',
-             'ap4':'AP-4 Cross-Phase','ap5':'AP-5 Irreversible','ap6':'AP-6 Replay'}
+             'ap4':'AP-4 Cross-Phase','ap5':'AP-5 Irreversible','ap6':'AP-6 Replay',
+             'ap7':'AP-7 Action Chain','ap8':'AP-8 Param Manip.','ap9':'AP-9 Handoff Poison',
+             'ap10':'AP-10 Validator Manip.','ap11':'AP-11 Op Context','ap12':'AP-12 Concurrent',
+             'ap13':'AP-13 Adv Memory','ap14':'AP-14 Read Inject','ap15':'AP-15 Infra Integrity'}
 
 asr = {}
 for ap in aps:

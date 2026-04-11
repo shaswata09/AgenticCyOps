@@ -345,7 +345,11 @@ async def run():
     if _benign_file.exists():
         with open(_benign_file) as _f:
             _payloads = json.load(_f)
-        incident = _payloads[0].get('trigger', _payloads[0])
+        _p0 = _payloads[0]
+        incident = _p0.get('trigger', _p0)
+        # Include memory_ops for P4/P5 baseline coverage
+        if 'memory_ops' in _p0:
+            incident['memory_ops'] = _p0['memory_ops']
         if 'incident_id' not in incident:
             incident['incident_id'] = f'{domain}-BENIGN-001'
     else:
