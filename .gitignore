@@ -224,3 +224,5 @@ models/*
 !models/utils/
 !models/test_scripts/
 configs/hmac_key.txt
+logs/mma_gateway/
+logs/tools/

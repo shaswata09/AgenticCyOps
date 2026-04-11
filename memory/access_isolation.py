@@ -188,9 +188,9 @@ class AccessIsolation:
     pattern monitoring, and result sanitization.
     """
 
-    # L3 broad-query patterns
+    # L3 broad-query patterns (compiled with word boundaries to avoid
+    # false matches like "allergy" containing "all")
     BROAD_PATTERNS: set[str] = {
-        "all",
         "everything",
         "list all",
         "show all",
@@ -378,7 +378,9 @@ class AccessIsolation:
 
         # -- Broad pattern check ------------------------------------
         for pattern in self.BROAD_PATTERNS:
-            if pattern in query_lower:
+            # Use word boundary check to avoid false matches (e.g., "all" in "allergy")
+            import re as _re
+            if _re.search(r'\b' + _re.escape(pattern) + r'\b', query_lower):
                 meta = {
                     "matched_pattern": pattern,
                     "query": query,
