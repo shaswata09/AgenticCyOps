@@ -1,0 +1,4 @@
+config,total_events,tool_calls,tool_calls_allowed,tool_calls_denied,memory_reads,memory_writes,handoffs,consensus_votes,llm_calls,e2e_latency_s,total_tokens,phases_completed,false_blocks
+flat,23,12,12,0,0,4,3,0,3,75.4,16249,4,0
+acl_hardened,11,0,0,0,0,4,3,0,4,70.4,20307,4,0
+agenticcyops,77,8,5,3,7,4,3,12,4,237.1,11942,4,3
