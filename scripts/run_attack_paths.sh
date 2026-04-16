@@ -352,7 +352,7 @@ print(f'Saved: {csv_path} ({len(trials)} trials)')
 
 # ---- Compute ASR ----
 attack_trials = [t for t in trials if t.get('ap','').startswith('ap')]
-aps = sorted(set(t.get('ap','') for t in attack_trials))
+aps = sorted(set(t.get('ap','') for t in attack_trials), key=lambda x: int(x.replace('ap','')) if x.startswith('ap') else 0)
 ap_labels = {'ap1':'AP-1 Tool Redir.','ap2':'AP-2 Mem Poison','ap3':'AP-3 Confused Dep.',
              'ap4':'AP-4 Cross-Phase','ap5':'AP-5 Irreversible','ap6':'AP-6 Replay',
              'ap7':'AP-7 Action Chain','ap8':'AP-8 Param Manip.','ap9':'AP-9 Handoff Poison',
