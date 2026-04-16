@@ -509,9 +509,43 @@ Four iterative red team passes against the integrated system. All findings fixed
 - [x] AP-15: Group A (90 runs) + C/E/F (30 each) = 180 runs (Infrastructure Integrity)
 - [x] **Total completed: 2,700 trials across 4 groups**
 
+**Final AgenticCyOps ASR (averaged across Groups A/C/E/F, after evaluator fixes):**
+
+| AP | Name | ASR | Primary Defense | Status |
+|----|------|-----|----------------|--------|
+| AP-1 | Tool Redirection | 0% | P2-L1 manifest | Fully blocked |
+| AP-2 | Memory Poisoning | 0% | P2 | Fully blocked |
+| AP-3 | Confused Deputy | 3-10% | P2/P3 | Nearly blocked |
+| AP-4 | Cross-Phase Exfiltration | 0% | P2/P3 | Fully blocked |
+| AP-5 | Bulk Irreversible | 0% | P2/P3 | Fully blocked |
+| AP-6 | Replay Attack | 0% | P3-L5 | Fully blocked |
+| AP-7 | Action Chain | 3-7% | P3 | Nearly blocked |
+| AP-8 | Parameter Manipulation | 0% (A/C/E), 60% (F) | P2-L2 | Group F weakness |
+| AP-9 | Handoff Poisoning | 0% | P3 defense-in-depth | Fully blocked |
+| AP-10 | Validator Manipulation | 3-7% | P3 sanitization | Nearly blocked |
+| AP-11 | Operational Context | 20-80% | P3-L0.5 partial | Needs improvement |
+| AP-12 | Concurrent Bypass | 0-3% | P3-L4 accumulation | Nearly blocked |
+| AP-13 | Adversarial Memory | 3-23% | P3 prevention | Partial |
+| AP-14 | Read Injection | 0-7% | P3 blocking | Nearly blocked |
+| AP-15 | Infrastructure Integrity | 3% | P3 defense-in-depth | Nearly blocked |
+
+**P1/P4/P5 effectiveness finding:** P1 fires on every tool call (11,155 identity checks) but always ALLOWS because attacks use real registered tools. P4/P5 show zero events because attack payloads don't include memory_ops. For the paper: "P2 and P3 serve as primary active defense layers, intercepting 87% of attacks at the tool call boundary. P1 provides structural assurance (11,155 identity verifications). P4/P5 defend the memory pipeline against orthogonal memory-surface attack vectors."
+
+**Evaluator fixes applied:** Broadened mechanism name matching; AP-9 fixed 100%->0%; AP-15 fixed 40%->3%; AP-7 fixed 100%->3-7%.
+
+**Analytics generated:** `analysis/attack_analytics.py` -- 9-page PDF per group (A/C/E/F) + cross-group combined report at `results/eval_a/attack_analytics.pdf`.
+
+**Interactive analysis notebooks (stored in `results/notebooks/`):**
+- [x] `results/notebooks/01_baseline_findings.ipynb` — 30 cells (10 markdown + 20 code, 1.8 MB) with embedded visualizations. Covers Setup & Data Loading, Config Comparison Overview, Principle Activity Across Configs, Attack Surface Reduction, False Positive Analysis, Latency & Token Overhead, Cross-Domain Consistency, Cross-Group Validator Diversity, Key Findings Summary. Validator configs correctly reflect the actual Qwen3-235B / Claude / Mistral / DeepSeek / Llama / GPT-4o stack (no Gemini references).
+- [x] `results/notebooks/02_attack_findings.ipynb` — 34 cells (11 markdown + 23 code, 1.9 MB) with embedded visualizations. Covers Setup, Overall ASR Comparison, AgenticCyOps Defense Breakdown, Per-AP Deep Dive, Variant Effectiveness Analysis, Cross-Group Validator Diversity Impact, Flat vs ACL vs AgenticCyOps Progression, Attack Vector Coverage, Key Findings & Paper Claims, Statistical Significance.
+- Both notebooks executed successfully end-to-end with all charts rendered inline (no external file dependencies). Open via `jupyter lab results/notebooks/` or in VSCode for interactive exploration and paper figure generation.
+
 **Pending:**
+- [ ] Add memory_ops to AP-13/AP-14 attack payloads so P4/P5 fire during attacks
 - [ ] Group B (GLM-4.7 primary): Not started
 - [ ] Group D (Llama-4-Scout primary): Not started
+- [ ] AP-8 Group F investigation (Claude generates different parameter patterns)
+- [ ] AP-11 operational context improvement (v1-v4 not triggering)
 
 **run_attack_paths.sh updated:** Menu supports AP-1 through AP-15, with options for "all original (1-6)", "all new (7-15)", "ALL (1-15)".
 
@@ -784,7 +818,7 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
 
 | Evaluation | Runs | Domains | Status |
 |-----------|------|---------|--------|
-| A: CyberOps (15 APs, Groups A/C/E/F) | 2,700 | CyberOps | **4/6 groups COMPLETE** |
+| A: CyberOps (15 APs, Groups A/C/E/F) | 2,700 | CyberOps | **4/6 groups COMPLETE -- ASR finalized** |
 | A: CyberOps (Groups B/D) | ~900 | CyberOps | PENDING |
 | F: Multi-Domain (5 APs + benign × 3 domains) | 495 | Healthcare, Finance, Legal | PENDING |
 | D: TAMAS | ~400 | Generic (5 scenarios) |
