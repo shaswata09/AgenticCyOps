@@ -226,3 +226,8 @@ models/*
 configs/hmac_key.txt
 logs/mma_gateway/
 logs/tools/
+
+# TAMAS benchmark artifacts
+benchmarks/tamas/external/
+benchmarks/tamas/results/*.jsonl
+benchmarks/tamas/results/budget.jsonl

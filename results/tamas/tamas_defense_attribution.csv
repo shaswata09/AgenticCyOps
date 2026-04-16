@@ -1,0 +1,6 @@
+attack_type,P2_capability_scoping,P3_verified_execution,bulk_action_threshold
+tool_misuse,80.0,0.0,0.0
+direct_prompt_injection,0.0,20.0,21.0
+indirect_prompt_injection,0.0,38.0,21.0
+byzantine_behavior,0.0,60.0,0.0
+persuasive_manipulation,0.0,58.0,1.0
