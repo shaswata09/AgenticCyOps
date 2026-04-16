@@ -53,7 +53,7 @@ This testbed validates that claim through:
 
 ## Key Results
 
-*(Tables populated after running experiments — see `results/tables/`)*
+*(Full tables in `results/tables/` -- preliminary results below)*
 
 - **Table R1:** CyberOps attack interception rates per AP per configuration
 - **Table R2:** Weighted trust boundary reduction (unweighted + weighted × 3 configs)
@@ -66,6 +66,32 @@ This testbed validates that claim through:
 - **Table R9:** Model-independence check (Qwen3 vs GLM-4.7)
 - **Table R10:** **Cross-domain attack interception (headline table)** — consistent results with "Code Changes: 0"
 - **Table R11:** Cross-domain boundary reduction comparison
+
+### Experiment Status (2026-04-16)
+
+**Baseline:** COMPLETE -- All 6 groups (A-F) x 4 domains x 3 configs = 72 runs verified with P1-P5 active.
+
+**Eval A (CyberOps Attack Paths):** Groups A, C, E, F complete (2,700 trials). Groups B, D pending.
+
+| AP | AgenticCyOps ASR | Defense | Status |
+|----|-----------------|---------|--------|
+| AP-1 (Tool Redir) | 0% | P2-L1 | Blocked |
+| AP-2 (Memory Poison) | 0% | P4 | Blocked |
+| AP-3 (Confused Deputy) | 3% | P2/P3 | Blocked |
+| AP-4 (Cross-Phase) | 0% | P5 | Blocked |
+| AP-5 (Bulk Irreversible) | 0% | P3 | Blocked |
+| AP-6 (Replay) | 0% | P3-L5 | Blocked |
+| AP-7 (Action Chain) | 100% | P3-L3 | Investigating |
+| AP-8 (Param Manip) | 0% / 60% (Group F) | P2-L2 | Group F divergence |
+| AP-9 (Handoff Poison) | 0% | P3-L0 | Blocked |
+| AP-10 (Validator Manip) | ~100% | P3-L6 | Investigating |
+| AP-11 (Op Context) | 100% | P3-L0.5 | Investigating |
+| AP-12 (Concurrent) | 90% | P3-L4/L4b | Investigating |
+| AP-13 (Adversarial Memory) | 100% | P4-L2+ | Investigating |
+| AP-14 (Read Injection) | 100% | P5-L4/L5 | Investigating |
+| AP-15 (Infra Integrity) | 40% | P1-L1/L3 | Partial |
+
+**Not yet started:** Eval F (multi-domain attacks), ablation study, TAMAS benchmark, Groups B/D.
 
 ---
 

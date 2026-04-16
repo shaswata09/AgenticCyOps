@@ -268,18 +268,18 @@
 
 ### 2.3 AgenticCyOps — **C**
 - [x] Full: Host + manifests + consensus + MMA
-- [ ] Verify: all 5 principles logging (P1-P5 layers individually)
-- [ ] Verify: consensus approves legitimate Admin action
-- [ ] Verify: write-filter accepts legitimate memory write
-- [ ] Verify: memory reads exercise P5-L2/L3/L4/L5
-- [ ] Run 1 benign incident E2E → completes with zero false blocks
-- [ ] P4/P5 active (benign workflows now include memory_ops)
+- [x] Verify: all 5 principles logging (P1-P5 layers individually)
+- [x] Verify: consensus approves legitimate Admin action
+- [x] Verify: write-filter accepts legitimate memory write
+- [x] Verify: memory reads exercise P5-L2/L3/L4/L5
+- [x] Run 1 benign incident E2E → completes with zero false blocks
+- [x] P4/P5 active (benign workflows now include memory_ops)
 
-### 2.4 CyberOps Baseline Status (STALE — re-run required)
-- [ ] Flat MAS benign E2E
-- [ ] ACL-Hardened benign E2E
-- [ ] AgenticCyOps benign E2E (must verify P1-P5 all layers active)
-- [ ] **CyberOps ready for attacks**
+### 2.4 CyberOps Baseline Status — PASS
+- [x] Flat MAS benign E2E
+- [x] ACL-Hardened benign E2E
+- [x] AgenticCyOps benign E2E (must verify P1-P5 all layers active)
+- [x] **CyberOps ready for attacks**
 
 ---
 
@@ -337,8 +337,7 @@
   - [x] AP-7 analogue: Clinical action chains (prescribe+override, bulk prescription)
   - [x] AP-8 analogue: Wrong patient, wildcard, dangerous dosage
 - [x] Benign clinical workflows
-- [ ] **Baseline verification (all 3 configs):** STALE — re-run required with P1-P5 layers
-  - Autonomous run via `./scripts/run_autonomous_baseline.sh` (or interactive via `./scripts/run_baseline.sh`)
+- [x] **Baseline verification (all 3 configs):** PASS — all 6 groups verified with P1-P5 layers
   - Results in `results/baseline/group_{A-F}/healthcare/`
 
 ### 3.10 Finance Adapter — **C** (Day 4)
@@ -355,7 +354,7 @@
   - [x] AP-7 analogue: Financial chains (freeze+recall, bulk chargebacks)
   - [x] AP-8 analogue: Wrong account, wildcard freeze, excessive amount
 - [x] Benign fraud investigation workflows
-- [ ] **Baseline verification (all 3 configs):** STALE — re-run required with P1-P5 layers
+- [x] **Baseline verification (all 3 configs):** PASS — all 6 groups verified with P1-P5 layers
 
 ### 3.11 Legal Adapter — **C** (Day 4)
 - [x] 4 manifests → `domains/legal/configs/` (+ memory_collections.json, access_policy.json)
@@ -371,7 +370,7 @@
   - [x] AP-7 analogue: Legal chains (file+pay, sign+file, bulk filings)
   - [x] AP-8 analogue: Wrong case, wildcard signing, excessive payment
 - [x] Benign case management workflows
-- [ ] **Baseline verification (all 3 configs):** STALE — re-run required with P1-P5 layers
+- [x] **Baseline verification (all 3 configs):** PASS — all 6 groups verified with P1-P5 layers
 
 
 ### 3.12 Baseline Readiness Gate — **All** (End of Day 4)
@@ -380,16 +379,16 @@
 
 | Domain | Flat MAS E2E | ACL-Hardened E2E | AgenticCyOps E2E | Ready |
 |--------|-------------|-----------------|-----------------|-------|
-| CyberOps | STALE | STALE | STALE | NO |
-| Healthcare | STALE | STALE | STALE | NO |
-| Finance | STALE | STALE | STALE | NO |
-| Legal | STALE | STALE | STALE | NO |
+| CyberOps | PASS | PASS | PASS | PASS |
+| Healthcare | PASS | PASS | PASS | PASS |
+| Finance | PASS | PASS | PASS | PASS |
+| Legal | PASS | PASS | PASS | PASS |
 
-- [ ] All 12 cells PASS (re-run needed with P1-P5 layers active)
-- [ ] Log files confirm: Flat no defenses, ACL HTTP 403, AgenticCyOps P1+P2+P3+P4+P5 all active
-- [ ] **Proceed to Phase 4** — blocked until baselines pass with new layers
+- [x] All 12 cells PASS (all 6 groups × 4 domains × 3 configs = 72 runs verified)
+- [x] Log files confirm: Flat no defenses, ACL HTTP 403, AgenticCyOps P1+P2+P3+P4+P5 all active
+- [x] **Proceed to Phase 4** — baselines pass, attack evaluations underway
 
-**PENDING: Baseline re-run required.** Old baselines (Apr 9) are stale and deleted. All prerequisites for re-run are now met. Run via autonomous script:
+**COMPLETE (2026-04-16).** All 72 baseline runs verified. Each domain has baseline_summary.csv, baseline_report.pdf, enhanced_baseline.csv, and 8+ charts. Flat/acl_hardened results identical across groups (only agenticcyops varies by validator config). Autonomous baseline script for reference:
 
 ```bash
 # Full autonomous baseline (all groups, all domains, all configs):
@@ -480,26 +479,39 @@ Four iterative red team passes against the integrated system. All findings fixed
 
 ## Phase 4: Run Eval A — CyberOps Attack Paths (Days 5–6)
 
-**Status:** Previous Group C test run (6 APs × 1 trial) was deleted — stale, used old defense layers. Re-run baseline first, then full attack experiments with all 15 APs.
+**Status (2026-04-16):** Groups A, C, E, F complete (2,700 trials). Groups B, D pending.
 
 ### 4.1 Execution — **A + B**
-- [ ] AP-1: 90 runs
-- [ ] AP-2: 90 runs
-- [ ] AP-3: 90 runs
-- [ ] AP-4: 90 runs
-- [ ] AP-5: 90 runs
-- [ ] AP-6: 90 runs
-- [ ] AP-7: 90 runs (Action Chain)
-- [ ] AP-8: 90 runs (Parameter Manipulation)
-- [ ] AP-9: 90 runs (Handoff Poisoning)
-- [ ] AP-10: 90 runs (Validator Manipulation)
-- [ ] AP-11: 90 runs (Operational Context Bypass)
-- [ ] AP-12: 90 runs (Concurrent Bypass)
-- [ ] AP-13: 90 runs (Adversarial Memory Write)
-- [ ] AP-14: 90 runs (Memory Read Injection)
-- [ ] AP-15: 90 runs (Infrastructure Integrity)
-- [ ] Benign: 60 runs
-- [ ] **Total CyberOps: 1,410 runs** (Qwen3-235B, temp 0.0)
+
+**Completed Groups:**
+- [x] **Group A:** All 15 APs × 30 trials × 3 configs (flat + acl_hardened + agenticcyops) = 1,350 trials
+- [x] **Group C:** All 15 APs × 30 trials × agenticcyops only = 450 trials
+- [x] **Group E:** All 15 APs × 30 trials × agenticcyops only = 450 trials
+- [x] **Group F:** All 15 APs × 30 trials × agenticcyops only = 450 trials
+- [x] flat/acl_hardened: Complete (Group A sufficient -- they don't use validators)
+- [x] Results per group: CSV, ASR chart, interception heatmap, mechanism breakdown, PDF report
+
+**Per-AP status (all completed groups):**
+- [x] AP-1: Group A (90 runs) + C/E/F (30 each) = 180 runs
+- [x] AP-2: Group A (90 runs) + C/E/F (30 each) = 180 runs
+- [x] AP-3: Group A (90 runs) + C/E/F (30 each) = 180 runs
+- [x] AP-4: Group A (90 runs) + C/E/F (30 each) = 180 runs
+- [x] AP-5: Group A (90 runs) + C/E/F (30 each) = 180 runs
+- [x] AP-6: Group A (90 runs) + C/E/F (30 each) = 180 runs
+- [x] AP-7: Group A (90 runs) + C/E/F (30 each) = 180 runs (Action Chain)
+- [x] AP-8: Group A (90 runs) + C/E/F (30 each) = 180 runs (Parameter Manipulation)
+- [x] AP-9: Group A (90 runs) + C/E/F (30 each) = 180 runs (Handoff Poisoning)
+- [x] AP-10: Group A (90 runs) + C/E/F (30 each) = 180 runs (Validator Manipulation)
+- [x] AP-11: Group A (90 runs) + C/E/F (30 each) = 180 runs (Operational Context Bypass)
+- [x] AP-12: Group A (90 runs) + C/E/F (30 each) = 180 runs (Concurrent Bypass)
+- [x] AP-13: Group A (90 runs) + C/E/F (30 each) = 180 runs (Adversarial Memory Write)
+- [x] AP-14: Group A (90 runs) + C/E/F (30 each) = 180 runs (Memory Read Injection)
+- [x] AP-15: Group A (90 runs) + C/E/F (30 each) = 180 runs (Infrastructure Integrity)
+- [x] **Total completed: 2,700 trials across 4 groups**
+
+**Pending:**
+- [ ] Group B (GLM-4.7 primary): Not started
+- [ ] Group D (Llama-4-Scout primary): Not started
 
 **run_attack_paths.sh updated:** Menu supports AP-1 through AP-15, with options for "all original (1-6)", "all new (7-15)", "ALL (1-15)".
 
@@ -537,10 +549,10 @@ python -m attacks.harness --domain legal --ap ap8 --config all --trials 10
 python -m attacks.harness --domain legal --benign --config all --trials 5
 ```
 
-- [ ] Healthcare: 5 APs × 10 trials × 3 configs + 15 benign = **165 runs** ✓
-- [ ] Finance: 5 APs × 10 trials × 3 configs + 15 benign = **165 runs** ✓
-- [ ] Legal: 5 APs × 10 trials × 3 configs + 15 benign = **165 runs** ✓
-- [ ] **Total Eval F: 495 runs**
+- [ ] Healthcare: 5 APs × 10 trials × 3 configs + 15 benign = **165 runs** — NOT STARTED
+- [ ] Finance: 5 APs × 10 trials × 3 configs + 15 benign = **165 runs** — NOT STARTED
+- [ ] Legal: 5 APs × 10 trials × 3 configs + 15 benign = **165 runs** — NOT STARTED
+- [ ] **Total Eval F: 495 runs** — PENDING (baselines ready, attack runs not yet started)
 - [ ] **Key verification:** confirm zero code changes — only `--domain` flag differs
 
 ### 4.3 GLM-4.7 Diversity Check — **A** (Day 7)
@@ -770,10 +782,11 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
 
 ## Run Count Summary
 
-| Evaluation | Runs | Domains |
-|-----------|------|---------|
-| A: CyberOps (6 APs + benign) | 600 | CyberOps |
-| F: Multi-Domain (3 APs + benign × 3 domains) | 315 | Healthcare, Finance, Legal |
+| Evaluation | Runs | Domains | Status |
+|-----------|------|---------|--------|
+| A: CyberOps (15 APs, Groups A/C/E/F) | 2,700 | CyberOps | **4/6 groups COMPLETE** |
+| A: CyberOps (Groups B/D) | ~900 | CyberOps | PENDING |
+| F: Multi-Domain (5 APs + benign × 3 domains) | 495 | Healthcare, Finance, Legal | PENDING |
 | D: TAMAS | ~400 | Generic (5 scenarios) |
 | B: Trust Boundaries | Analytical | All 4 |
 | Ablation (CyberOps) | 270 | CyberOps |
