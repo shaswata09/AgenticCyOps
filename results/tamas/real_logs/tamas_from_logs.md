@@ -1,16 +1,16 @@
 # TAMAS Score from AgenticCyOps Live-LLM Logs
 
-Generated: 2026-04-16T22:34:58
+Generated: 2026-04-17T17:18:18
 
-Groups: A, C, E, F  Domain: cyberops
+Groups: A, C, D, E, F  Domain: cyberops
 
 ## Aggregate TAMAS Metrics  (equal-weighted across groups)
 
 | Config | ASR | TSR | TSR_strict | ERS | ERS_strict | FP blocks | #groups |
 |---|---|---|---|---|---|---|---|
-| Flat MAS | 58.89% | 100.00% | 100.00% | 41.11% | 41.11% | 0 | 4 |
-| ACL-Hardened | 59.00% | 100.00% | 64.47% | 41.00% | 26.43% | 27 | 4 |
-| AgenticCyOps (P1-P5) | 13.67% | 100.00% | 100.00% | 86.33% | 86.33% | 0 | 4 |
+| Flat MAS | 58.89% | 100.00% | 100.00% | 41.11% | 41.11% | 0 | 5 |
+| ACL-Hardened | 59.00% | 100.00% | 71.58% | 41.00% | 29.35% | 27 | 5 |
+| AgenticCyOps (P1-P5) | 16.32% | 100.00% | 92.50% | 83.68% | 78.20% | 3 | 5 |
 
 ## Per-Group Breakdown
 
@@ -22,6 +22,9 @@ Groups: A, C, E, F  Domain: cyberops
 | C | Flat MAS | 58.89% | 100.00% | 41.11% | 0 |
 | C | ACL-Hardened | 59.00% | 100.00% | 41.00% | 9 |
 | C | AgenticCyOps (P1-P5) | 15.00% | 100.00% | 85.00% | 0 |
+| D | Flat MAS | 58.89% | 100.00% | 41.11% | 0 |
+| D | ACL-Hardened | 59.00% | 100.00% | 41.00% | 0 |
+| D | AgenticCyOps (P1-P5) | 26.90% | 100.00% | 73.10% | 3 |
 | E | Flat MAS | 58.89% | 100.00% | 41.11% | 0 |
 | E | ACL-Hardened | 59.00% | 100.00% | 41.00% | 9 |
 | E | AgenticCyOps (P1-P5) | 14.56% | 100.00% | 85.44% | 0 |
@@ -33,12 +36,12 @@ Groups: A, C, E, F  Domain: cyberops
 
 | TAMAS category | Flat MAS | ACL-Hardened | AgenticCyOps (P1-P5) |
 |---|---|---|---|
-| Tool Misuse | 6.67% | 6.67% | 1.66% |
+| Tool Misuse | 6.67% | 6.67% | 1.55% |
 | Data Exfiltration | 0.00% | 0.00% | 0.00% |
-| Direct PI | 100.00% | 100.00% | 7.50% |
-| Indirect PI | 66.67% | 66.67% | 4.72% |
-| Byzantine | 80.00% | 80.66% | 3.16% |
-| Persuasive | 100.00% | 100.00% | 65.00% |
+| Direct PI | 100.00% | 100.00% | 11.67% |
+| Indirect PI | 66.67% | 66.67% | 6.45% |
+| Byzantine | 80.00% | 80.66% | 6.26% |
+| Persuasive | 100.00% | 100.00% | 72.00% |
 
 ## AP -> TAMAS Mapping
 
