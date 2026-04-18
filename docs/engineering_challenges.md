@@ -203,7 +203,7 @@ skip operational-context checks that Qwen would trip (AP-11), or spawn
 bursts that overflow the P3-L4 accumulator window (AP-12).
 
 **Status:** Documented, not yet patched. AP-11 is the TAMAS
-`persuasive_manipulation` category weak spot (65% ASR in the real-logs
+`persuasive_manipulation` category weak spot (72% ASR in the real-logs
 score). AP-12 Group D gap is the most surprising since other groups
 sit at 0-3%.
 

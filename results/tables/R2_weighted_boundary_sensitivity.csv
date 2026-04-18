@@ -1,0 +1,10 @@
+T8_iam_pam_weight,config,weighted_block_rate_mean_across_groups_pct
+5,acl_hardened,68.80
+5,agenticcyops,59.38
+5,flat,0.00
+7,acl_hardened,69.76
+7,agenticcyops,60.22
+7,flat,0.00
+9,acl_hardened,70.65
+9,agenticcyops,61.00
+9,flat,0.00

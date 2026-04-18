@@ -183,12 +183,12 @@ Per-TAMAS-category ASR under AgenticCyOps:
 
 | Category              | ASR    |
 |-----------------------|-------:|
-| Tool Misuse           |  1.66% |
+| Tool Misuse           |  1.55% |
 | Data Exfiltration     |  0.00% |
-| Direct PI             |  7.50% |
-| Indirect PI           |  4.72% |
-| Byzantine             |  3.16% |
-| Persuasive            | 65.00% |  ← weak spot (AP-11 operational context)
+| Direct PI             | 11.67% |
+| Indirect PI           |  6.45% |
+| Byzantine             |  6.26% |
+| Persuasive            | 72.00% |  ← weak spot (AP-11 operational context)
 
 Per-group ERS: A=84.75%, C=85.00%, **D=73.10%**, E=85.44%, F=90.12%.
 Group D's Llama-4-Scout validator mix shows higher residuals on AP-8

@@ -1,0 +1,9 @@
+group,config,n_attempted,n_blocked,unweighted_block_rate_pct,weighted_attempted_score,weighted_blocked_score,weighted_block_rate_pct,weighted_minus_unweighted_pp
+A,acl_hardened,7228,4793,66.31,30354,21445,70.65,+4.34
+A,agenticcyops,5404,2774,51.33,23702,15924,67.18,+15.85
+A,flat,7382,0,0.00,32716,0,0.00,+0.00
+B,agenticcyops,2004,553,27.59,6146,1983,32.26,+4.67
+C,agenticcyops,5433,2771,51.00,23989,16171,67.41,+16.41
+D,agenticcyops,5119,2582,50.44,21733,14488,66.66,+16.22
+E,agenticcyops,5381,2747,51.05,23625,15901,67.31,+16.26
+F,agenticcyops,2254,1032,45.79,8546,5568,65.15,+19.37

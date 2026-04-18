@@ -674,7 +674,7 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
 | ACL-Hardened | 59.00% | 100% | **41.00%** |
 | AgenticCyOps (P1-P5) | 16.32% | 100% | **83.68%** |
 
-- [x] Per-TAMAS-category ASR under AgenticCyOps: Tool Misuse 1.66%, Data Exfil 0%, Direct PI 7.50%, Indirect PI 4.72%, Byzantine 3.16%, Persuasive 65.00% (weak spot = AP-11)
+- [x] Per-TAMAS-category ASR under AgenticCyOps: Tool Misuse 1.55%, Data Exfil 0%, Direct PI 11.67%, Indirect PI 6.45%, Byzantine 6.26%, Persuasive 72.00% (weak spot = AP-11)
 - [x] Per-group AgenticCyOps ERS: A=84.75%, C=85.00%, **D=73.10%**, E=85.44%, F=90.12%
 - [x] 9-page PDF at `results/tamas/real_logs/tamas_from_logs.pdf`
 
@@ -737,7 +737,7 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
   |------|---------:|-------------:|---------:|-----------------:|
   | Simulated (19 cells × 20 trials × 2 modes) | 100.00% | 5.53% | 0.00% | **94.47%** |
   | Real-logs across 5 groups (A, C, D, E, F) | 58.89% | 16.32% | 41.11% | **83.68%** |
-  Per-category ASR: Tool Misuse 1.66%, Data Exfil 0%, Direct PI 7.50%, Indirect PI 4.72%, Byzantine 3.16%, Persuasive 65.00%.
+  Per-category ASR: Tool Misuse 1.55%, Data Exfil 0%, Direct PI 11.67%, Indirect PI 6.45%, Byzantine 6.26%, Persuasive 72.00%.
 
 - [ ] **R4: Ablation**
   | Principle | AP(s) | Full ASR | Ablated ASR | Δ |

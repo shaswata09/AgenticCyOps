@@ -469,7 +469,7 @@ All benign scenarios across all 4 domains were validated for access policy compl
 - P1 provides structural assurance (11,155 identity verifications across all trials, always ALLOW because attacks use real registered tools -- P1 defends against infrastructure-level attacks like MITM/spoofed tools that can't be simulated in the testbed)
 - P4 and P5 show zero events during attack trials because attack payloads don't include memory_ops and LLM agents don't independently generate memory operations during attacks. P4/P5 defend the memory pipeline against MA-1 through MA-12 vectors and need dedicated memory_ops in AP-13/AP-14 payloads (pending task)
 - AP-8 divergence: Claude (Group F) and Llama-4-Scout (Group D) generate different parameter patterns than Qwen3-235B
-- AP-11 operational context: 20-80% on A/C/E/F, 100% on Group D -- remains the largest real-logs weak spot (maps to TAMAS persuasive_manipulation with 65% ASR)
+- AP-11 operational context: 20-80% on A/C/E/F, 100% on Group D -- remains the largest real-logs weak spot (maps to TAMAS persuasive_manipulation with 72% ASR)
 - AP-12 Group D: 63% vs 0-3% on other groups -- concurrent bypass pattern mismatch specific to Llama-4-Scout primary
 
 **Evaluator fixes applied:**
@@ -528,7 +528,7 @@ Lone residual cell: `social_media_moderation × direct_prompt_injection` (HTML-c
 
 ERS_strict penalises false-block tool retries as lost benign utility.
 
-Per-TAMAS-category ASR under AgenticCyOps: Tool Misuse 1.66%, Data Exfiltration 0.00%, Direct PI 7.50%, Indirect PI 4.72%, Byzantine 3.16%, **Persuasive 65.00%** (acknowledged weak spot = AP-11). Per-group AgenticCyOps ERS: A=84.75%, C=85.00%, **D=73.10%**, E=85.44%, F=90.12%.
+Per-TAMAS-category ASR under AgenticCyOps: Tool Misuse 1.55%, Data Exfiltration 0.00%, Direct PI 11.67%, Indirect PI 6.45%, Byzantine 6.26%, **Persuasive 72.00%** (acknowledged weak spot = AP-11). Per-group AgenticCyOps ERS: A=84.75%, C=85.00%, **D=73.10%**, E=85.44%, F=90.12%.
 
 **Framework files:** `benchmarks/tamas/middleware/{agent_wrapper.py, autogen_patches.py, role_manifest.py, budget_tracker.py}`, `benchmarks/tamas/{eval_runner.py, run_baseline.py, run_defended.py, compare.py}`, `benchmarks/tamas/metrics/{asr.py, tsr.py, ers.py}`, 5 scenario configs, 19 attack cells.
 

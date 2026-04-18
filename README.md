@@ -114,7 +114,7 @@ Independent adversarial benchmark from [arxiv 2506.02635](https://arxiv.org/abs/
 | ACL-Hardened | 59.00% | 100% | **41.00%** | 29.35% |
 | **AgenticCyOps (P1-P5)** | **16.32%** | **100%** | **83.68%** | **78.20%** |
 
-Per-TAMAS-category ASR under AgenticCyOps: Tool Misuse 1.66%, Data Exfiltration 0.00%, Direct PI 7.50%, Indirect PI 4.72%, Byzantine 3.16%, **Persuasive 65.00%** (openly acknowledged weak spot — AP-11 Operational Context).
+Per-TAMAS-category ASR under AgenticCyOps: Tool Misuse 1.55%, Data Exfiltration 0.00%, Direct PI 11.67%, Indirect PI 6.45%, Byzantine 6.26%, **Persuasive 72.00%** (openly acknowledged weak spot — AP-11 Operational Context).
 
 Per-group ERS: A=84.75%, C=85.00%, D=73.10%, E=85.44%, F=90.12%.
 

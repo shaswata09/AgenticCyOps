@@ -75,12 +75,12 @@ Per-TAMAS-category ASR under AgenticCyOps:
 
 | Category                  | ASR    |
 |---------------------------|-------:|
-| Tool Misuse               |  1.66% |
+| Tool Misuse               |  1.55% |
 | Data Exfiltration         |  0.00% |
-| Direct Prompt Injection   |  7.50% |
-| Indirect Prompt Injection |  4.72% |
-| Byzantine Behavior        |  3.16% |
-| **Persuasive Manipulation** | **65.00%** |
+| Direct Prompt Injection   | 11.67% |
+| Indirect Prompt Injection |  6.45% |
+| Byzantine Behavior        |  6.26% |
+| **Persuasive Manipulation** | **72.00%** |
 
 Persuasive manipulation is the openly acknowledged weak spot — it
 maps to AP-11 (Operational Context), which carries 20-100% residual
@@ -166,7 +166,7 @@ Called out explicitly in the rebuttal.
    currently shows CyberOps values only; the cross-domain proof rests
    on architectural reasoning + baseline completion across all 4
    domains (72 baseline runs verified).
-3. **Persuasive manipulation 65% ASR.** Maps to AP-11 (Operational
+3. **Persuasive manipulation 72% ASR.** Maps to AP-11 (Operational
    Context); the stub consensus validator used in simulation doesn't
    recognise subtle urgency framing. Expected to improve with a live
    LLM-backed consensus, but that specific mitigation has not been
