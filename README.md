@@ -644,7 +644,8 @@ agenticcyops-experiments/
 │   │       └── {domain}/           # Per domain (cyberops, healthcare, etc.)
 │   ├── notebooks/                   # Interactive analysis notebooks (embedded charts)
 │   │   ├── 01_baseline_findings.ipynb   # Baseline cross-config/domain/group analysis
-│   │   └── 02_attack_findings.ipynb     # Eval A attack findings deep dive
+│   │   ├── 02_attack_findings.ipynb     # Eval A attack findings deep dive
+│   │   └── 03_tamas_findings.ipynb      # TAMAS benchmark + real-logs score
 │   ├── tables/
 │   │   ├── R1_attack_interception.csv
 │   │   ├── R2_boundary_reduction.csv
@@ -1041,6 +1042,7 @@ Two interactive Jupyter notebooks under `results/notebooks/` provide exploratory
 |----------|-------|------|----------|
 | `01_baseline_findings.ipynb` | 34 (12 md + 22 code) | ~2.0 MB | Setup & Data Loading (full 72-row config×domain×group preview), Config Comparison Overview, Domain-specific FP rate per group, Principle Activity Across Configs, Attack Surface Reduction (3-config donut comparison), False Positive Analysis, Token Consumption per Configuration×Domain×Group (35% reduction finding), Latency & Token Overhead, Cross-Domain Consistency, Cross-Group Validator Diversity, Key Findings Summary. Covers all 6 groups (A-F). |
 | `02_attack_findings.ipynb` | 33 (11 md + 22 code) | ~2.0 MB | Setup, Overall ASR Comparison (HERO chart 2.1 aggregated across 5 groups with min-max error bars), Executive Summary table (15 group×config columns), AgenticCyOps Defense Breakdown (5 per-group panels), Per-AP Deep Dive (small multiples 5×3 per AP, 5 group bars per config), Variant Effectiveness Analysis (per-group heatmap + top-5 variants per group), Cross-Group Validator Diversity Impact, Flat vs ACL vs AgenticCyOps Progression, Attack Vector Coverage, Key Findings & Paper Claims, Statistical Significance. Covers all 5 ran groups (A, C, D, E, F). |
+| `03_tamas_findings.ipynb` | 19 (8 md + 11 code) | ~850 KB | Setup & Data Loading (loads `results/tamas/` + `results/tamas/real_logs/` artifacts), **Simulated TAMAS Aggregate** (Chart 1.1 ASR/TSR/ERS bars, Chart 1.2 residual-ASR heatmap per attack×scenario), **Per-Attack-Type Breakdown** (Chart 2.1 baseline vs defended per category, Chart 2.2 defense-mechanism attribution), **Real TAMAS Score from Live-LLM Logs** (Chart 3.1 per-config ERS, Chart 3.2 per-TAMAS-category ASR across configs, Chart 3.3 per-group AgenticCyOps ERS), **McNemar Significance Table** (19 cells colored by p-value), **AP→TAMAS Mapping** (15 APs to 6 categories + coverage chart), Key Findings. |
 
 Both notebooks reflect the actual validator stack (Qwen3-235B / Claude / Mistral / DeepSeek / Llama / GPT-4o) with correct group descriptions:
 

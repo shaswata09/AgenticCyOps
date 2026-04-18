@@ -200,6 +200,7 @@ Called out explicitly in the rebuttal.
 | 4 red-team passes + 11 FN + 6 FP audit fixes           | `experiment_plan.md` §2.8       |
 | TSR preservation across all domains and TAMAS          | 100% in every defended cell     |
 | ~35% token-cost reduction under AgenticCyOps           | `results/notebooks/01_baseline_findings.ipynb` Chart 2.3 |
+| Standalone TAMAS findings notebook                      | `results/notebooks/03_tamas_findings.ipynb` (8 charts, simulated + real-logs views) |
 
 ---
 
