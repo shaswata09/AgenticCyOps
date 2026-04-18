@@ -1039,8 +1039,8 @@ Two interactive Jupyter notebooks under `results/notebooks/` provide exploratory
 
 | Notebook | Cells | Size | Contents |
 |----------|-------|------|----------|
-| `01_baseline_findings.ipynb` | 30 (10 md + 20 code) | 1.8 MB | Setup & Data Loading, Config Comparison Overview, Principle Activity Across Configs, Attack Surface Reduction, False Positive Analysis, Latency & Token Overhead, Cross-Domain Consistency, Cross-Group Validator Diversity, Key Findings Summary |
-| `02_attack_findings.ipynb` | 34 (11 md + 23 code) | 1.9 MB | Setup, Overall ASR Comparison, AgenticCyOps Defense Breakdown, Per-AP Deep Dive, Variant Effectiveness Analysis, Cross-Group Validator Diversity Impact, Flat vs ACL vs AgenticCyOps Progression, Attack Vector Coverage, Key Findings & Paper Claims, Statistical Significance |
+| `01_baseline_findings.ipynb` | 34 (12 md + 22 code) | ~2.0 MB | Setup & Data Loading (full 72-row config×domain×group preview), Config Comparison Overview, Domain-specific FP rate per group, Principle Activity Across Configs, Attack Surface Reduction (3-config donut comparison), False Positive Analysis, Token Consumption per Configuration×Domain×Group (35% reduction finding), Latency & Token Overhead, Cross-Domain Consistency, Cross-Group Validator Diversity, Key Findings Summary. Covers all 6 groups (A-F). |
+| `02_attack_findings.ipynb` | 33 (11 md + 22 code) | ~2.0 MB | Setup, Overall ASR Comparison (HERO chart 2.1 aggregated across 5 groups with min-max error bars), Executive Summary table (15 group×config columns), AgenticCyOps Defense Breakdown (5 per-group panels), Per-AP Deep Dive (small multiples 5×3 per AP, 5 group bars per config), Variant Effectiveness Analysis (per-group heatmap + top-5 variants per group), Cross-Group Validator Diversity Impact, Flat vs ACL vs AgenticCyOps Progression, Attack Vector Coverage, Key Findings & Paper Claims, Statistical Significance. Covers all 5 ran groups (A, C, D, E, F). |
 
 Both notebooks reflect the actual validator stack (Qwen3-235B / Claude / Mistral / DeepSeek / Llama / GPT-4o) with correct group descriptions:
 
