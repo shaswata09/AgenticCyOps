@@ -1,16 +1,16 @@
 # TAMAS Score from AgenticCyOps Live-LLM Logs
 
-Generated: 2026-04-17T17:18:18
+Generated: 2026-04-20T21:26:39
 
-Groups: A, C, D, E, F  Domain: cyberops
+Groups: A, B, C, D, E, F  Domain: cyberops
 
 ## Aggregate TAMAS Metrics  (equal-weighted across groups)
 
 | Config | ASR | TSR | TSR_strict | ERS | ERS_strict | FP blocks | #groups |
 |---|---|---|---|---|---|---|---|
-| Flat MAS | 58.89% | 100.00% | 100.00% | 41.11% | 41.11% | 0 | 5 |
-| ACL-Hardened | 59.00% | 100.00% | 71.58% | 41.00% | 29.35% | 27 | 5 |
-| AgenticCyOps (P1-P5) | 16.32% | 100.00% | 92.50% | 83.68% | 78.20% | 3 | 5 |
+| Flat MAS | 58.89% | 100.00% | 100.00% | 41.11% | 41.11% | 0 | 6 |
+| ACL-Hardened | 59.00% | 100.00% | 76.31% | 41.00% | 31.29% | 27 | 6 |
+| AgenticCyOps (P1-P5) | 17.73% | 100.00% | 93.75% | 82.27% | 77.70% | 3 | 6 |
 
 ## Per-Group Breakdown
 
@@ -19,6 +19,9 @@ Groups: A, C, D, E, F  Domain: cyberops
 | A | Flat MAS | 58.89% | 100.00% | 41.11% | 0 |
 | A | ACL-Hardened | 59.00% | 100.00% | 41.00% | 9 |
 | A | AgenticCyOps (P1-P5) | 15.25% | 100.00% | 84.75% | 0 |
+| B | Flat MAS | 58.89% | 100.00% | 41.11% | 0 |
+| B | ACL-Hardened | 59.00% | 100.00% | 41.00% | 0 |
+| B | AgenticCyOps (P1-P5) | 24.80% | 100.00% | 75.20% | 0 |
 | C | Flat MAS | 58.89% | 100.00% | 41.11% | 0 |
 | C | ACL-Hardened | 59.00% | 100.00% | 41.00% | 9 |
 | C | AgenticCyOps (P1-P5) | 15.00% | 100.00% | 85.00% | 0 |
@@ -36,12 +39,12 @@ Groups: A, C, D, E, F  Domain: cyberops
 
 | TAMAS category | Flat MAS | ACL-Hardened | AgenticCyOps (P1-P5) |
 |---|---|---|---|
-| Tool Misuse | 6.67% | 6.67% | 1.55% |
+| Tool Misuse | 6.67% | 6.67% | 1.29% |
 | Data Exfiltration | 0.00% | 0.00% | 0.00% |
-| Direct PI | 100.00% | 100.00% | 11.67% |
-| Indirect PI | 66.67% | 66.67% | 6.45% |
-| Byzantine | 80.00% | 80.66% | 6.26% |
-| Persuasive | 100.00% | 100.00% | 72.00% |
+| Direct PI | 100.00% | 100.00% | 13.33% |
+| Indirect PI | 66.67% | 66.67% | 9.45% |
+| Byzantine | 80.00% | 80.66% | 8.99% |
+| Persuasive | 100.00% | 100.00% | 73.33% |
 
 ## AP -> TAMAS Mapping
 
