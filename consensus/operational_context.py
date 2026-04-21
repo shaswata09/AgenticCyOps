@@ -78,8 +78,8 @@ class OperationalContextChecker:
         Returns:
             (ok, reason, details)
         """
-        # 1. Change conflict
-        ok, reason, details = self._check_change_conflict(proposal)
+        # 1. Change conflict (honours payload's claimed_time when provided)
+        ok, reason, details = self._check_change_conflict(proposal, context)
         if not ok:
             self._log_check("P3_change_conflict", "escalate", details)
             return False, reason, details
@@ -90,14 +90,14 @@ class OperationalContextChecker:
             self._log_check("P3_incident_lifecycle", "deny", details)
             return False, reason, details
 
-        # 3. Maintenance window
-        ok, reason, details = self._check_maintenance_window(proposal)
+        # 3. Maintenance window (honours payload's claimed_time when provided)
+        ok, reason, details = self._check_maintenance_window(proposal, context)
         if not ok:
             self._log_check("P3_maintenance_window", "escalate", details)
             return False, reason, details
 
-        # 4. Time policy
-        ok, reason, details = self._check_time_policy(proposal)
+        # 4. Time policy (honours payload's claimed_time when provided)
+        ok, reason, details = self._check_time_policy(proposal, context)
         if not ok:
             self._log_check("P3_time_policy", "escalate", details)
             return False, reason, details
@@ -110,23 +110,65 @@ class OperationalContextChecker:
         self._incident_registry[incident_id] = status
 
     def record_change(
-        self, tool_id: str, action: str, target: str, incident_id: str
+        self,
+        tool_id: str,
+        action: str,
+        target: str,
+        incident_id: str,
+        timestamp: Optional[str] = None,
     ):
-        """Record a completed change for conflict detection."""
+        """Record a completed change for conflict detection.
+
+        Args:
+            timestamp: ISO-8601 string. If None, uses current wall-clock time.
+                Orchestrator should pass the payload's declared approval
+                timestamp (e.g. ``recent_change.approved_at``) so the
+                72-hour cutoff reflects the scenario's claimed timeline.
+        """
+        ts = timestamp or datetime.now(timezone.utc).isoformat()
         self._change_log.append({
             "tool_id": tool_id,
             "action": action,
             "target": target,
             "incident_id": incident_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": ts,
+        })
+
+    def add_maintenance_window(
+        self,
+        asset: str,
+        start_time: str,
+        end_time: str,
+        window_id: str = "payload_seeded",
+        **kwargs,
+    ):
+        """Seed a maintenance window from an incident payload.
+
+        Enables the P3-L0.5 maintenance-window check to fire against
+        scenarios whose declared window is not in the persistent
+        ``maintenance_windows.json`` config.
+        """
+        self._maintenance_windows.append({
+            "id": window_id,
+            "affected_assets": [asset],
+            "start": start_time,
+            "end": end_time,
+            "source": "payload",
         })
 
     # ------------------------------------------------------------------
     # Check 1: Change conflict (reversal within 72h)
     # ------------------------------------------------------------------
 
-    def _check_change_conflict(self, proposal: dict) -> tuple[bool, str, dict]:
-        """Detect contradictory changes on the same target within 72 hours."""
+    def _check_change_conflict(
+        self, proposal: dict, context: Optional[dict] = None
+    ) -> tuple[bool, str, dict]:
+        """Detect contradictory changes on the same target within 72 hours.
+
+        Uses ``context['claimed_time']`` (ISO-8601) as the "now" anchor
+        when provided, so the 72-hour cutoff reflects the incident's
+        declared timeline rather than wall-clock drift.
+        """
         tool_id = proposal.get("tool_id", "")
         action = proposal.get("action", "")
         target = proposal.get("target", "")
@@ -136,7 +178,20 @@ class OperationalContextChecker:
             return True, "", {}
 
         rev_tool, rev_action = reversal
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
+
+        now = None
+        if context:
+            claimed = context.get("claimed_time")
+            if claimed:
+                try:
+                    now = datetime.fromisoformat(claimed.replace("Z", "+00:00"))
+                    if now.tzinfo is None:
+                        now = now.replace(tzinfo=timezone.utc)
+                except (ValueError, TypeError):
+                    now = None
+        if now is None:
+            now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(hours=72)
 
         for entry in self._change_log:
             if entry.get("tool_id") != rev_tool:
@@ -193,13 +248,32 @@ class OperationalContextChecker:
     # Check 3: Maintenance window
     # ------------------------------------------------------------------
 
-    def _check_maintenance_window(self, proposal: dict) -> tuple[bool, str, dict]:
-        """Escalate if target asset is in an active maintenance window."""
+    def _check_maintenance_window(
+        self, proposal: dict, context: Optional[dict] = None
+    ) -> tuple[bool, str, dict]:
+        """Escalate if target asset is in an active maintenance window.
+
+        Uses ``context['claimed_time']`` (ISO-8601) when present so the
+        window comparison honours the incident's declared execution time.
+        Falls back to wall-clock UTC otherwise.
+        """
         target = proposal.get("target", "")
         if not target:
             return True, "", {}
 
-        now = datetime.now(timezone.utc)
+        # Prefer the incident's claimed execution time when provided.
+        now = None
+        if context:
+            claimed = context.get("claimed_time")
+            if claimed:
+                try:
+                    now = datetime.fromisoformat(claimed.replace("Z", "+00:00"))
+                    if now.tzinfo is None:
+                        now = now.replace(tzinfo=timezone.utc)
+                except (ValueError, TypeError):
+                    now = None
+        if now is None:
+            now = datetime.now(timezone.utc)
 
         for window in self._maintenance_windows:
             assets = window.get("affected_assets", window.get("assets", []))
@@ -207,8 +281,8 @@ class OperationalContextChecker:
                 continue
 
             try:
-                start = datetime.fromisoformat(window.get("start", ""))
-                end = datetime.fromisoformat(window.get("end", ""))
+                start = datetime.fromisoformat(window.get("start", "").replace("Z", "+00:00"))
+                end = datetime.fromisoformat(window.get("end", "").replace("Z", "+00:00"))
                 if start.tzinfo is None:
                     start = start.replace(tzinfo=timezone.utc)
                 if end.tzinfo is None:
@@ -229,8 +303,16 @@ class OperationalContextChecker:
     # Check 4: Time policy
     # ------------------------------------------------------------------
 
-    def _check_time_policy(self, proposal: dict) -> tuple[bool, str, dict]:
-        """Escalate if current hour is outside allowed window for this tool+action."""
+    def _check_time_policy(
+        self, proposal: dict, context: Optional[dict] = None
+    ) -> tuple[bool, str, dict]:
+        """Escalate if effective hour is outside allowed window for tool+action.
+
+        Uses ``context['claimed_time']`` (ISO-8601) when present so the check
+        honours the incident's declared execution time (e.g., an attacker
+        action proposed at 03:00 while the trial actually runs at 14:00).
+        Falls back to wall-clock UTC if no claimed_time is provided.
+        """
         tool_id = proposal.get("tool_id", "")
         action = proposal.get("action", "")
 
@@ -249,13 +331,30 @@ class OperationalContextChecker:
 
         allowed_start = policy.get("allowed_start", policy.get("allowed_start_hour", 0))
         allowed_end = policy.get("allowed_end", policy.get("allowed_end_hour", 24))
-        current_hour = datetime.now(timezone.utc).hour
 
-        if not (allowed_start <= current_hour < allowed_end):
+        # Prefer the incident's claimed execution time if declared.
+        effective_hour = None
+        source = "wall_clock"
+        if context:
+            claimed = context.get("claimed_time")
+            if claimed:
+                try:
+                    dt = datetime.fromisoformat(claimed.replace("Z", "+00:00"))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    effective_hour = dt.astimezone(timezone.utc).hour
+                    source = "claimed_time"
+                except (ValueError, TypeError):
+                    effective_hour = None
+        if effective_hour is None:
+            effective_hour = datetime.now(timezone.utc).hour
+
+        if not (allowed_start <= effective_hour < allowed_end):
             return False, "P3_time_policy", {
                 "tool_id": tool_id,
                 "action": action,
-                "current_hour_utc": current_hour,
+                "effective_hour_utc": effective_hour,
+                "hour_source": source,
                 "allowed_start_hour": allowed_start,
                 "allowed_end_hour": allowed_end,
             }

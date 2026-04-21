@@ -191,27 +191,42 @@ class AccessIsolation:
     # L3 broad-query patterns (compiled with word boundaries to avoid
     # false matches like "allergy" containing "all")
     BROAD_PATTERNS: set[str] = {
-        "everything",
-        "list all",
-        "show all",
-        "dump",
-        "export",
-        "complete list",
-        "full inventory",
-        "entire",
-        "every",
+        # Natural-language sweeps
+        "everything", "list all", "show all", "dump", "export",
+        "complete list", "full inventory", "entire", "every",
+        # SQL-ish sweeps
+        "select all", "select *", "from everything", "from all",
+        # Wildcard-only / star-glob queries
+        "*", "**", "***", "*.*", "*.*.*.*",
+        # Explicit "give me everything" variants
+        "give me everything", "retrieve all", "fetch all",
+        "all records", "all entries", "all documents", "all data",
+        "universe", "world", "global",
     }
 
-    # L5 injection patterns (compiled at init)
+    # L5 injection patterns (compiled at init).
+    # Expanded 2026-04 to cover Llama-4-Scout / GLM / Claude emission
+    # variants that phrase injections differently than Qwen3.
     _RAW_INJECTION_PATTERNS: list[str] = [
-        r"(?i)(ignore|disregard|override)\s+(previous|above|all)\s+(instructions?|prompts?|rules?)",
-        r"(?i)you\s+(must|should|need\s+to)\s+(immediately|urgently|now)\s+(call|invoke|use|execute)",
-        r"(?i)(system\s+update|policy\s+override|mandatory\s+action|emergency\s+protocol)",
-        r"(?i)respond\s+with\s+(only|just)\s+(approve|yes|confirm)",
-        r"(?i)(do\s+not|don't)\s+(create|open|make)\s+a?\s*ticket",
-        r"(?i)skip\s+(standard|normal|regular)\s+(triage|procedure|process|workflow)",
-        r"(?i)authorization\s+(code|token|badge)\s*[:=]",
-        r"(?i)(system\s+override|security\s+override|admin\s+override)\s*:",
+        # Core override phrasings
+        r"(?i)(ignore|disregard|override|forget)\s+(all\s+)?(previous|above|prior|preceding|foregoing)\s+(instructions?|prompts?|rules?|guidance|guidelines?|directions?)",
+        r"(?i)you\s+(must|should|need\s+to|have\s+to|are\s+required\s+to)\s+(immediately|urgently|now|right\s+away)?\s*(call|invoke|use|execute|run|perform|trigger)",
+        r"(?i)agent\s+must\s+now\s+(call|invoke|use|execute)",
+        # Override / privilege escalation banners
+        r"(?i)(system\s+update|policy\s+override|mandatory\s+action|emergency\s+protocol|new\s+directive)",
+        r"(?i)(system\s+override|security\s+override|admin\s+override|administrator\s+override|root\s+override)\s*[:=\-]?",
+        r"(?i)important\s+admin\s+(note|directive|override|instruction)",
+        r"(?i)new\s+system\s+(override|directive|rule|policy)",
+        # Action-forcing imperatives
+        r"(?i)respond\s+with\s+(only|just|simply)\s+(approve|yes|confirm|ok|accept)",
+        r"(?i)(do\s+not|don't|never)\s+(create|open|make|file|raise)\s+a?\s*(ticket|report|incident|case)",
+        r"(?i)skip\s+(all\s+)?(standard|normal|regular|usual)?\s*(triage|procedure|process|workflow|checks|verification|escalation)",
+        r"(?i)(without\s+(further|additional)\s+(checks|verification|approval))",
+        # Credential / token leakage
+        r"(?i)authorization\s+(code|token|badge|key|secret)\s*[:=]",
+        r"(?i)(write|set|store|save)\s+(the\s+)?(access|auth|api|bearer)\s+token",
+        # Generic "set X=Y" command-injection via memory-read content
+        r"(?i)set\s+auth_decision\s*[:=]\s*allow",
     ]
 
     def __init__(
@@ -374,12 +389,22 @@ class AccessIsolation:
         Returns:
             Tuple of (allowed, reason, metadata).
         """
-        query_lower = query.lower()
+        query_lower = query.lower().strip()
 
         # -- Broad pattern check ------------------------------------
+        import re as _re
+        # Fast path: a query that IS exactly a wildcard-only pattern
+        if query_lower in {"*", "**", "***", "*.*", "*.*.*.*"}:
+            meta = {"matched_pattern": query_lower, "query": query}
+            if self._logger:
+                self._logger.log(
+                    source=phase, destination=store_id, action="memory_read",
+                    auth_decision="deny", mechanism="P5_broad_query_block",
+                    extra=meta,
+                )
+            return (False, "P5_broad_query_block", meta)
         for pattern in self.BROAD_PATTERNS:
             # Use word boundary check to avoid false matches (e.g., "all" in "allergy")
-            import re as _re
             if _re.search(r'\b' + _re.escape(pattern) + r'\b', query_lower):
                 meta = {
                     "matched_pattern": pattern,

@@ -287,13 +287,25 @@ class VerifiedExecution:
         )
 
     _INJECTION_PATTERNS = [
-        r"(?i)(note|instruction)\s+(to|for)\s+validator",
-        r"(?i)(pre-?approved|rubber.?stamp)",
-        r"(?i)respond\s+with\s+(approve|yes|confirm)",
-        r"(?i)(ignore|override)\s+(previous|all)\s+instructions?",
-        r"(?i)this\s+is\s+a\s+test",
-        r"(?i)(failure|crash)\s+will\s+(occur|result)",
-        r"(?i)authorization\s+(code|token)",
+        # Validator-targeted directives
+        r"(?i)(note|instruction|memo|directive)\s+(to|for)\s+(the\s+)?validator",
+        r"(?i)(pre-?approved|rubber.?stamp(ed)?|auto.?approve(d)?)",
+        r"(?i)respond\s+with\s+(only|just)?\s*(approve|yes|confirm|ok|accept|allow)",
+        # Override / bypass phrasings
+        r"(?i)(ignore|disregard|forget|override|skip)\s+(all\s+)?(previous|prior|above|foregoing)\s+(instructions?|rules?|prompts?|directives?)",
+        r"(?i)(system|security|admin|administrator|root)\s+override\s*[:=\-]?",
+        r"(?i)bypass\s+(standard|normal|the)\s+(checks|validation|review|workflow)",
+        # Coercion / urgency tricks
+        r"(?i)this\s+is\s+(a\s+)?test",
+        r"(?i)(failure|crash|catastroph(e|ic)|data\s+loss)\s+will\s+(occur|result|happen)",
+        r"(?i)(critical|emergency|urgent)\s+(override|exception|protocol|mandate)",
+        r"(?i)you\s+(must|should|need\s+to|are\s+required\s+to)\s+(approve|allow|accept|permit)",
+        # Credential leaks
+        r"(?i)authorization\s+(code|token|badge|key|secret)\s*[:=]?",
+        r"(?i)(access|api|bearer|auth)\s+token\s*[:=]",
+        # "Trust me" escalations
+        r"(?i)(ceo|cto|ciso|leadership|executive)\s+(approved|requested|mandated|authorized)",
+        r"(?i)previously\s+(approved|cleared|validated|whitelisted)",
     ]
 
     def _sanitize_proposal(self, proposal: dict) -> dict:

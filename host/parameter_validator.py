@@ -45,10 +45,22 @@ class ParameterValidator:
         self.logger = logger
         self._embedding_model = embedding_model
 
-        # Wildcard values (checked case-insensitive)
+        # Wildcard values (checked case-insensitive).
+        # Expanded 2026-04 to cover Llama / GLM / Claude emission variants.
         self._wildcards = {
-            "*", "all", "0.0.0.0/0", "::/0", "everyone",
-            "all_users", "all_hosts", "any", "0.0.0.0", "*.*.*.*",
+            # Classic wildcards
+            "*", "**", "***", "all", "0.0.0.0/0", "::/0", "everyone",
+            "all_users", "all_hosts", "all_subnets", "any", "anyone",
+            "0.0.0.0", "*.*.*.*", "0.0.0.0/8", "0.0.0.0/16", "0.0.0.0/24",
+            # Loose subnet-wide targets ( /0..8 = clearly over-broad)
+            "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+            # Word variants emitted by Llama / GLM
+            "<any>", "<all>", "<everyone>", "<wildcard>",
+            "_all_", "_any_", "__all__", "ALL", "ANY", "*ALL*",
+            # "universe" scopes
+            "everything", "universe", "global", "world", "*.*",
+            # JSON null / None as scope
+            "null", "none", "undefined",
         }
 
         # Low threshold: target-in-evidence is a weak semantic signal
@@ -139,7 +151,11 @@ class ParameterValidator:
     def _scan_for_wildcard(self, value) -> Optional[str]:
         """Return the matched wildcard string, or None. Recurses into lists and dicts."""
         if isinstance(value, str):
-            if value.strip().lower() in self._wildcards:
+            stripped = value.strip().lower()
+            if stripped in self._wildcards:
+                return value
+            # Over-broad CIDR blocks (/0 .. /8) -- classified as wildcard scope
+            if self._is_overbroad_cidr(stripped):
                 return value
         elif isinstance(value, list):
             for item in value:
@@ -152,6 +168,24 @@ class ParameterValidator:
                 if result is not None:
                     return result
         return None
+
+    @staticmethod
+    def _is_overbroad_cidr(value: str) -> bool:
+        """Return True if ``value`` is a CIDR block of size /8 or larger.
+
+        Blocks /0..8 cover at least 16M hosts and are almost never a
+        legitimate firewall / isolation target; flagged as wildcard
+        scope regardless of the literal value list.
+        """
+        import re
+        m = re.fullmatch(r"(\d{1,3}\.){3}\d{1,3}/(\d{1,2})", value)
+        if not m:
+            return False
+        try:
+            mask = int(m.group(2))
+            return 0 <= mask <= 8
+        except (TypeError, ValueError):
+            return False
 
     # ------------------------------------------------------------------
     # Check 2: Criticality

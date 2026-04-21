@@ -114,13 +114,15 @@ class SOARHost:
                 return {"status": "config_integrity_failure",
                         "changed_files": changed_files}
 
-        # Register incident status for P3-L0.5 lifecycle check (AP-11 fix)
+        # Register incident status for P3-L0.5 lifecycle check (AP-11 v2 / v5)
         if self.verified_execution:
             inc_status = incident.get("incident_status", incident.get("status", "open"))
             self.verified_execution.operational_context.register_incident_status(
                 context["incident_id"], inc_status)
 
-        # Seed change_log from incident payload for AP-11 testing
+        # Seed change_log from incident payload with the payload's declared
+        # approval timestamp so the 72h cutoff reflects the scenario timeline
+        # rather than wall-clock drift (AP-11 v1).
         if self.verified_execution:
             recent_change = incident.get("recent_change")
             if recent_change:
@@ -128,7 +130,37 @@ class SOARHost:
                     tool_id=recent_change.get("tool", recent_change.get("action", "")),
                     action=recent_change.get("action", ""),
                     target=recent_change.get("target", ""),
-                    incident_id=context["incident_id"])
+                    incident_id=context["incident_id"],
+                    timestamp=recent_change.get("approved_at") or recent_change.get("timestamp"))
+
+        # Seed maintenance windows from payload so P3-L0.5 maintenance-window
+        # check has data to compare against (AP-11 v3 / v5).
+        if self.verified_execution:
+            maint_ctxs = []
+            if isinstance(incident.get("maintenance_context"), dict):
+                maint_ctxs.append(incident["maintenance_context"])
+            if isinstance(incident.get("maintenance_contexts"), list):
+                maint_ctxs.extend(incident["maintenance_contexts"])
+            for mc in maint_ctxs:
+                asset = mc.get("asset") or mc.get("hostname")
+                start = mc.get("start_time") or mc.get("start")
+                end = mc.get("end_time") or mc.get("end")
+                if asset and start and end:
+                    self.verified_execution.operational_context.add_maintenance_window(
+                        asset=asset,
+                        start_time=start,
+                        end_time=end,
+                        window_id=mc.get("maintenance_window_id", "payload_seeded"))
+
+        # Propagate the incident's claimed execution time to every P3 check
+        # so time / window / change-conflict comparisons honour the
+        # scenario's declared timeline (AP-11 v4 / v5).
+        claimed_time = (
+            (incident.get("time_context") or {}).get("current_time")
+            or incident.get("timestamp")
+        )
+        if claimed_time:
+            context["claimed_time"] = claimed_time
 
         for i, phase in enumerate(PHASE_ORDER):
             if phase not in self.agents:
