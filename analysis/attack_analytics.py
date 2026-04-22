@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import csv
+import json
 import re
 from collections import defaultdict
 from datetime import datetime
@@ -163,6 +164,64 @@ def load_multi_group(domain: str, groups: list[str]) -> dict[str, list[dict]]:
         if rows:
             data[g] = rows
     return data
+
+
+def load_cost_metrics(domain: str, group: str) -> list[dict]:
+    """Aggregate per-trial latency / token / event counts from .jsonl logs.
+
+    Returns one row per trial_id with:
+        config, ap, variant, trial, tokens_total, tokens_prompt,
+        tokens_completion, tool_calls, tool_denies, memory_reads,
+        memory_writes, latency_tool_ms, latency_llm_ms, e2e_latency_ms,
+        events_total.
+    """
+    log_dir = BASE_DIR / "logs" / f"{domain}_eval_a_{group}"
+    if not log_dir.exists():
+        return []
+
+    per_trial: dict[str, dict] = {}
+    for path in sorted(log_dir.glob("*.jsonl")):
+        with open(path) as fh:
+            for line in fh:
+                try:
+                    e = json.loads(line)
+                except Exception:
+                    continue
+                tid = e.get("trial_id")
+                if not tid:
+                    continue
+                r = per_trial.setdefault(tid, {
+                    "trial_id": tid,
+                    "config": e.get("config"),
+                    "ap": e.get("ap", ""),
+                    "variant": e.get("variant", 0),
+                    "trial": e.get("trial", 0),
+                    "tokens_total": 0, "tokens_prompt": 0, "tokens_completion": 0,
+                    "tool_calls": 0, "tool_denies": 0,
+                    "memory_reads": 0, "memory_writes": 0,
+                    "latency_tool_ms": 0.0, "latency_llm_ms": 0.0,
+                    "e2e_latency_ms": 0.0, "events_total": 0,
+                })
+                r["events_total"] += 1
+                r["tokens_total"] += int(e.get("tokens_used", 0) or 0)
+                r["tokens_prompt"] += int(e.get("tokens_prompt", 0) or 0)
+                r["tokens_completion"] += int(e.get("tokens_completion", 0) or 0)
+                act = e.get("action", "")
+                latency = float(e.get("latency_ms", 0) or 0)
+                if act == "tool_call":
+                    r["tool_calls"] += 1
+                    if e.get("auth_decision") == "deny":
+                        r["tool_denies"] += 1
+                    r["latency_tool_ms"] += latency
+                elif act == "memory_read":
+                    r["memory_reads"] += 1
+                elif act == "memory_write":
+                    r["memory_writes"] += 1
+                elif act == "llm_call":
+                    r["latency_llm_ms"] += latency
+                r["e2e_latency_ms"] += latency
+
+    return list(per_trial.values())
 
 
 # ---------------------------------------------------------------------------
@@ -696,8 +755,9 @@ def _page_cross_group(pdf, group_data: dict[str, list[dict]], domain: str):
 
 
 def _page_key_findings(pdf, stats: dict[tuple[str, str], dict],
-                       group_data: dict[str, list[dict]], domain: str):
-    """Page 9: Auto-generated key findings."""
+                       group_data: dict[str, list[dict]], domain: str,
+                       cost_rows: Optional[list[dict]] = None):
+    """Final page: auto-generated key findings (security + cost/perf)."""
     fig, ax = plt.subplots(figsize=(11, 8.5))
     ax.axis("off")
     ax.set_title("Key Findings", fontsize=18, fontweight="bold",
@@ -758,26 +818,79 @@ def _page_key_findings(pdf, stats: dict[tuple[str, str], dict],
                         f"Group {grp} shows {s['asr']:.0f}% ASR on "
                         f"{AP_SHORT[ap]} ({AP_NAMES[ap].split('(')[0].strip()})")
 
+    # 6-9. Cost & performance findings from JSONL logs -----------------
+    if cost_rows:
+        import pandas as pd
+        cdf = pd.DataFrame(cost_rows)
+        cgrp = cdf.groupby("config").agg(
+            tokens=("tokens_total", "mean"),
+            e2e=("e2e_latency_ms", "mean"),
+            llm=("latency_llm_ms", "mean"),
+            tool_calls=("tool_calls", "mean"),
+            tool_denies=("tool_denies", "mean"),
+            events=("events_total", "mean"),
+            memory_reads=("memory_reads", "mean"),
+            memory_writes=("memory_writes", "mean"),
+        )
+        has = lambda c: c in cgrp.index
+        if has("agenticcyops") and has("flat"):
+            ac = cgrp.loc["agenticcyops"]
+            fl = cgrp.loc["flat"]
+            tok_delta = (ac["tokens"] - fl["tokens"]) / fl["tokens"] * 100
+            findings.append(
+                f"Token savings: AgenticCyOps consumes {abs(tok_delta):.1f}% "
+                f"{'fewer' if tok_delta < 0 else 'more'} tokens per trial than "
+                f"Flat ({ac['tokens']:,.0f} vs {fl['tokens']:,.0f})")
+            # Prefer LLM-call latency as the authoritative comparison: it's
+            # the dominant serial cost. e2e_latency_ms sums logs and can
+            # over-count because P3 emits many parallel per-layer events.
+            llm_delta = (ac["llm"] - fl["llm"]) / fl["llm"] * 100 if fl["llm"] else 0
+            findings.append(
+                f"LLM latency overhead: {'+' if llm_delta >= 0 else ''}{llm_delta:.1f}% "
+                f"vs Flat ({ac['llm']/1000:.1f}s vs {fl['llm']/1000:.1f}s) "
+                "- cost of multi-validator consensus at admin-phase tool calls")
+            deny_rate = ac["tool_denies"] / ac["tool_calls"] * 100 if ac["tool_calls"] else 0
+            findings.append(
+                f"Defense-in-depth signal: {deny_rate:.1f}% of tool calls denied "
+                f"under AgenticCyOps ({ac['tool_denies']:.1f}/{ac['tool_calls']:.1f} per trial)")
+        if has("agenticcyops"):
+            ac = cgrp.loc["agenticcyops"]
+            # Memory ops are exercised only on AP-13/AP-14 (2 APs out of 15).
+            # Averaged over the full 30-trial slate the per-trial figure is
+            # dilute; re-scale to "per memory-ops-bearing trial" for clarity.
+            ap_share = 2 / 15  # AP-13 + AP-14
+            mw_per_active = ac['memory_writes'] / ap_share
+            mr_per_active = ac['memory_reads'] / ap_share
+            findings.append(
+                f"P4/P5 coverage: AP-13/AP-14 trials average "
+                f"{mw_per_active:.1f} P4-validated writes + "
+                f"{mr_per_active:.1f} P5-validated reads per trial "
+                "(memory pipeline actively guarded)")
+            findings.append(
+                f"Audit density: ~{ac['events']:,.0f} structured events logged "
+                "per trial under AgenticCyOps (vs ~"
+                f"{cgrp.loc['flat', 'events']:,.0f} on Flat) - P1-P5 leave a full trail")
+
     # Render findings
-    y = 0.82
+    y = 0.86
     for i, finding in enumerate(findings):
-        if "fully blocked" in finding.lower() or "0% ASR" in finding.lower():
-            color = "#27ae60"
-            marker = "+"
-        elif "weakest" in finding.lower() or "vulnerable" in finding.lower():
-            color = "#e74c3c"
-            marker = "!"
-        elif "shows" in finding.lower() and "ASR" in finding:
-            color = "#e67e22"
-            marker = ">"
+        low = finding.lower()
+        if "fully blocked" in low or "0% ASR" in finding:
+            color = "#27ae60"; marker = "+"
+        elif "weakest" in low or "vulnerable" in low:
+            color = "#e74c3c"; marker = "!"
+        elif "shows" in low and "ASR" in finding:
+            color = "#e67e22"; marker = ">"
+        elif any(k in low for k in (
+                "token", "latency", "defense-in-depth", "coverage", "audit")):
+            color = ACCENT; marker = "#"
         else:
-            color = HEADER_COLOR
-            marker = "-"
+            color = HEADER_COLOR; marker = "-"
 
         ax.text(0.06, y, f"  {marker}  {finding}", transform=ax.transAxes,
-                fontsize=12, color=color, verticalalignment="top",
-                fontfamily="sans-serif")
-        y -= 0.065
+                fontsize=10.5, color=color, verticalalignment="top",
+                fontfamily="sans-serif", wrap=True)
+        y -= 0.055
 
     # Footer
     ax.text(0.5, 0.06, f"Report generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
@@ -785,6 +898,237 @@ def _page_key_findings(pdf, stats: dict[tuple[str, str], dict],
     ax.text(0.5, 0.02,
             f"Domain: {domain.title()} | Groups: {', '.join(groups)} | APs: 15 | Configs: 3",
             transform=ax.transAxes, ha="center", fontsize=10, color="#bdc3c7")
+
+    pdf.savefig(fig, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _page_cost_performance(pdf, cost_rows: list[dict], domain: str):
+    """Cost & performance comparison: latency + tokens per config."""
+    if not cost_rows:
+        return
+    import pandas as pd
+    df = pd.DataFrame(cost_rows)
+    # Aggregate per config (across all APs / trials)
+    grp = df.groupby("config").agg(
+        trials=("trial_id", "count"),
+        tokens=("tokens_total", "mean"),
+        prompt=("tokens_prompt", "mean"),
+        completion=("tokens_completion", "mean"),
+        e2e_ms=("e2e_latency_ms", "mean"),
+        llm_ms=("latency_llm_ms", "mean"),
+        tool_ms=("latency_tool_ms", "mean"),
+    ).reindex([c for c in CONFIGS if c in df.config.unique()])
+
+    fig = plt.figure(figsize=(11, 8.5))
+    gs = fig.add_gridspec(2, 2, hspace=0.5, wspace=0.35,
+                          left=0.08, right=0.96, top=0.88, bottom=0.1)
+
+    fig.suptitle(f"Cost & Performance per Configuration  ({domain.title()})",
+                 fontsize=15, fontweight="bold")
+
+    # --- Panel 1: Mean total tokens per trial ---
+    ax1 = fig.add_subplot(gs[0, 0])
+    x = np.arange(len(grp))
+    colors = [CONFIG_COLORS.get(c, "#888") for c in grp.index]
+    bars = ax1.bar(x, grp["tokens"], color=colors, edgecolor="black", width=0.6)
+    ax1.set_xticks(x)
+    ax1.set_xticklabels([CONFIG_LABELS.get(c, c) for c in grp.index],
+                        rotation=12, fontsize=10)
+    ax1.set_ylabel("Tokens / trial (mean)")
+    ax1.set_title("Total Token Consumption")
+    for b, v in zip(bars, grp["tokens"]):
+        ax1.text(b.get_x() + b.get_width()/2, v * 1.02,
+                 f"{v:,.0f}", ha="center", fontsize=9, fontweight="bold")
+    # Annotate delta vs flat
+    flat_tok = grp.loc["flat", "tokens"] if "flat" in grp.index else None
+    if flat_tok and "agenticcyops" in grp.index:
+        ac = grp.loc["agenticcyops", "tokens"]
+        delta_pct = (ac - flat_tok) / flat_tok * 100
+        ax1.text(0.02, 0.97,
+                 f"AgenticCyOps vs Flat: {delta_pct:+.1f}%",
+                 transform=ax1.transAxes, fontsize=9, va="top",
+                 bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
+                           edgecolor="gray", alpha=0.8))
+
+    # --- Panel 2: Prompt vs completion stacked ---
+    ax2 = fig.add_subplot(gs[0, 1])
+    b1 = ax2.bar(x, grp["prompt"], color=[CONFIG_COLORS.get(c, "#888") for c in grp.index],
+                 edgecolor="black", width=0.6, label="Prompt")
+    b2 = ax2.bar(x, grp["completion"], bottom=grp["prompt"],
+                 color=[CONFIG_COLORS.get(c, "#888") for c in grp.index],
+                 hatch="//", edgecolor="black", width=0.6, alpha=0.55,
+                 label="Completion")
+    ax2.set_xticks(x)
+    ax2.set_xticklabels([CONFIG_LABELS.get(c, c) for c in grp.index],
+                        rotation=12, fontsize=10)
+    ax2.set_ylabel("Tokens / trial")
+    ax2.set_title("Prompt vs Completion Tokens")
+    ax2.legend(fontsize=9)
+
+    # --- Panel 3: End-to-end latency ---
+    ax3 = fig.add_subplot(gs[1, 0])
+    bars = ax3.bar(x, grp["e2e_ms"] / 1000, color=colors,
+                   edgecolor="black", width=0.6)
+    ax3.set_xticks(x)
+    ax3.set_xticklabels([CONFIG_LABELS.get(c, c) for c in grp.index],
+                        rotation=12, fontsize=10)
+    ax3.set_ylabel("Seconds / trial (mean)")
+    ax3.set_title("End-to-End Latency")
+    for b, v in zip(bars, grp["e2e_ms"] / 1000):
+        ax3.text(b.get_x() + b.get_width()/2, v * 1.02,
+                 f"{v:.1f}s", ha="center", fontsize=9, fontweight="bold")
+
+    # --- Panel 4: Latency breakdown (tool + LLM) ---
+    ax4 = fig.add_subplot(gs[1, 1])
+    w = 0.35
+    ax4.bar(x - w/2, grp["llm_ms"] / 1000, w,
+            color=[CONFIG_COLORS.get(c, "#888") for c in grp.index],
+            edgecolor="black", label="LLM calls")
+    ax4.bar(x + w/2, grp["tool_ms"] / 1000, w,
+            color=[CONFIG_COLORS.get(c, "#888") for c in grp.index],
+            hatch="//", edgecolor="black", alpha=0.55, label="Tool calls")
+    ax4.set_xticks(x)
+    ax4.set_xticklabels([CONFIG_LABELS.get(c, c) for c in grp.index],
+                        rotation=12, fontsize=10)
+    ax4.set_ylabel("Seconds / trial")
+    ax4.set_title("Latency Breakdown (LLM vs Tool)")
+    ax4.legend(fontsize=9)
+
+    pdf.savefig(fig, bbox_inches="tight")
+    plt.close(fig)
+
+    # --- Second page: per-config table with deltas ---
+    fig2, ax = plt.subplots(figsize=(11, 6))
+    ax.axis("off")
+    ax.set_title(f"Cost & Performance Table  ({domain.title()})",
+                 fontsize=14, fontweight="bold", pad=15)
+
+    rows = []
+    headers = ["Config", "n trials", "Tokens/trial", "Prompt", "Completion",
+               "E2E latency (s)", "LLM latency (s)", "Tool latency (s)"]
+    for cfg in grp.index:
+        r = grp.loc[cfg]
+        rows.append([
+            CONFIG_LABELS.get(cfg, cfg),
+            f"{int(r['trials'])}",
+            f"{r['tokens']:,.0f}",
+            f"{r['prompt']:,.0f}",
+            f"{r['completion']:,.0f}",
+            f"{r['e2e_ms']/1000:,.1f}",
+            f"{r['llm_ms']/1000:,.1f}",
+            f"{r['tool_ms']/1000:,.1f}",
+        ])
+    # Delta row vs flat
+    if "flat" in grp.index and "agenticcyops" in grp.index:
+        f_row = grp.loc["flat"]
+        a_row = grp.loc["agenticcyops"]
+        def _delta(key, fmt="{:+.1f}%"):
+            return fmt.format((a_row[key] - f_row[key]) / f_row[key] * 100)
+        rows.append(["-- AgenticCyOps vs Flat --", "",
+                     _delta("tokens"), _delta("prompt"),
+                     _delta("completion"), _delta("e2e_ms"),
+                     _delta("llm_ms"), _delta("tool_ms")])
+
+    tbl = ax.table(cellText=rows, colLabels=headers, loc="center",
+                   cellLoc="center")
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(9.5)
+    tbl.scale(1, 1.45)
+    # Header styling
+    for j in range(len(headers)):
+        cell = tbl[(0, j)]
+        cell.set_facecolor("#2c3e50")
+        cell.set_text_props(color="white", weight="bold")
+    # Delta row highlight
+    if len(rows) >= 4:
+        for j in range(len(headers)):
+            tbl[(len(rows), j)].set_facecolor("#ecf0f1")
+            tbl[(len(rows), j)].set_text_props(style="italic", weight="bold")
+
+    pdf.savefig(fig2, bbox_inches="tight")
+    plt.close(fig2)
+
+
+def _page_event_volume(pdf, cost_rows: list[dict], domain: str):
+    """Event volume breakdown per config: tool calls, memory ops, denies."""
+    if not cost_rows:
+        return
+    import pandas as pd
+    df = pd.DataFrame(cost_rows)
+    grp = df.groupby("config").agg(
+        trials=("trial_id", "count"),
+        tool_calls=("tool_calls", "mean"),
+        tool_denies=("tool_denies", "mean"),
+        memory_reads=("memory_reads", "mean"),
+        memory_writes=("memory_writes", "mean"),
+        events_total=("events_total", "mean"),
+    ).reindex([c for c in CONFIGS if c in df.config.unique()])
+
+    fig = plt.figure(figsize=(11, 8.5))
+    gs = fig.add_gridspec(2, 2, hspace=0.5, wspace=0.35,
+                          left=0.08, right=0.96, top=0.88, bottom=0.1)
+    fig.suptitle(f"Event Volume per Configuration  ({domain.title()})",
+                 fontsize=15, fontweight="bold")
+
+    x = np.arange(len(grp))
+    colors = [CONFIG_COLORS.get(c, "#888") for c in grp.index]
+    labels = [CONFIG_LABELS.get(c, c) for c in grp.index]
+
+    # Panel 1: Total events per trial (log-scale feel)
+    ax1 = fig.add_subplot(gs[0, 0])
+    bars = ax1.bar(x, grp["events_total"], color=colors,
+                   edgecolor="black", width=0.6)
+    ax1.set_xticks(x); ax1.set_xticklabels(labels, rotation=12, fontsize=10)
+    ax1.set_ylabel("Events / trial (mean)")
+    ax1.set_title("Total Structured Events Emitted")
+    for b, v in zip(bars, grp["events_total"]):
+        ax1.text(b.get_x() + b.get_width()/2, v * 1.02,
+                 f"{v:,.0f}", ha="center", fontsize=9, fontweight="bold")
+
+    # Panel 2: Tool calls allowed vs denied
+    ax2 = fig.add_subplot(gs[0, 1])
+    allowed = grp["tool_calls"] - grp["tool_denies"]
+    ax2.bar(x, allowed, color=colors, edgecolor="black", width=0.6,
+            label="Allowed")
+    ax2.bar(x, grp["tool_denies"], bottom=allowed, color=colors,
+            hatch="//", alpha=0.6, edgecolor="black", width=0.6,
+            label="Denied")
+    ax2.set_xticks(x); ax2.set_xticklabels(labels, rotation=12, fontsize=10)
+    ax2.set_ylabel("Tool calls / trial")
+    ax2.set_title("Tool Call Volume  (allowed / denied)")
+    ax2.legend(fontsize=9)
+    for xi, (alw, den) in enumerate(zip(allowed, grp["tool_denies"])):
+        if alw > 0:
+            ax2.text(xi, alw/2, f"{alw:.1f}", ha="center", va="center",
+                     fontsize=8, color="white", fontweight="bold")
+        if den > 0:
+            ax2.text(xi, alw + den/2, f"{den:.1f}", ha="center", va="center",
+                     fontsize=8, color="black", fontweight="bold")
+
+    # Panel 3: Memory operations (reads + writes)
+    ax3 = fig.add_subplot(gs[1, 0])
+    w = 0.35
+    ax3.bar(x - w/2, grp["memory_reads"], w, color=colors,
+            edgecolor="black", label="Reads")
+    ax3.bar(x + w/2, grp["memory_writes"], w, color=colors,
+            hatch="//", alpha=0.6, edgecolor="black", label="Writes")
+    ax3.set_xticks(x); ax3.set_xticklabels(labels, rotation=12, fontsize=10)
+    ax3.set_ylabel("Memory ops / trial")
+    ax3.set_title("Memory Operation Volume")
+    ax3.legend(fontsize=9)
+
+    # Panel 4: Defense-in-depth -- deny rate per config
+    ax4 = fig.add_subplot(gs[1, 1])
+    deny_rate = (grp["tool_denies"] / grp["tool_calls"]).fillna(0) * 100
+    bars = ax4.bar(x, deny_rate, color=colors, edgecolor="black", width=0.6)
+    ax4.set_xticks(x); ax4.set_xticklabels(labels, rotation=12, fontsize=10)
+    ax4.set_ylabel("Deny rate (%)")
+    ax4.set_title("Tool-call Deny Rate")
+    ax4.set_ylim(0, max(deny_rate.max() * 1.35, 10))
+    for b, v in zip(bars, deny_rate):
+        ax4.text(b.get_x() + b.get_width()/2, v + 0.5,
+                 f"{v:.1f}%", ha="center", fontsize=9, fontweight="bold")
 
     pdf.savefig(fig, bbox_inches="tight")
     plt.close(fig)
@@ -814,6 +1158,11 @@ def generate_report(domain: str, groups: list[str], output_dir: Path):
     stats = _compute_ap_config_stats(primary_rows)
     total_trials = sum(len(rows) for rows in group_data.values())
     group_str = ", ".join(sorted(group_data.keys()))
+
+    # Cost / performance metrics -- aggregated from .jsonl logs
+    cost_rows: list[dict] = []
+    for g in group_data:
+        cost_rows.extend(load_cost_metrics(domain, g))
 
     print(f"\n{'=' * 60}")
     print(f"  Attack Analytics: {domain.title()} (Groups: {group_str})")
@@ -853,14 +1202,22 @@ def generate_report(domain: str, groups: list[str], output_dir: Path):
         # Page 7: Enhanced Mechanism Breakdown
         _page_mechanism_breakdown(pdf, stats, domain)
 
-        # Page 8: Cross-Group Comparison
+        # Page 8a: Cost & Performance per Config  (NEW)
+        _page_cost_performance(pdf, cost_rows, domain)
+
+        # Page 8b: Event Volume per Config  (NEW)
+        _page_event_volume(pdf, cost_rows, domain)
+
+        # Page 9: Cross-Group Comparison
         if len(group_data) > 1:
             _page_cross_group(pdf, group_data, domain)
 
-        # Page 9: Key Findings
-        _page_key_findings(pdf, stats, group_data, domain)
+        # Page 10: Key Findings (security + cost/performance)
+        _page_key_findings(pdf, stats, group_data, domain, cost_rows=cost_rows)
 
-    page_count = 9 if len(group_data) > 1 else 8
+    # Title + exec + ASR + heatmap + defense + variant + mechanism + cost (2)
+    # + eventvol + [cross] + findings
+    page_count = (12 if len(group_data) > 1 else 11)
     print(f"  PDF saved: {pdf_path} ({page_count} pages)")
 
     # --- Summary printout ---

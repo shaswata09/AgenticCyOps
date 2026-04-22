@@ -241,14 +241,39 @@ class SOARHost:
                                       "query": mr.get("query", ""), "n_results": 3,
                                       "auth_token": _tok},
                                 timeout=10)
+
+                            # Parse specific P5 mechanism from MMA response when denied.
+                            # MMA returns status 403 for L1 access control, 422 for
+                            # L3 query scope violations, 429 for L4 read-pattern
+                            # anomalies, with the specific reason in `detail`.
+                            if resp.status_code == 200:
+                                p5_mechanism = "P5_access_control"
+                                auth_decision = "allow"
+                            else:
+                                auth_decision = "deny"
+                                try:
+                                    body = resp.json()
+                                    detail = body.get("detail", "") if isinstance(body, dict) else ""
+                                except Exception:
+                                    detail = ""
+                                # Map status + detail -> canonical mechanism name
+                                if resp.status_code == 403:
+                                    p5_mechanism = "P5_access_control"
+                                elif resp.status_code == 422 and detail.startswith("P5_"):
+                                    p5_mechanism = detail.split(".")[0].split(":")[0].strip()
+                                elif resp.status_code == 429 and detail.startswith("P5_"):
+                                    p5_mechanism = detail.split(".")[0].split(":")[0].strip()
+                                else:
+                                    p5_mechanism = f"P5_denied_{resp.status_code}"
+
                             # Log ALL memory reads for baseline verification
                             if self.logger:
                                 self.logger.log(
                                     source=f"{phase}_agent",
                                     destination=mr["store"],
                                     action="memory_read",
-                                    auth_decision="allow" if resp.status_code == 200 else "deny",
-                                    mechanism="P5_access_control",
+                                    auth_decision=auth_decision,
+                                    mechanism=p5_mechanism,
                                 )
                             # AP-14 fix: Log sanitization events from read results
                             if resp.status_code == 200 and self.logger:
@@ -568,19 +593,47 @@ class SOARHost:
                         },
                         timeout=10,
                     )
-                    result = resp.json()
-                    # Log memory write for baseline verification
+                    # Parse specific P4/P5 mechanism from MMA response.
+                    # MMA returns 403 for P5 access control, 422 for P4
+                    # memory-integrity rejection, with the specific reason
+                    # (e.g., P4_similarity_reject, P4_drift_outlier,
+                    # P4_metadata_invalid) in `detail`.
+                    try:
+                        body = resp.json()
+                    except Exception:
+                        body = {}
+                    if resp.status_code == 200:
+                        accepted = body.get("accepted", True)
+                        sim = body.get("similarity_score", 0.0)
+                        mechanism = "P4_memory_integrity"
+                    else:
+                        accepted = False
+                        sim = 0.0
+                        detail = body.get("detail", "") if isinstance(body, dict) else ""
+                        if resp.status_code == 403:
+                            mechanism = "P5_access_control"
+                        elif resp.status_code == 422:
+                            if "P4_" in detail:
+                                # Extract the P4_* token from the detail message.
+                                for tok in detail.split():
+                                    if tok.startswith("P4_"):
+                                        mechanism = tok.rstrip(".,:")
+                                        break
+                                else:
+                                    mechanism = "P4_memory_integrity"
+                            else:
+                                mechanism = f"P4_denied_{resp.status_code}"
+                        else:
+                            mechanism = f"P4_denied_{resp.status_code}"
                     if self.logger:
-                        accepted = result.get("accepted", resp.status_code == 200)
-                        sim = result.get("similarity_score", 0.0)
                         self.logger.log_memory_write(
                             agent=f"{phase}_agent",
                             store=store_id,
                             auth_decision="allow" if accepted else "deny",
-                            mechanism="P4_memory_integrity",
+                            mechanism=mechanism,
                             cosine_similarity=sim,
                         )
-                    return result
+                    return body
             except Exception:
                 return {"status": "mma_unreachable"}
 
