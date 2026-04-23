@@ -146,7 +146,7 @@ plt.rcParams.update({
 
 
 def load_attack_results(group: str, domain: str) -> pd.DataFrame:
-    path = (BASE_DIR / "results" / "eval_a" / f"group_{group}" / domain
+    path = (BASE_DIR / "results" / "eval_attacks" / f"group_{group}" / domain
             / "enhanced_attack_results.csv")
     df = pd.read_csv(path)
     df["ap"] = df["ap"].str.strip().str.lower()
@@ -549,7 +549,7 @@ def _page_methodology(
         "  across mapped APs.",
         "",
         "ASR computation:",
-        "  Per AP:  from eval_a/group_X/cyberops/enhanced_attack_results.csv",
+        "  Per AP:  from eval_attacks/group_X/cyberops/enhanced_attack_results.csv",
         "           (30 trials per AP per config = 2 variants x 15 trials)",
         "  Per TAMAS category: equal-weighted mean of mapped AP ASRs.",
         "  Overall ASR (headline): equal-weighted mean of 6 category scores.",

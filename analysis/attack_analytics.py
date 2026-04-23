@@ -10,7 +10,7 @@ Produces:
 Usage:
     python -m analysis.attack_analytics --domain cyberops --groups A
     python -m analysis.attack_analytics --domain cyberops --groups A,C,E,F
-    python -m analysis.attack_analytics --domain cyberops --groups A --output results/eval_a/group_A/cyberops/
+    python -m analysis.attack_analytics --domain cyberops --groups A --output results/eval_attacks/group_A/cyberops/
 """
 
 import argparse
@@ -132,10 +132,10 @@ def _primary_principle(mechanisms: list[str]) -> str:
 def load_results(domain: str, group: str) -> list[dict]:
     """Load results.csv for a given domain and group.
 
-    Expected path: results/eval_a/group_{group}/{domain}/results.csv
+    Expected path: results/eval_attacks/group_{group}/{domain}/results.csv
     CSV columns: Domain,AP,Variant,Trial,Config,Group,Succeeded,Step,Mechanism
     """
-    path = BASE_DIR / "results" / "eval_a" / f"group_{group}" / domain / "results.csv"
+    path = BASE_DIR / "results" / "eval_attacks" / f"group_{group}" / domain / "results.csv"
     if not path.exists():
         print(f"  WARNING: {path} not found")
         return []
@@ -175,7 +175,7 @@ def load_cost_metrics(domain: str, group: str) -> list[dict]:
         memory_writes, latency_tool_ms, latency_llm_ms, e2e_latency_ms,
         events_total.
     """
-    log_dir = BASE_DIR / "logs" / f"{domain}_eval_a_{group}"
+    log_dir = BASE_DIR / "logs" / f"{domain}_eval_attacks_{group}"
     if not log_dir.exists():
         return []
 
@@ -1174,7 +1174,7 @@ def generate_report(domain: str, groups: list[str], output_dir: Path):
         write_cross_group_csv(group_data, domain, output_dir)
 
     # --- Locate existing charts ---
-    chart_dir = BASE_DIR / "results" / "eval_a" / f"group_{primary_group}" / domain
+    chart_dir = BASE_DIR / "results" / "eval_attacks" / f"group_{primary_group}" / domain
 
     # --- Build PDF ---
     pdf_path = output_dir / "attack_analytics.pdf"
@@ -1244,7 +1244,7 @@ def main():
     parser.add_argument("--groups", default="A",
                         help="Comma-separated group list: A,C,E,F")
     parser.add_argument("--output", default=None,
-                        help="Output directory (default: results/eval_a/group_{first}/domain/)")
+                        help="Output directory (default: results/eval_attacks/group_{first}/domain/)")
     args = parser.parse_args()
 
     groups = [g.strip() for g in args.groups.split(",") if g.strip()]
@@ -1252,7 +1252,7 @@ def main():
     if args.output:
         output_dir = Path(args.output)
     else:
-        output_dir = (BASE_DIR / "results" / "eval_a" /
+        output_dir = (BASE_DIR / "results" / "eval_attacks" /
                       f"group_{groups[0]}" / args.domain)
 
     generate_report(args.domain, groups, output_dir)

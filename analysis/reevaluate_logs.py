@@ -114,8 +114,8 @@ class OfflineHarness(AttackHarness):
 
 
 def reevaluate(group: str, domain: str, suffix: str = "") -> None:
-    log_dir = BASE_DIR / "logs" / f"{domain}_eval_a_{group}"
-    out_dir = BASE_DIR / "results" / "eval_a" / f"group_{group}" / domain
+    log_dir = BASE_DIR / "logs" / f"{domain}_eval_attacks_{group}"
+    out_dir = BASE_DIR / "results" / "eval_attacks" / f"group_{group}" / domain
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Loading logs from {log_dir}")

@@ -2,8 +2,8 @@
 
 Working draft. Numbers pulled directly from:
 
-- `results/eval_a/attack_analytics.pdf` (5-group cross-group PDF)
-- `results/eval_a/cross_group_summary.csv`
+- `results/eval_attacks/attack_analytics.pdf` (5-group cross-group PDF)
+- `results/eval_attacks/cross_group_summary.csv`
 - `results/tamas/tamas_compare_summary.md` (simulated TAMAS)
 - `results/tamas/real_logs/tamas_from_logs.md` (real-logs TAMAS)
 - `results/baseline/group_*/cyberops/baseline_summary.csv`
@@ -193,9 +193,9 @@ Called out explicitly in the rebuttal.
 | Addition                                               | Evidence location               |
 |--------------------------------------------------------|---------------------------------|
 | 15 Attack Paths covering 35 TA/MA/CA vectors (vs 6 original APs) | `attacks/payloads/*/ap*_*.json` |
-| 5 model groups attacked (A/C/D/E/F) with cross-group analysis | `results/eval_a/cross_group_summary.csv` |
+| 5 model groups attacked (A/C/D/E/F) with cross-group analysis | `results/eval_attacks/cross_group_summary.csv` |
 | TAMAS benchmark integration (simulated + real-logs)    | `benchmarks/tamas/`, `analysis/tamas_{analytics,from_logs}.py` |
-| Group D (Llama-4-Scout) validator-diversity finding    | `results/eval_a/group_D/cyberops/` |
+| Group D (Llama-4-Scout) validator-diversity finding    | `results/eval_attacks/group_D/cyberops/` |
 | Persuasive-manipulation weak spot (AP-11) acknowledged | `results/tamas/real_logs/tamas_from_logs.md` |
 | 4 red-team passes + 11 FN + 6 FP audit fixes           | `experiment_plan.md` §2.8       |
 | TSR preservation across all domains and TAMAS          | 100% in every defended cell     |

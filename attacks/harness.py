@@ -88,9 +88,9 @@ class AttackHarness:
         self.tool_base_port = tool_base_port
         self.verbose = verbose
 
-        # Determine eval name (include group)
-        eval_base = f"{domain}_eval_a" if domain == "cyberops" else f"{domain}_eval_f"
-        eval_name = f"{eval_base}_{group}"
+        # Determine eval name (include group). Unified naming across
+        # all domains: {domain}_eval_attacks_{group}.
+        eval_name = f"{domain}_eval_attacks_{group}"
         self.logger = ExperimentLogger(
             eval_name=eval_name,
             domain=domain,

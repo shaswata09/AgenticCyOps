@@ -19,7 +19,7 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path("/storage/data/AgenticCyOps_Private")
-LOG_DIRS = sorted(ROOT.glob("logs/cyberops_eval_a_*"))
+LOG_DIRS = sorted(ROOT.glob("logs/cyberops_eval_attacks_*"))
 OUT_DIR = ROOT / "results" / "tables"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -182,7 +182,7 @@ def sensitivity_sweep(rows, sweep_tool="T8_iam_pam", weights=(5, 7, 9)):
 def main():
     rows = collect()
     if not rows:
-        print("ERROR: no tool_call rows found in logs/cyberops_eval_a_*",
+        print("ERROR: no tool_call rows found in logs/cyberops_eval_attacks_*",
               file=sys.stderr)
         sys.exit(1)
     print(f"collected {len(rows)} tool_call events from "

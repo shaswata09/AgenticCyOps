@@ -210,10 +210,10 @@ START_TIME=$(date +%s)
 # ---- Run per domain ----
 run_domain() {
     local domain="$1"
-    local eval_type="eval_a"
-    [ "$domain" != "cyberops" ] && eval_type="eval_f"
-    local log_dir="logs/${domain}_${eval_type}_${GROUP}"
-    local result_dir="results/${eval_type}/group_${GROUP}/${domain}"
+    # Unified naming: logs/<domain>_eval_attacks_<group> and
+    # results/eval_attacks/group_<group>/<domain>/ for every domain.
+    local log_dir="logs/${domain}_eval_attacks_${GROUP}"
+    local result_dir="results/eval_attacks/group_${GROUP}/${domain}"
 
     echo ""
     echo "============================================================"

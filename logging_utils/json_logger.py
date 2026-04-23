@@ -12,7 +12,7 @@ Usage:
     from logging_utils import ExperimentLogger
 
     logger = ExperimentLogger(
-        eval_name="eval_a",
+        eval_name="cyberops_eval_attacks_A",
         config="agenticcyops",
         model="Qwen3-235B-A22B-Instruct-2507",
     )
@@ -106,7 +106,7 @@ class ExperimentLogger:
 
     def __init__(
         self,
-        eval_name: str = "eval_a",
+        eval_name: str = "cyberops_eval_attacks_A",
         domain: str = "cyberops",
         config: str = "agenticcyops",
         model: str = "Qwen3-235B-A22B-Instruct-2507",
@@ -114,7 +114,9 @@ class ExperimentLogger:
     ):
         """
         Args:
-            eval_name: Evaluation identifier ("eval_a", "eval_f", "ablation", etc.).
+            eval_name: Evaluation identifier, typically
+                       "{domain}_eval_attacks_{group}" for attack runs or
+                       "{domain}_baseline_{group}" for benign runs.
                        Determines the subdirectory under logs/.
             domain: Domain identifier ("cyberops", "healthcare", "finance", "legal").
             config: System configuration ("flat", "acl_hardened", "agenticcyops").

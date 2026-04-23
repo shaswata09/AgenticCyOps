@@ -481,7 +481,7 @@ All benign scenarios across all 4 domains were validated for access policy compl
 **Comprehensive analytics generated:**
 - `analysis/attack_analytics.py` -- 9-page PDF per group with executive summary, defense-by-principle, per-variant analysis, cross-group comparison, auto-generated key findings
 - Per-group reports: A, C, E, F (8 pages each)
-- Cross-group combined report: `results/eval_a/attack_analytics.pdf` (9 pages)
+- Cross-group combined report: `results/eval_attacks/attack_analytics.pdf` (9 pages)
 - Enhanced CSVs with principle mappings
 
 **For the paper:** "P2 and P3 serve as primary active defense layers, intercepting 87% of attacks at the tool call boundary. P1 provides structural assurance (11,155 identity verifications). P4/P5 defend the memory pipeline against orthogonal memory-surface attack vectors."
@@ -494,7 +494,7 @@ Two Jupyter notebooks with pre-rendered visualizations are available under `resu
 - `results/notebooks/02_attack_findings.ipynb` — 33 cells (11 markdown + 22 code, ~2.0 MB) with 13 embedded charts. Covers all 5 ran groups (A, C, D, E, F). Sections: Setup, **Overall ASR Comparison (HERO chart 2.1 aggregated across 5 groups with min-max error bars)**, Executive Summary table (15 group×config columns), AgenticCyOps Defense Breakdown (5 per-group panels), Per-AP Deep Dive (small multiples 5×3 per AP with 5 group bars per config), Variant Effectiveness Analysis (per-group heatmap + top-5 variants per group), Cross-Group Validator Diversity Impact, Flat vs ACL vs AgenticCyOps Progression, Attack Vector Coverage, Key Findings & Paper Claims, Statistical Significance.
 - `results/notebooks/03_tamas_findings.ipynb` — 19 cells (8 markdown + 11 code, ~850 KB) with 8 embedded charts. TAMAS benchmark validation (Eval D). Sections: Setup & Data Loading (loads `results/tamas/` and `results/tamas/real_logs/` artifacts), **Simulated TAMAS Aggregate** (ASR/TSR/ERS bars + residual-ASR heatmap per attack×scenario), **Per-Attack-Type Breakdown** (baseline vs defended per category + defense-mechanism attribution stacked bars), **Real TAMAS Score from Live-LLM Logs** (per-config ERS, per-TAMAS-category ASR across 3 configs, per-group AgenticCyOps ERS), **McNemar Significance Table** (19 cells colored by p-value), **AP→TAMAS Mapping** (15 APs to 6 categories + coverage chart), Key Findings. Headline: simulated 94.47% ERS, real-logs 83.68% ERS.
 
-Group descriptions in the notebooks match the actual model assignments: Group A (Qwen3-235B + V1(Qwen)+V2(DeepSeek)+V4(Claude)+V6(GPT-4o)), Group C (Qwen3-235B + V1×3 same-family), **Group D (Llama-4-Scout + V1+V2+V4+V6)**, Group E (Qwen3-235B + V1+V5(Mistral)+V4+V6), Group F (Claude API + V1+V2+V3(Llama)+V6). Both notebooks use 100% real data from `results/baseline/` and `results/eval_a/` logs — no mock/synthetic values. Open with `jupyter lab results/notebooks/` or via VSCode for interactive re-execution.
+Group descriptions in the notebooks match the actual model assignments: Group A (Qwen3-235B + V1(Qwen)+V2(DeepSeek)+V4(Claude)+V6(GPT-4o)), Group C (Qwen3-235B + V1×3 same-family), **Group D (Llama-4-Scout + V1+V2+V4+V6)**, Group E (Qwen3-235B + V1+V5(Mistral)+V4+V6), Group F (Claude API + V1+V2+V3(Llama)+V6). Both notebooks use 100% real data from `results/baseline/` and `results/eval_attacks/` logs — no mock/synthetic values. Open with `jupyter lab results/notebooks/` or via VSCode for interactive re-execution.
 
 **Remaining:**
 - Add memory_ops to AP-13/AP-14 attack payloads so P4/P5 fire during attacks

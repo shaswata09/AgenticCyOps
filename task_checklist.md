@@ -495,7 +495,7 @@ Four iterative red team passes against the integrated system. All findings fixed
 **Per-AP status (all completed groups):**
 - [x] AP-1 through AP-15 × 30 trials × Groups A/C/D/E/F = 225 runs per AP
 - [x] **Total completed: ~3,150 trials across 5 groups**
-- [x] Cross-group summary at `results/eval_a/cross_group_summary.csv` (75 rows = 15 APs × 5 groups)
+- [x] Cross-group summary at `results/eval_attacks/cross_group_summary.csv` (75 rows = 15 APs × 5 groups)
 
 **Final AgenticCyOps ASR (across Groups A/C/D/E/F, after evaluator fixes):**
 
@@ -521,13 +521,13 @@ Four iterative red team passes against the integrated system. All findings fixed
 
 **Evaluator fixes applied:** Broadened mechanism name matching; AP-9 fixed 100%->0%; AP-15 fixed 40%->3%; AP-7 fixed 100%->3-7%.
 
-**Analytics generated:** `analysis/attack_analytics.py` -- 9-page PDF per group (A/C/E/F) + cross-group combined report at `results/eval_a/attack_analytics.pdf`.
+**Analytics generated:** `analysis/attack_analytics.py` -- 9-page PDF per group (A/C/E/F) + cross-group combined report at `results/eval_attacks/attack_analytics.pdf`.
 
 **Interactive analysis notebooks (stored in `results/notebooks/`):**
 - [x] `results/notebooks/01_baseline_findings.ipynb` — 34 cells (12 markdown + 22 code, ~2.0 MB) with 16 embedded charts. Covers all 6 groups (A-F). Sections: Setup & Data Loading (full 72-row config×domain×group preview), Config Comparison Overview, Domain-specific FP rate per group, Principle Activity Across Configs, Attack Surface Reduction (3-config donut comparison: Flat/ACL/AgenticCyOps), False Positive Analysis, **Token Consumption per Configuration×Domain×Group (shows ~35% token reduction in AgenticCyOps vs Flat/ACL)**, Latency & Token Overhead, Cross-Domain Consistency, Cross-Group Validator Diversity, Key Findings Summary. Validator configs correctly reflect the actual Qwen3-235B / Claude / Mistral / DeepSeek / Llama / GPT-4o stack (no Gemini references).
 - [x] `results/notebooks/02_attack_findings.ipynb` — 33 cells (11 markdown + 22 code, ~2.0 MB) with 13 embedded charts. Covers all 5 ran groups (A, C, D, E, F). Sections: Setup, **Overall ASR Comparison (HERO chart aggregated across 5 groups with min-max error bars)**, Executive Summary table (15 group×config columns), AgenticCyOps Defense Breakdown (5 per-group panels showing principle blocking distribution), Per-AP Deep Dive (small multiples 5×3 per AP, 5 group bars per config), Variant Effectiveness Analysis (per-group heatmap + top-5 variants per group), Cross-Group Validator Diversity Impact, Flat vs ACL vs AgenticCyOps Progression, Attack Vector Coverage, Key Findings & Paper Claims, Statistical Significance. Group D divergences (AP-8/11/12/13/14) visible throughout.
 - [x] `results/notebooks/03_tamas_findings.ipynb` — 19 cells (8 markdown + 11 code, ~850 KB) with 8 embedded charts. TAMAS benchmark validation (Eval D). Sections: Setup & Data Loading (loads `results/tamas/` + `results/tamas/real_logs/` artifacts), **Simulated TAMAS Aggregate** (ASR/TSR/ERS bars + residual-ASR heatmap per attack×scenario), **Per-Attack-Type Breakdown** (baseline vs defended per category + defense-mechanism attribution stacked), **Real TAMAS Score from Live-LLM Logs** (per-config ERS, per-TAMAS-category ASR across 3 configs, per-group AgenticCyOps ERS), **McNemar Significance Table** (19 cells colored by p-value), **AP→TAMAS Mapping** (15 APs to 6 categories + coverage chart), Key Findings. Shows both simulated 94.47% ERS and real-logs 83.68% ERS.
-- All three notebooks executed successfully end-to-end with all charts rendered inline (no external file dependencies). 100% real data from `results/baseline/`, `results/eval_a/`, and `results/tamas/` logs — zero mock/synthetic values. Open via `jupyter lab results/notebooks/` or in VSCode for interactive exploration and paper figure generation.
+- All three notebooks executed successfully end-to-end with all charts rendered inline (no external file dependencies). 100% real data from `results/baseline/`, `results/eval_attacks/`, and `results/tamas/` logs — zero mock/synthetic values. Open via `jupyter lab results/notebooks/` or in VSCode for interactive exploration and paper figure generation.
 
 **Pending:**
 - [ ] Add memory_ops to AP-13/AP-14 attack payloads so P4/P5 fire during attacks

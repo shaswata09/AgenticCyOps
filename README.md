@@ -91,7 +91,7 @@ This testbed validates that claim through:
 | AP-14 | Read Injection | 0-7% | 20% | P3 blocking | Nearly blocked on A/C/E/F |
 | AP-15 | Infrastructure Integrity | 3% | 3% | P3 defense-in-depth | Nearly blocked |
 
-**Defense summary:** P2 and P3 serve as primary active defense layers, intercepting 87% of attacks at the tool call boundary. P1 provides structural assurance (11,155 identity verifications). P4/P5 defend the memory pipeline against orthogonal memory-surface attack vectors (MA-1 through MA-12). Group D (Llama-4-Scout primary) shows the largest validator-diversity effect, with residuals on AP-8/11/12/13/14 higher than other groups — pulls aggregate TAMAS ERS from 86.33% (A/C/E/F) to 83.68% (A/C/D/E/F). Comprehensive analytics at `results/eval_a/attack_analytics.pdf`.
+**Defense summary:** P2 and P3 serve as primary active defense layers, intercepting 87% of attacks at the tool call boundary. P1 provides structural assurance (11,155 identity verifications). P4/P5 defend the memory pipeline against orthogonal memory-surface attack vectors (MA-1 through MA-12). Group D (Llama-4-Scout primary) shows the largest validator-diversity effect, with residuals on AP-8/11/12/13/14 higher than other groups — pulls aggregate TAMAS ERS from 86.33% (A/C/E/F) to 83.68% (A/C/D/E/F). Comprehensive analytics at `results/eval_attacks/attack_analytics.pdf`.
 
 ### Eval D (TAMAS Benchmark) -- COMPLETE
 
@@ -442,7 +442,7 @@ agenticcyops-experiments/
 ├── scripts/                          # Experiment runner scripts
 │   ├── run_baseline.sh              # Interactive domain baseline verification (overwrite protection prompt)
 │   ├── run_autonomous_baseline.sh   # Fully automated baseline runner (all groups, domains, configs; --skip-existing, --groups)
-│   ├── run_attack_paths.sh          # Unified attack path experiments -- replaced run_eval_a.sh and run_eval_f.sh (overwrite protection prompt)
+│   ├── run_attack_paths.sh          # Unified attack path experiments — writes logs/<domain>_eval_attacks_<group>/ (overwrite protection prompt)
 ├── README.md                         # This file
 ├── experiment_plan.md                # Full evaluation protocol
 ├── task_checklist.md                 # 10-day execution checklist
@@ -628,10 +628,10 @@ agenticcyops-experiments/
 │
 ├── logs/                             # (gitignored)
 │   ├── vllm/
-│   ├── cyberops_eval_a/
-│   ├── healthcare_eval_f/
-│   ├── finance_eval_f/
-│   ├── legal_eval_f/
+│   ├── cyberops_eval_attacks_<group>/
+│   ├── healthcare_eval_attacks_<group>/
+│   ├── finance_eval_attacks_<group>/
+│   ├── legal_eval_attacks_<group>/
 │   ├── eval_b/
 │   ├── eval_c/
 │   ├── eval_d/
@@ -1144,9 +1144,9 @@ All inter-component calls logged via `logging_utils/json_logger.py`. One JSON li
 from logging_utils import ExperimentLogger
 
 logger = ExperimentLogger(
-    eval_name="eval_f", 
+    eval_name="healthcare_eval_attacks_A",
     domain="healthcare",
-    config="agenticcyops", 
+    config="agenticcyops",
     model="Qwen3-235B"
 )
 logger.set_trial("ap1", variant=3, trial=5)
@@ -1163,7 +1163,7 @@ with logger.track("triage_agent", "H8_prescription_writer", "tool_call") as even
   "timestamp": "2026-04-08T14:30:22.451Z",
   "trial_id": "healthcare_ap1_v3_t5_agenticcyops",
   "domain": "healthcare",
-  "eval": "eval_f",
+  "eval": "healthcare_eval_attacks_A",
   "config": "agenticcyops",
   "model": "Qwen3-235B-A22B-Instruct-2507",
   "source": "triage_agent",
