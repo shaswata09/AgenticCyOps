@@ -1,0 +1,49 @@
+family,variant,domain,config,n,succeeded,blocked,asr_pct,mech_primary
+dh,base,cyberops,acl_hardened,510,510,0,100.0,(acl no deny)
+dh,base,cyberops,agenticcyops,510,35,475,6.86,P2
+dh,base,cyberops,flat,510,510,0,100.0,(flat no defense)
+dh,base,finance,acl_hardened,510,510,0,100.0,(acl no deny)
+dh,base,finance,agenticcyops,510,35,475,6.86,P2
+dh,base,finance,flat,510,510,0,100.0,(flat no defense)
+dh,base,healthcare,acl_hardened,510,510,0,100.0,(acl no deny)
+dh,base,healthcare,agenticcyops,510,34,476,6.67,P2
+dh,base,healthcare,flat,510,510,0,100.0,(flat no defense)
+dh,base,legal,acl_hardened,510,510,0,100.0,(acl no deny)
+dh,base,legal,agenticcyops,510,35,475,6.86,P2
+dh,base,legal,flat,510,510,0,100.0,(flat no defense)
+dh,enhanced,cyberops,acl_hardened,510,510,0,100.0,(acl no deny)
+dh,enhanced,cyberops,agenticcyops,510,0,510,0.0,P2
+dh,enhanced,cyberops,flat,510,510,0,100.0,(flat no defense)
+dh,enhanced,finance,acl_hardened,510,510,0,100.0,(acl no deny)
+dh,enhanced,finance,agenticcyops,510,0,510,0.0,P2
+dh,enhanced,finance,flat,510,510,0,100.0,(flat no defense)
+dh,enhanced,healthcare,acl_hardened,510,510,0,100.0,(acl no deny)
+dh,enhanced,healthcare,agenticcyops,510,0,510,0.0,P2
+dh,enhanced,healthcare,flat,510,510,0,100.0,(flat no defense)
+dh,enhanced,legal,acl_hardened,510,510,0,100.0,(acl no deny)
+dh,enhanced,legal,agenticcyops,510,0,510,0.0,P2
+dh,enhanced,legal,flat,510,510,0,100.0,(flat no defense)
+ds,base,cyberops,acl_hardened,1088,1088,0,100.0,(acl no deny)
+ds,base,cyberops,agenticcyops,1088,402,686,36.95,P2
+ds,base,cyberops,flat,1088,1088,0,100.0,(flat no defense)
+ds,base,finance,acl_hardened,1088,1088,0,100.0,(acl no deny)
+ds,base,finance,agenticcyops,1088,396,692,36.4,P2
+ds,base,finance,flat,1088,1088,0,100.0,(flat no defense)
+ds,base,healthcare,acl_hardened,1088,1088,0,100.0,(acl no deny)
+ds,base,healthcare,agenticcyops,1088,402,686,36.95,P2
+ds,base,healthcare,flat,1088,1088,0,100.0,(flat no defense)
+ds,base,legal,acl_hardened,1088,1088,0,100.0,(acl no deny)
+ds,base,legal,agenticcyops,1088,402,686,36.95,P2
+ds,base,legal,flat,1088,1088,0,100.0,(flat no defense)
+ds,enhanced,cyberops,acl_hardened,1088,1088,0,100.0,(acl no deny)
+ds,enhanced,cyberops,agenticcyops,1088,0,1088,0.0,P2
+ds,enhanced,cyberops,flat,1088,1088,0,100.0,(flat no defense)
+ds,enhanced,finance,acl_hardened,1088,1088,0,100.0,(acl no deny)
+ds,enhanced,finance,agenticcyops,1088,0,1088,0.0,P2
+ds,enhanced,finance,flat,1088,1088,0,100.0,(flat no defense)
+ds,enhanced,healthcare,acl_hardened,1088,1088,0,100.0,(acl no deny)
+ds,enhanced,healthcare,agenticcyops,1088,0,1088,0.0,P2
+ds,enhanced,healthcare,flat,1088,1088,0,100.0,(flat no defense)
+ds,enhanced,legal,acl_hardened,1088,1088,0,100.0,(acl no deny)
+ds,enhanced,legal,agenticcyops,1088,0,1088,0.0,P2
+ds,enhanced,legal,flat,1088,1088,0,100.0,(flat no defense)

@@ -120,7 +120,34 @@ Per-group ERS: A=84.75%, C=85.00%, D=73.10%, E=85.44%, F=90.12%.
 
 Artifacts: `results/tamas/tamas_findings.pdf` (simulated, 9 pages), `results/tamas/real_logs/tamas_from_logs.pdf` (real-logs, 9 pages), `analysis/tamas_analytics.py`, `analysis/tamas_from_logs.py`.
 
-**Not yet started:** Eval F (multi-domain attacks), ablation study, Group B.
+### Eval G (InjecAgent Benchmark) -- STATIC COMPLETE, ADAPTIVE PENDING
+
+Third independent adversarial benchmark: 2,108 prompt-injection cases from
+UIUC Kang Lab's [AdaptiveAttackAgent](https://github.com/uiuc-kang-lab/AdaptiveAttackAgent)
+repository, which vendors the InjecAgent benchmark (ACL 2024).  MIT-licensed,
+used unmodified, complements TAMAS for third-party transparency.
+
+Static ASR (38,352 attack evaluations = 2,108 × 4 domains × ~1.5 attacker
+tools × 3 configs):
+
+| Domain     | Flat MAS | ACL-Hardened | **AgenticCyOps** |
+|------------|---------:|-------------:|-----------------:|
+| cyberops   | 100.00%  | 100.00%      | **13.67%**       |
+| healthcare | 100.00%  | 100.00%      | **13.64%**       |
+| finance    | 100.00%  | 100.00%      | **13.49%**       |
+| legal      | 100.00%  | 100.00%      | **13.67%**       |
+
+Domain-invariance confirmed: <0.2 pp ASR spread across four distinct domains.
+P2-L2 (target-in-evidence) catches base attacks; P5-L5 (injection sanitisation)
+catches jailbreak-wrappered variants. Artifacts at `results/injecagent/`
+(6-page `injecagent_findings.pdf` + per-case CSVs).
+
+**Adaptive (GCG) runs:** infrastructure ready at `benchmarks/injecagent/adaptive/`;
+execution pending GPU availability (uses HuggingFace gradient access vs Llama-4-Scout
+and Qwen3-235B white-box; transfer attacks to GLM-4.7-FP8).
+
+**Not yet started:** Eval F (multi-domain attacks), ablation study, Group B,
+InjecAgent adaptive-GCG execution.
 
 ---
 
