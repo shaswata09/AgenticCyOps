@@ -1,12 +1,10 @@
 """InjecAgent E2E analytics -- multi-page PDF covering live-LLM sweeps.
 
-Scans ``results/injecagent/`` for every ``e2e_*_validator_group_<G>/``
-directory (static live, adaptive-single-source, or adaptive-combined),
-unions their per-domain ``results.csv`` files, and produces:
+Scans ``results/injecagent/`` for every ``e2e_validator_group_<G>/``
+directory, unions their per-domain ``results.csv`` files, and produces:
 
   * ``injecagent_e2e_findings.pdf``       -- multi-page report
-  * ``injecagent_e2e_three_tier_asr.csv`` -- headline tier table
-  * ``injecagent_e2e_transfer.csv``       -- source x group defended-ASR grid
+  * ``injecagent_e2e_two_tier_asr.csv``   -- headline tier table
   * ``injecagent_e2e_combined.csv``       -- every live-LLM trial (master)
 """
 
@@ -41,14 +39,9 @@ CONFIG_LABEL = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened",
 CONFIG_ORDER = ["flat", "acl_hardened", "agenticcyops"]
 DOMAIN_ORDER = ["cyberops", "healthcare", "finance", "legal"]
 GROUP_ORDER = ["A", "B", "C", "D", "E", "F"]
-SOURCE_ORDER = ["none", "llama4", "qwen235", "qwen32", "mistral", "combined"]
-SOURCE_LABEL = {"none": "static", "llama4": "Llama-4",
-                "qwen235": "Qwen3-235B", "qwen32": "Qwen3-32B",
-                "mistral": "Mistral-24B", "combined": "combined (worst)"}
 ACCENT = "#2980b9"
 
-DIR_RE = re.compile(
-    r"^e2e(?:_adaptive_(?P<src>[a-z0-9]+))?_validator_group_(?P<grp>[A-F])$")
+DIR_RE = re.compile(r"^e2e_validator_group_(?P<grp>[A-F])$")
 
 TOOLS_JSON = Path(
     "/storage/data/AgenticCyOps_Private/benchmarks/injecagent/data/tools.json")
@@ -90,12 +83,7 @@ def discover_runs(root: Path) -> list[dict]:
         m = DIR_RE.match(d.name)
         if not m:
             continue
-        src = m.group("src") or "none"
-        runs.append({
-            "source": src, "group": m.group("grp"),
-            "mode": "static" if src == "none" else "adaptive",
-            "path": d,
-        })
+        runs.append({"group": m.group("grp"), "path": d})
     return runs
 
 
@@ -112,11 +100,6 @@ def load_run_rows(run: dict) -> pd.DataFrame:
     if not parts:
         return pd.DataFrame()
     out = pd.concat(parts, ignore_index=True)
-    out["run_source"] = run["source"]
-    out["run_mode"] = run["mode"]
-    if "source_model" not in out.columns:
-        out["source_model"] = run["source"]
-    out["source_model"] = out["source_model"].fillna(run["source"])
     # Coerce booleans that CSV round-tripped as strings
     for col in ("attack_succeeded_llm", "attack_succeeded_end_to_end",
                 "defense_blocked", "refused_with_final_answer",
@@ -142,57 +125,25 @@ def load_static_symbolic(root: Path) -> Optional[pd.DataFrame]:
 # --------------------------------------------------------------------- #
 
 
-def three_tier_table(static_sym: Optional[pd.DataFrame],
-                     live: pd.DataFrame) -> pd.DataFrame:
-    """One row per config, columns: tier1, tier2_live, tier3_single,
-    tier3_combined.  Values are percentages (float, NaN if missing)."""
+def two_tier_table(static_sym: Optional[pd.DataFrame],
+                   live: pd.DataFrame) -> pd.DataFrame:
+    """One row per config, columns: tier1_symbolic, tier2_live_llm_asr,
+    tier2_live_defended.  Values are percentages (float, NaN if missing)."""
     rows = []
     for cfg in CONFIG_ORDER:
         r = {"config": cfg}
-        # Tier 1: symbolic static
         if static_sym is not None:
             s = static_sym[static_sym.config == cfg]
             r["tier1_symbolic"] = 100 * s["attack_succeeded"].mean() if len(s) else np.nan
         else:
             r["tier1_symbolic"] = np.nan
-        # Tier 2: live static (source=none)
-        live_s = live[(live.config == cfg) & (live.run_source == "none")]
+        live_s = live[live.config == cfg]
         r["tier2_live_llm_asr"] = (100 * live_s["attack_succeeded_llm"].mean()
                                     if len(live_s) else np.nan)
         r["tier2_live_defended"] = (100 * live_s["attack_succeeded_end_to_end"].mean()
                                      if len(live_s) else np.nan)
-        # Tier 3a: adaptive single source (union of per-source runs)
-        adv = live[(live.config == cfg) &
-                    (live.run_source.isin(["llama4", "qwen235",
-                                             "qwen32", "mistral"]))]
-        r["tier3_single_defended"] = (100 * adv["attack_succeeded_end_to_end"].mean()
-                                        if len(adv) else np.nan)
-        # Tier 3b: combined worst-case (per case, any source broke it)
-        comb = live[(live.config == cfg) & (live.run_source == "combined")]
-        if len(comb):
-            any_break = comb.groupby(["group", "domain", "ia_case_id"])[
-                "attack_succeeded_end_to_end"].any()
-            r["tier3_combined_worst"] = 100 * any_break.mean()
-        else:
-            r["tier3_combined_worst"] = np.nan
         rows.append(r)
     return pd.DataFrame(rows)
-
-
-def transfer_grid(live: pd.DataFrame, config: str = "agenticcyops") -> pd.DataFrame:
-    """Return DF indexed by source, columns by group, values = defended ASR%
-    for the chosen config."""
-    df = live[live.config == config]
-    if df.empty:
-        return pd.DataFrame()
-    agg = (df.groupby(["run_source", "group"])["attack_succeeded_end_to_end"]
-             .mean()
-             .mul(100)
-             .unstack("group"))
-    # Sort rows/cols by canonical order
-    agg = agg.reindex([s for s in SOURCE_ORDER if s in agg.index])
-    agg = agg.reindex(columns=[g for g in GROUP_ORDER if g in agg.columns])
-    return agg
 
 
 # --------------------------------------------------------------------- #
@@ -206,18 +157,16 @@ def page_title(pdf, static_sym, live, tier_tbl):
     ax.text(0.5, 0.95, "InjecAgent End-to-End Findings",
             ha="center", fontsize=22, fontweight="bold")
     ax.text(0.5, 0.915,
-            "Live-LLM evaluation across validator groups + adaptive GCG",
+            "Live-LLM evaluation across validator groups",
             ha="center", fontsize=11, style="italic", color="#7f8c8d")
     ax.text(0.5, 0.88, f"Generated {datetime.now():%Y-%m-%d}",
             ha="center", fontsize=10, color="#7f8c8d")
 
-    ax.text(0.06, 0.83, "Three-tier ASR headline  (lower is better)",
+    ax.text(0.06, 0.83, "Two-tier ASR headline  (lower is better)",
             fontsize=13, fontweight="bold", color=ACCENT)
     cols = ["Tier-1\nsymbolic",
              "Tier-2\nlive LLM\n(no defense)",
-             "Tier-2\nlive LLM\n(defended)",
-             "Tier-3\nadaptive\n(single src)",
-             "Tier-3\nadaptive\n(combined)"]
+             "Tier-2\nlive LLM\n(defended)"]
     rows = []
     for _, r in tier_tbl.iterrows():
         def fmt(v):
@@ -225,51 +174,44 @@ def page_title(pdf, static_sym, live, tier_tbl):
         rows.append([CONFIG_LABEL[r["config"]],
                      fmt(r["tier1_symbolic"]),
                      fmt(r["tier2_live_llm_asr"]),
-                     fmt(r["tier2_live_defended"]),
-                     fmt(r["tier3_single_defended"]),
-                     fmt(r["tier3_combined_worst"])])
+                     fmt(r["tier2_live_defended"])])
     tbl = ax.table(cellText=rows, colLabels=["Config"] + cols,
                     loc="center",
-                    bbox=[0.04, 0.55, 0.92, 0.24], cellLoc="center")
-    tbl.auto_set_font_size(False); tbl.set_fontsize(8); tbl.scale(1, 1.7)
+                    bbox=[0.10, 0.58, 0.80, 0.20], cellLoc="center")
+    tbl.auto_set_font_size(False); tbl.set_fontsize(9); tbl.scale(1, 1.7)
     for j in range(len(cols) + 1):
         tbl[(0, j)].set_facecolor(ACCENT)
         tbl[(0, j)].set_text_props(color="white", weight="bold")
 
     groups = sorted(live.group.unique()) if len(live) else []
-    sources = sorted(live.run_source.unique()) if len(live) else []
     scope = [
         "Scope",
         f"  validator groups:  {', '.join(groups) if groups else '(none)'}",
-        f"  adaptive sources:  {', '.join(s for s in sources if s != 'none') or '(none)'}",
         f"  configs:           {', '.join(CONFIG_ORDER)}",
         f"  domains:           {', '.join(DOMAIN_ORDER)}",
         f"  live-LLM trials:   {len(live):,}",
         f"  symbolic trials:   {len(static_sym):,}" if static_sym is not None else
         "  symbolic trials:   (not available)",
     ]
-    ax.text(0.06, 0.48, "\n".join(scope), fontsize=10,
+    ax.text(0.06, 0.50, "\n".join(scope), fontsize=10,
             family="monospace", va="top")
     ax.text(0.5, 0.06,
             "Tier-1: deterministic P1-P5 middleware on attacker proposals (no LLM).  "
-            "Tier-2: live LLM sees benign InjecAgent prompt.  "
-            "Tier-3: live LLM sees GCG-suffixed prompt.  "
-            "Combined = worst-case across all available source models.",
+            "Tier-2: live LLM sees the InjecAgent prompt.",
             ha="center", fontsize=8, style="italic",
             color="#7f8c8d", wrap=True)
     pdf.savefig(fig); plt.close(fig)
 
 
 def page_per_group_bars(pdf, live):
-    """Grouped bars of defended ASR per (group, config), static live only."""
-    df = live[live.run_source == "none"]
-    if df.empty:
+    """Grouped bars of defended ASR per (group, config)."""
+    if live.empty:
         return
-    agg = (df.groupby(["group", "config"])["attack_succeeded_end_to_end"]
-             .mean()
-             .mul(100)
-             .unstack("config")
-             .reindex(columns=CONFIG_ORDER))
+    agg = (live.groupby(["group", "config"])["attack_succeeded_end_to_end"]
+              .mean()
+              .mul(100)
+              .unstack("config")
+              .reindex(columns=CONFIG_ORDER))
     groups = [g for g in GROUP_ORDER if g in agg.index]
     agg = agg.reindex(groups)
 
@@ -289,65 +231,9 @@ def page_per_group_bars(pdf, live):
                         f"{v:.1f}", ha="center", fontsize=8)
     ax.set_xticks(x); ax.set_xticklabels([f"Group {g}" for g in groups])
     ax.set_ylabel("Defended ASR (%)"); ax.set_ylim(0, 110)
-    ax.set_title("Static live-LLM: defended ASR per validator group",
+    ax.set_title("Defended ASR per validator group",
                  fontsize=13, fontweight="bold")
     ax.legend(loc="upper right")
-    plt.tight_layout()
-    pdf.savefig(fig); plt.close(fig)
-
-
-def page_per_source_bars(pdf, live):
-    """For each group, bar per source (defended ASR, AgenticCyOps only)."""
-    df = live[live.config == "agenticcyops"]
-    if df.empty:
-        return
-    agg = (df.groupby(["group", "run_source"])["attack_succeeded_end_to_end"]
-             .mean()
-             .mul(100)
-             .unstack("run_source"))
-    groups = [g for g in GROUP_ORDER if g in agg.index]
-    sources = [s for s in SOURCE_ORDER if s in agg.columns]
-    agg = agg.reindex(index=groups, columns=sources)
-
-    fig, ax = plt.subplots(figsize=(12, 5.5))
-    x = np.arange(len(groups))
-    width = 0.8 / max(1, len(sources))
-    palette = sns.color_palette("viridis", n_colors=len(sources))
-    for i, src in enumerate(sources):
-        vals = agg[src].fillna(0).values
-        bars = ax.bar(x + (i - (len(sources) - 1) / 2) * width, vals, width,
-                      color=palette[i], edgecolor="black",
-                      label=SOURCE_LABEL.get(src, src))
-        for b, v in zip(bars, vals):
-            if v > 0:
-                ax.text(b.get_x() + b.get_width() / 2, v + 0.3,
-                        f"{v:.0f}", ha="center", fontsize=7)
-    ax.set_xticks(x); ax.set_xticklabels([f"Group {g}" for g in groups])
-    ax.set_ylabel("Defended ASR (%) -- AgenticCyOps config")
-    ax.set_title("Adaptive attack effectiveness per validator group (by source)",
-                 fontsize=13, fontweight="bold")
-    ax.legend(loc="upper right", ncol=2, fontsize=9)
-    ax.set_ylim(0, max(10, np.nanmax(agg.values) * 1.3) if agg.size else 10)
-    plt.tight_layout()
-    pdf.savefig(fig); plt.close(fig)
-
-
-def page_transfer_heatmap(pdf, live):
-    """Source x Group heatmap of defended ASR (AgenticCyOps)."""
-    grid = transfer_grid(live, config="agenticcyops")
-    if grid.empty:
-        return
-    fig, ax = plt.subplots(figsize=(11, max(3.5, 0.6 * len(grid) + 2)))
-    labels = [SOURCE_LABEL.get(s, s) for s in grid.index]
-    sns.heatmap(grid, annot=True, fmt=".1f", cmap="RdYlGn_r",
-                vmin=0, vmax=max(20, np.nanmax(grid.values) or 20),
-                linewidths=0.4, linecolor="white", ax=ax,
-                yticklabels=labels,
-                cbar_kws={"label": "Defended ASR (%)"})
-    ax.set_title("Cross-source transfer: suffixes trained on row, "
-                 "evaluated against column",
-                 fontsize=13, fontweight="bold")
-    ax.set_xlabel("Validator group"); ax.set_ylabel("Source model")
     plt.tight_layout()
     pdf.savefig(fig); plt.close(fig)
 
@@ -447,7 +333,7 @@ def page_per_toolkit(pdf, live, lookup):
     if not lookup:
         return
     df = _attach_toolkit(live, lookup)
-    df = df[(df.config == "agenticcyops") & (df.run_source == "none")]
+    df = df[df.config == "agenticcyops"]
     if df.empty:
         return
     agg = (df.groupby("user_toolkit")
@@ -485,7 +371,7 @@ def page_per_toolkit(pdf, live, lookup):
         ax.text(r.def_asr + 1, i + 0.4, f"{r.def_asr:.1f}",
                  fontsize=7, va="center")
     ax.set_title("Per-toolkit ASR: LLM compliance vs defended "
-                  "(static live, AgenticCyOps, all groups pooled)",
+                  "(AgenticCyOps, all groups pooled)",
                   fontsize=12, fontweight="bold")
     ax.legend(loc="lower right")
     plt.tight_layout()
@@ -501,13 +387,10 @@ def page_methodology(pdf):
         "Benchmark:   InjecAgent representative subset (50 cases)",
         "             vendored by AdaptiveAttackAgent (NAACL 2025)",
         "",
-        "Runners:",
-        "  benchmarks/injecagent/run_e2e.py",
-        "    - static:   representative cases, unmodified",
-        "    - adaptive: GCG-trained suffixes appended to Attacker Instruction",
-        "      * single-source: --adaptive-from {llama4,qwen235,qwen32,mistral}",
-        "      * combined:      --adaptive-from combined  (unions every available",
-        "                        source; 1 variant per source per case)",
+        "Runner:      benchmarks/injecagent/run_e2e.py",
+        "             representative cases sent to the live primary LLM,",
+        "             unmodified.  Adaptive (GCG) attacks are out of scope",
+        "             for this benchmark.",
         "",
         "Live-LLM flow (per case):",
         "  1. build ReAct conversation ending in poisoned tool response",
@@ -526,19 +409,14 @@ def page_methodology(pdf):
         "  E: Qwen3-235B   + V1 + V5(Mistral) + V4 + V6",
         "  F: Claude (API) + V1 + V2 + V3(Llama) + V6",
         "",
-        "Three tiers:",
+        "Two tiers:",
         "  Tier 1  symbolic     P1-P5 middleware only; no live LLM",
         "  Tier 2  live static  live LLM + defense; unmodified prompts",
-        "  Tier 3a live adaptive live LLM + defense; single-source GCG suffix",
-        "  Tier 3b live combined live LLM + defense; per-case success = any",
-        "                         source model's suffix succeeded (worst case)",
         "",
         "Caveats:",
         "  * Defended ASR depends on the group's consensus layer firing;",
         "    if LLM validators are down, P3-L6 silently falls back to the",
         "    deterministic pipeline (matches Tier-1 behavior).",
-        "  * 'combined' worst-case requires suffixes for every source to",
-        "    have been generated; missing sources are skipped gracefully.",
         "  * Refusal rate is informational, not success/failure: a refused",
         "    trial cannot succeed at the LLM stage, so it's effectively a",
         "    model-alignment win independent of our middleware.",
@@ -562,7 +440,7 @@ def generate(root: Path, out_dir: Path) -> None:
 
     print(f"Found {len(runs)} e2e run directories:")
     for r in runs:
-        print(f"  group={r['group']}  source={r['source']}  path={r['path'].name}")
+        print(f"  group={r['group']}  path={r['path'].name}")
 
     frames = [load_run_rows(r) for r in runs]
     frames = [f for f in frames if not f.empty]
@@ -571,24 +449,19 @@ def generate(root: Path, out_dir: Path) -> None:
     live = pd.concat(frames, ignore_index=True)
 
     static_sym = load_static_symbolic(root)
-    tier_tbl = three_tier_table(static_sym, live)
+    tier_tbl = two_tier_table(static_sym, live)
     toolkit_lookup = load_toolkit_lookup()
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # CSVs first so the PDF run has them to cross-reference
     live.to_csv(out_dir / "injecagent_e2e_combined.csv", index=False)
-    tier_tbl.to_csv(out_dir / "injecagent_e2e_three_tier_asr.csv",
+    tier_tbl.to_csv(out_dir / "injecagent_e2e_two_tier_asr.csv",
                      index=False, float_format="%.3f")
-    grid = transfer_grid(live, config="agenticcyops")
-    if not grid.empty:
-        grid.to_csv(out_dir / "injecagent_e2e_transfer.csv",
-                    float_format="%.3f")
 
     toolkit_csv_path = None
     if toolkit_lookup:
         tk_df = _attach_toolkit(live, toolkit_lookup)
-        tk_df = tk_df[tk_df.run_source == "none"]
         if not tk_df.empty:
             tk_asr = (tk_df.groupby(["user_toolkit", "config"])
                            .agg(n=("attack_succeeded_end_to_end", "size"),
@@ -606,18 +479,14 @@ def generate(root: Path, out_dir: Path) -> None:
     with PdfPages(pdf_path) as pdf:
         page_title(pdf, static_sym, live, tier_tbl)
         page_per_group_bars(pdf, live)
-        page_per_source_bars(pdf, live)
-        page_transfer_heatmap(pdf, live)
         page_principle_attribution(pdf, live)
         page_per_toolkit(pdf, live, toolkit_lookup)
         page_hygiene(pdf, live)
         page_methodology(pdf)
 
     print(f"\nwrote {pdf_path}")
-    print(f"wrote {out_dir / 'injecagent_e2e_three_tier_asr.csv'}")
+    print(f"wrote {out_dir / 'injecagent_e2e_two_tier_asr.csv'}")
     print(f"wrote {out_dir / 'injecagent_e2e_combined.csv'}")
-    if not grid.empty:
-        print(f"wrote {out_dir / 'injecagent_e2e_transfer.csv'}")
     if toolkit_csv_path:
         print(f"wrote {toolkit_csv_path}")
 

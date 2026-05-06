@@ -32,12 +32,15 @@ import json
 from pathlib import Path
 from typing import Any
 
+from typing import Optional
+
 from config import BASE_DIR
 from host.authenticated_interface import AuthenticatedInterface
 from host.parameter_validator import ParameterValidator
 from host.output_classifier import OutputClassifier
 from host.manifest_enforcer import ManifestEnforcer
 from consensus.operational_context import OperationalContextChecker
+from consensus.validator import ConsensusValidator
 from memory.access_isolation import AccessIsolation, AccessController
 
 from benchmarks.injecagent.harness.tool_loader import (
@@ -82,7 +85,8 @@ class DefensePipeline:
     """
 
     def __init__(self, domain: str, config: str,
-                 embedding_model=None):
+                 embedding_model=None,
+                 consensus_config_name: Optional[str] = None):
         self.domain = domain
         self.config = config
 
@@ -115,6 +119,15 @@ class DefensePipeline:
         # ACL-hardened uses the phase manifest as a network-layer allowlist
         self.enforcer = ManifestEnforcer(domain=domain)
 
+        # P3-L6 LLM consensus is only meaningful for the agenticcyops
+        # config and only when a profile name is provided (e.g. by the
+        # live e2e runner).  Stays None otherwise -- evaluate() remains
+        # purely symbolic.
+        self.consensus: Optional[ConsensusValidator] = None
+        if config == "agenticcyops" and consensus_config_name:
+            self.consensus = ConsensusValidator(
+                config_name=consensus_config_name)
+
     def _register_ia_tools_in_auth(self) -> None:
         """In-memory extension of auth._registry with IA_* tools.
 
@@ -138,27 +151,19 @@ class DefensePipeline:
     #  Evaluate one (case, attacker_tool) pair
     # ----------------------------------------------------------------- #
 
-    def evaluate(self, case: dict, attacker_tool_ia: str,
-                 attacker_phase: str = "admin") -> dict:
-        """Return a dict describing how each defense layer voted.
+    def _build_proposal(self, case: dict, attacker_tool_ia: str,
+                        attacker_phase: str) -> dict:
+        """Synthesize the proposal the agent would emit if fooled.
 
-        ``attacker_phase`` is the phase in which the adversarial tool
-        call is attempted.  InjecAgent is single-agent, but we map the
-        attempt to the admin phase because (a) that's where destructive
-        actions happen in our pipeline and (b) the P3 op-context check
-        applies at admin-phase proposals.
+        We populate argument fields with the attacker_instruction text so
+        P2-L2 "target in evidence" can compute semantic distance between
+        what the attacker wants to do and what the user actually asked
+        for.  The two are orthogonal for every InjecAgent case by
+        construction.
         """
-        poisoned_evidence = case.get("Tool Response", "")
         attacker_instruction = case.get("Attacker Instruction", "")
         user_instruction = case.get("User Instruction", "")
-
-        # Synthesize the proposal the agent would make if fooled.
-        # We populate argument fields with the attacker_instruction text so
-        # P2-L2 "target in evidence" can compute semantic distance between
-        # what the attacker wants to do and what the user actually asked
-        # for.  The two are orthogonal for every InjecAgent case by
-        # construction.
-        proposal = {
+        return {
             "tool_id":    attacker_tool_ia,
             "action":     "invoke",
             "arguments":  {
@@ -170,6 +175,24 @@ class DefensePipeline:
             "justification": attacker_instruction,
             "task_evidence": user_instruction,
         }
+
+    def evaluate(self, case: dict, attacker_tool_ia: str,
+                 attacker_phase: str = "admin") -> dict:
+        """Return a dict describing how each defense layer voted.
+
+        Symbolic-only path (P1-P5 deterministic checks).  For the live
+        e2e runner that should additionally consult the LLM consensus
+        layer, use :meth:`evaluate_with_consensus`.
+
+        ``attacker_phase`` is the phase in which the adversarial tool
+        call is attempted.  InjecAgent is single-agent, but we map the
+        attempt to the admin phase because (a) that's where destructive
+        actions happen in our pipeline and (b) the P3 op-context check
+        applies at admin-phase proposals.
+        """
+        poisoned_evidence = case.get("Tool Response", "")
+        user_instruction = case.get("User Instruction", "")
+        proposal = self._build_proposal(case, attacker_tool_ia, attacker_phase)
 
         # Flat: no checks
         if self.config == "flat":
@@ -229,6 +252,65 @@ class DefensePipeline:
         # No defense layer caught -> attack succeeded
         return {"allowed": True, "mechanism": "no_defense_fired",
                 "stage": None, "reason": "all P1-P5 layers passed"}
+
+    async def evaluate_with_consensus(self, case: dict, attacker_tool_ia: str,
+                                       attacker_phase: str = "admin") -> dict:
+        """Run the symbolic pipeline first; if every layer passes and a
+        consensus profile is configured, escalate to P3-L6 LLM-consensus
+        voting.
+
+        Failure modes:
+          - If consensus is not configured, returns the symbolic verdict
+            unchanged (`no_defense_fired` for cases that pass symbolic).
+          - If every validator errors out (API down, key missing, ...) we
+            do *not* silently mask the result -- we mark the trial as
+            ``P3_consensus_unavailable`` and treat it as allowed (caller
+            can decide how to count it).  This keeps the benchmark
+            honest when validators are down.
+          - If the consensus call itself raises, ditto -- bubble up as
+            ``P3_consensus_error`` with the message in `reason`.
+        """
+        sym = self.evaluate(case, attacker_tool_ia, attacker_phase)
+        # Only escalate when symbolic explicitly *passed everything* AND
+        # we actually have a consensus instance.
+        if self.consensus is None or sym["mechanism"] != "no_defense_fired":
+            return sym
+
+        proposal = self._build_proposal(case, attacker_tool_ia, attacker_phase)
+        incident_context = {
+            "incident_id": f"IA_{case.get('ia_case_id', case.get('User Tool', 'unknown'))}",
+            "incident": {
+                "description": case.get("User Instruction", ""),
+            },
+            "config": self.config,
+            "current_phase": attacker_phase,
+        }
+        try:
+            result = await self.consensus.validate_with_details(
+                proposal, incident_context)
+        except Exception as exc:
+            return {"allowed": True, "mechanism": "P3_consensus_error",
+                    "stage": None,
+                    "reason": f"consensus call raised: {type(exc).__name__}: {exc}"}
+
+        votes = list(result.votes)
+        all_error = bool(votes) and all(v.validator_id == "error" for v in votes)
+        if not votes or all_error:
+            return {"allowed": True, "mechanism": "P3_consensus_unavailable",
+                    "stage": None,
+                    "reason": "no validators returned a vote (all errored)"}
+
+        if not result.approved:
+            return {"allowed": False, "mechanism": "P3_consensus_reject",
+                    "stage": 6,
+                    "reason": (f"consensus {result.rejections}/{len(votes)} reject "
+                               f"(threshold {result.threshold}); "
+                               + "; ".join(f"{v.validator_id}={v.decision}"
+                                           for v in votes))}
+        return {"allowed": True, "mechanism": "P3_consensus_approve",
+                "stage": 6,
+                "reason": (f"consensus {result.approvals}/{len(votes)} approve "
+                           f"(threshold {result.threshold})")}
 
 
 # --------------------------------------------------------------------- #

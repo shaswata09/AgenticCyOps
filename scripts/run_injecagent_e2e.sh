@@ -16,8 +16,6 @@
 #   ./scripts/run_injecagent_e2e.sh D cyberops 6            # Group D, single domain
 #   ./scripts/run_injecagent_e2e.sh A all 6 agenticcyops    # One config only
 #   ./scripts/run_injecagent_e2e.sh A all 6 all 10          # First 10 cases (smoke)
-#   ./scripts/run_injecagent_e2e.sh A all 6 all '' llama4   # Adaptive e2e using
-#                                                           # GCG suffixes from llama4
 #
 # Positional args:
 #   $1 GROUP      (A-F)
@@ -25,17 +23,21 @@
 #   $3 TRIALS     (default 6)
 #   $4 CONFIG     (all / flat / acl_hardened / agenticcyops)
 #   $5 CASE_LIMIT (blank = full 50)
-#   $6 ADAPTIVE   (blank = static; llama4 / qwen235 / qwen32 / mistral
-#                  to replay the GCG-trained adversarial suffixes from
-#                  that single source model; or 'combined' to union every
-#                  available source dir and expand each case into one
-#                  variant per source -- worst-case adaptive attacker)
 # ============================================================
 
 set -eE
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
+
+# Auto-load .env (bash doesn't do this by default; Python config.py does
+# it on its side, but the preflight warnings run in bash).
+if [ -f ".env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source ".env"
+    set +a
+fi
 
 CONDA_ENV="agenticcyops"
 
@@ -79,7 +81,6 @@ if [ -z "$1" ]; then
     read -p "  Trials per case (default 6): " TRIALS
     read -p "  Configs [all / flat / acl_hardened / agenticcyops]: " CONFIG
     read -p "  Case limit [default 50 = full representative subset]: " CASE_LIMIT
-    read -p "  Adaptive source model [blank or 'static' = static; llama4 / qwen235 / qwen32 / mistral / combined]: " ADAPTIVE
     [ -z "$DOMAIN" ] && DOMAIN="all"
     [ -z "$TRIALS" ] && TRIALS="6"
     [ -z "$CONFIG" ] && CONFIG="all"
@@ -89,7 +90,6 @@ else
     TRIALS="${3:-6}"
     CONFIG="${4:-all}"
     CASE_LIMIT="${5:-}"
-    ADAPTIVE="${6:-}"
 fi
 
 # ---- Validate ----
@@ -112,48 +112,12 @@ else
     esac
 fi
 
-# Validate optional adaptive source model
-# Accept "static" / "none" as explicit aliases for blank
-[ "$ADAPTIVE" = "static" ] && ADAPTIVE=""
-[ "$ADAPTIVE" = "none" ]   && ADAPTIVE=""
-if [ -n "$ADAPTIVE" ]; then
-    case " llama4 qwen235 qwen32 mistral combined " in
-        *" $ADAPTIVE "*) ;;
-        *) echo "[FAIL] unknown adaptive source model: '$ADAPTIVE'"; exit 2 ;;
-    esac
-    if [ "$ADAPTIVE" = "combined" ]; then
-        # At least one source dir must exist and be non-empty
-        ROOT="benchmarks/injecagent/adaptive/strings"
-        FOUND=""
-        for m in llama4 qwen235 qwen32 mistral; do
-            if [ -d "$ROOT/$m" ] && [ -n "$(ls -A $ROOT/$m 2>/dev/null)" ]; then
-                FOUND="$FOUND $m"
-            fi
-        done
-        if [ -z "$FOUND" ]; then
-            echo "[FAIL] 'combined' mode requires at least one GCG source under $ROOT/<model>/"
-            echo "       Generate at least one first, e.g.:"
-            echo "         ./scripts/run_injecagent_adaptive_gen.sh llama4"
-            exit 4
-        fi
-        echo "[combined] sources available:$FOUND"
-    else
-        STRINGS_DIR="benchmarks/injecagent/adaptive/strings/$ADAPTIVE"
-        if [ ! -d "$STRINGS_DIR" ] || [ -z "$(ls -A $STRINGS_DIR 2>/dev/null)" ]; then
-            echo "[FAIL] No GCG suffixes found at $STRINGS_DIR"
-            echo "       Generate them first:"
-            echo "         ./scripts/run_injecagent_adaptive_gen.sh $ADAPTIVE"
-            exit 4
-        fi
-    fi
-fi
-
 # ---- Precondition checks ----
-SUBSET=benchmarks/injecagent/adaptive/representative_cases.json
+SUBSET=benchmarks/injecagent/representative_cases.json
 if [ ! -f "$SUBSET" ]; then
     echo ""
     echo "[prep] representative subset missing, generating 50-case subset..."
-    run_py -m benchmarks.injecagent.adaptive.representative_subset
+    run_py -m benchmarks.injecagent.representative_subset
 fi
 
 echo ""
@@ -162,16 +126,7 @@ echo "  Domains:     $DOMAINS_CSV"
 echo "  Configs:     $CONFIGS_CSV"
 echo "  Trials:      $TRIALS"
 [ -n "$CASE_LIMIT" ] && echo "  Case limit:  $CASE_LIMIT"
-if [ "$ADAPTIVE" = "combined" ]; then
-    echo "  Mode:        ADAPTIVE combined  (worst-case across all available sources)"
-    echo "  Output dir:  results/injecagent/e2e_adaptive_combined_validator_group_${GROUP}/"
-elif [ -n "$ADAPTIVE" ]; then
-    echo "  Mode:        ADAPTIVE  (suffixes trained against '$ADAPTIVE')"
-    echo "  Output dir:  results/injecagent/e2e_adaptive_${ADAPTIVE}_validator_group_${GROUP}/"
-else
-    echo "  Mode:        static"
-    echo "  Output dir:  results/injecagent/e2e_validator_group_${GROUP}/"
-fi
+echo "  Output dir:  results/injecagent/e2e_validator_group_${GROUP}/"
 echo ""
 
 # ---- Server-health preflight ----
@@ -196,7 +151,6 @@ ARGS=(
     --trials "$TRIALS"
 )
 [ -n "$CASE_LIMIT" ] && ARGS+=(--case-limit "$CASE_LIMIT")
-[ -n "$ADAPTIVE" ] && ARGS+=(--adaptive-from "$ADAPTIVE")
 
 echo ""
 echo "[run] python -m benchmarks.injecagent.run_e2e ${ARGS[*]}"
@@ -205,11 +159,4 @@ echo ""
 run_py -m benchmarks.injecagent.run_e2e "${ARGS[@]}"
 
 echo ""
-if [ "$ADAPTIVE" = "combined" ]; then
-    echo "[done] Results under: results/injecagent/e2e_adaptive_combined_validator_group_${GROUP}/"
-    echo "       Worst-case headline: combined_worstcase.csv"
-elif [ -n "$ADAPTIVE" ]; then
-    echo "[done] Results under: results/injecagent/e2e_adaptive_${ADAPTIVE}_validator_group_${GROUP}/"
-else
-    echo "[done] Results under: results/injecagent/e2e_validator_group_${GROUP}/"
-fi
+echo "[done] Results under: results/injecagent/e2e_validator_group_${GROUP}/"

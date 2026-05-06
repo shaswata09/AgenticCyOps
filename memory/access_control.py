@@ -23,9 +23,28 @@ Usage:
 """
 
 import json
+import re
 from pathlib import Path
 
 from config import BASE_DIR
+
+
+# Store IDs in access_policy.json are recorded in short form ("M1", "HM2",
+# "FM3", ...).  The orchestrator/agent path sometimes emits the long form
+# "<id>_<collection_name>" (e.g. "M1_threat_repository") because it
+# concatenates the human-readable name from memory_collections.json.
+# This regex strips the suffix so policy lookups match either form.
+_STORE_ID_RE = re.compile(r"^([A-Z]+\d+)(?:_.*)?$")
+
+
+def _normalize_store_id(store_id: str) -> str:
+    """Return the canonical short-form store_id (e.g. M1) from either
+    short or long-form input.  Unknown shapes pass through unchanged
+    so the caller still gets exact-string matching as a fallback."""
+    if not store_id:
+        return store_id
+    m = _STORE_ID_RE.match(store_id)
+    return m.group(1) if m else store_id
 
 
 class AccessController:
@@ -60,9 +79,13 @@ class AccessController:
     def can_read(self, phase: str, store_id: str) -> bool:
         """Check if *phase* is allowed to read from *store_id*.
 
+        Accepts either short ("M1") or long ("M1_threat_repository") form
+        and matches against the policy's short-form list.
+
         Args:
             phase: NIST-IR phase name (monitor, analyze, admin, report).
-            store_id: Memory store identifier (M1-M12).
+            store_id: Memory store identifier (M1-M12) or its long-form
+                      alias.
 
         Returns:
             True if the policy explicitly grants read access, False otherwise.
@@ -70,14 +93,18 @@ class AccessController:
         phase_policy = self._policy.get(phase)
         if phase_policy is None:
             return False
-        return store_id in phase_policy.get("read", [])
+        allow = set(phase_policy.get("read", []))
+        return _normalize_store_id(store_id) in allow or store_id in allow
 
     def can_write(self, phase: str, store_id: str) -> bool:
         """Check if *phase* is allowed to write to *store_id*.
 
+        Accepts either short ("M1") or long ("M1_threat_repository") form.
+
         Args:
             phase: NIST-IR phase name (monitor, analyze, admin, report).
-            store_id: Memory store identifier (M1-M12).
+            store_id: Memory store identifier (M1-M12) or its long-form
+                      alias.
 
         Returns:
             True if the policy explicitly grants write access, False otherwise.
@@ -85,7 +112,8 @@ class AccessController:
         phase_policy = self._policy.get(phase)
         if phase_policy is None:
             return False
-        return store_id in phase_policy.get("write", [])
+        allow = set(phase_policy.get("write", []))
+        return _normalize_store_id(store_id) in allow or store_id in allow
 
     def accessible_stores(self, phase: str, mode: str = "read") -> list[str]:
         """Return list of store IDs accessible to *phase* for the given mode.

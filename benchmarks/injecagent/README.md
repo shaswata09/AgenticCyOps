@@ -10,14 +10,20 @@ repository (NAACL 2025), which vendors the InjecAgent benchmark
 (ACL 2024 Findings, [arXiv 2403.02691](https://arxiv.org/abs/2403.02691)).
 Both upstream sources are MIT-licensed — see [data/ATTRIBUTION.md](data/ATTRIBUTION.md).
 
-## Status
+## Scope
+
+Static (non-adaptive) evaluation only:
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| **1** | Static attacks: 2,108 cases × 4 domains × 3 configs | in progress |
-| **2** | Adaptive (white-box GCG) attacks: Llama-4-Scout + Qwen3-235B | pending |
-| **2b** | Adaptive transfer attacks: GLM-4.7-FP8 (inference-only) | pending |
-| **3** | Analytics + paper integration | pending |
+| **1** | Symbolic static: 2,108 cases × 4 domains × 3 configs through deterministic P1-P5 (no live LLM) | done |
+| **2** | Live-LLM static: 50-case representative subset × 4 domains × 3 configs × 6 trials × validator group | in progress |
+| **3** | Analytics + paper integration | done |
+
+White-box adaptive (GCG) attacks are **out of scope** — the per-target
+gradient search costs make a full sweep impractical (months of GPU time
+against the 235B MoE primary).  The P1-P5 robustness story rests on
+static and live-static numbers only.
 
 ## What InjecAgent is
 
@@ -53,67 +59,78 @@ in-memory registry** only during benchmark trials.  They are:
   cannot collide with any domain-native tool (T\*, H\*, F\*, L\*).
 - **Never** written to `configs/component_registry.json` or any domain's
   `configs/` tree.  Between trials the overlay is reverted.
-- **Logged** with an `injecagent_tool_call` action flag so downstream
-  analytics can separate benchmark signal from baseline domain
-  activity.
 - **Stub implementations** — no real side effects.  Tool calls produce
   fabricated responses matching the InjecAgent `Tool Response`
   templates, including the poisoned observation that triggers the IPI.
 
 ## Cross-domain evaluation
 
-Same 2,108 cases run through **each of the 4 domain orchestrators**
-(cyberops, healthcare, finance, legal).  Each domain has its own
-access policy / sensitive patterns / time policy / operational context
-configs driving the P1-P5 stack, so this produces **4 ASR data points
-per case × 3 configs = 12 rows per attack** — showing whether the
-defense behavior is genuinely domain-invariant.
+The same cases run through **each of the 4 domain orchestrators**
+(cyberops, healthcare, finance, legal).  Each domain has its own access
+policy / sensitive patterns / time policy / operational context configs
+driving the P1-P5 stack, so we get one ASR data point per (case,
+domain, config) — showing whether the defense behavior is genuinely
+domain-invariant.
 
 ## Layout
 
 ```
 benchmarks/injecagent/
-├── data/                             # vendored read-only upstream data
+├── data/                          # vendored read-only upstream data
 ├── harness/
-│   ├── tool_loader.py                # IA_* isolated registry
-│   ├── manifest_overlay.py           # per-trial phase-manifest overlay
-│   ├── trial_driver.py               # poisoned-response injection
-│   └── asr_evaluator.py              # tool-call-trace regex
-├── adaptive/
-│   ├── gcg_runner.py                 # white-box GCG (HuggingFace)
-│   ├── representative_subset.py      # stratified 50-case pick
-│   └── strings/                      # generated adversarial suffixes
-├── run_static.py
-├── run_adaptive.py
-├── compare.py
+│   ├── tool_loader.py             # IA_* isolated registry
+│   ├── live_llm_driver.py         # group-aware live LLM dispatch
+│   └── trial_driver.py            # P1-P5 deterministic pipeline
+├── representative_subset.py       # stratified 50-case picker
+├── representative_cases.json      # generated subset
+├── run_static.py                  # symbolic-only sweep (no LLM)
+├── run_e2e.py                     # live-LLM static sweep
 └── README.md
 ```
 
+## Defense pipeline (live e2e)
+
+[run_e2e.py](run_e2e.py) drives the chosen validator group's primary LLM
+against each case, parses the generation, and routes the proposed action
+through:
+
+1. **P1-P5 deterministic layers** — same checks `run_static.py` runs:
+   P1-L1 identity, P2-L1 wildcard/criticality/parameter-rules and P2-L2
+   target-in-evidence, P3-L0.5 operational context, P2-L3 output
+   classifier, P5-L5 injection sanitisation.
+2. **P3-L6 LLM consensus** — when every deterministic layer passes, the
+   proposal is forwarded to the group-configured validator panel
+   (`default_consensus` / `same_family` / `with_mistral` /
+   `all_with_gpt4o`) which votes approve/reject.  Threshold defined in
+   `configs/validators.yaml`.
+
+Mechanism strings emitted on each trial: `P1_*`, `P2_*`, `P3_*`,
+`P5_*`, plus `P3_consensus_reject` / `P3_consensus_approve` /
+`P3_consensus_unavailable` (all validators errored) / `P3_consensus_error`
+(call raised).
+
 ## Running
 
-*(Phase 1 scripts land shortly.)*
-
 ```bash
-# Phase 1: static benchmark across all 4 domains x 3 configs
+# Symbolic static -- all 2,108 cases through P1-P5 (no live LLM)
 python -m benchmarks.injecagent.run_static --groups A
 
-# Phase 2: adaptive probe (Llama-4-Scout, Qwen3-235B white-box)
-python -m benchmarks.injecagent.run_adaptive --target-model llama4 --cases 50
+# Live-LLM static -- 50-case representative subset through one validator
+# group; agenticcyops config additionally invokes P3-L6 consensus
+./scripts/run_injecagent_e2e.sh A
 
-# Comparison + PDF report
-python -m benchmarks.injecagent.compare
+# Generate paper-ready PDF + CSVs
+python -m analysis.injecagent_e2e_analytics
 ```
 
 ## Paper framing
 
-- Report as **"InjecAgent-static ASR on AgenticCyOps"** — not
-  "AdaptiveAttackAgent ASR" (the authors' paper reports adaptive-GCG
-  numbers, not static-attack numbers).
-- Our adaptive probe is a **per-model white-box run on our local
-  primaries**, distinct from the upstream paper's Llama-3.1-8B numbers.
-- GLM-4.7-FP8 is probed via **transfer attack** (strings generated
-  against Llama-4-Scout / Qwen3-235B transferred into GLM inference),
-  explicitly documented as weaker-than-native adaptive.
+- Report as **"InjecAgent-static ASR on AgenticCyOps"** — middleware
+  effectiveness against a published IPI benchmark.
+- The static-symbolic Tier-1 number measures middleware coverage if the
+  LLM complies; the live-LLM Tier-2 number measures real agent ASR.
 - Tool universe is consumer apps (GitHub / AugustSmartLock / Evernote /
   Amazon / …), semantically distinct from our enterprise domains —
   document as domain-transfer caveat, not a defect.
+- Adaptive (GCG) numbers are intentionally not claimed; the upstream
+  AdaptiveAttackAgent paper covers that direction.

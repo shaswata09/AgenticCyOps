@@ -19,6 +19,14 @@ set -eE
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
 
+# Auto-load .env so child Python inherits API keys etc.
+if [ -f ".env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source ".env"
+    set +a
+fi
+
 CONDA_ENV="agenticcyops"
 TOOL_BASE_PORT=9000
 MMA_PORT=9100

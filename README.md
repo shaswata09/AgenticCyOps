@@ -120,15 +120,18 @@ Per-group ERS: A=84.75%, C=85.00%, D=73.10%, E=85.44%, F=90.12%.
 
 Artifacts: `results/tamas/tamas_findings.pdf` (simulated, 9 pages), `results/tamas/real_logs/tamas_from_logs.pdf` (real-logs, 9 pages), `analysis/tamas_analytics.py`, `analysis/tamas_from_logs.py`.
 
-### Eval G (InjecAgent Benchmark) -- STATIC COMPLETE, ADAPTIVE PENDING
+### Eval G (InjecAgent Benchmark) -- STATIC
 
 Third independent adversarial benchmark: 2,108 prompt-injection cases from
 UIUC Kang Lab's [AdaptiveAttackAgent](https://github.com/uiuc-kang-lab/AdaptiveAttackAgent)
 repository, which vendors the InjecAgent benchmark (ACL 2024).  MIT-licensed,
-used unmodified, complements TAMAS for third-party transparency.
+used unmodified, complements TAMAS for third-party transparency.  Adaptive
+white-box GCG runs are intentionally out of scope — see
+[benchmarks/injecagent/README.md](benchmarks/injecagent/README.md).
 
-Static ASR (38,352 attack evaluations = 2,108 × 4 domains × ~1.5 attacker
-tools × 3 configs):
+**Tier-1 — Symbolic static** (38,352 evaluations = 2,108 × 4 domains × ~1.5 attacker
+tools × 3 configs).  Deterministic P1-P5 middleware on attacker proposals,
+no live LLM:
 
 | Domain     | Flat MAS | ACL-Hardened | **AgenticCyOps** |
 |------------|---------:|-------------:|-----------------:|
@@ -139,15 +142,23 @@ tools × 3 configs):
 
 Domain-invariance confirmed: <0.2 pp ASR spread across four distinct domains.
 P2-L2 (target-in-evidence) catches base attacks; P5-L5 (injection sanitisation)
-catches jailbreak-wrappered variants. Artifacts at `results/injecagent/`
+catches jailbreak-wrappered variants. Artifacts at `results/injecagent/static/`
 (6-page `injecagent_findings.pdf` + per-case CSVs).
 
-**Adaptive (GCG) runs:** infrastructure ready at `benchmarks/injecagent/adaptive/`;
-execution pending GPU availability (uses HuggingFace gradient access vs Llama-4-Scout
-and Qwen3-235B white-box; transfer attacks to GLM-4.7-FP8).
+**Tier-2 — Live-LLM static** (50-case representative subset × 4 domains × 3 configs
+× 6 trials × validator group).  The live primary LLM sees the poisoned tool
+response, parses its own generation, and the parsed action is then routed
+through the full P1-P5 stack including **P3-L6 LLM consensus** (the
+group-configured validator panel votes on intent/action consistency when all
+deterministic layers pass).
 
-**Not yet started:** Eval F (multi-domain attacks), ablation study, Group B,
-InjecAgent adaptive-GCG execution.
+Run via `./scripts/run_injecagent_e2e.sh <GROUP>`.  Outputs land at
+`results/injecagent/e2e_validator_group_<G>/<domain>/results.csv`, with full
+per-trial JSONL audit logs at `logs/<domain>_injecagent_e2e_<G>/<config>_<ts>.jsonl`
+matching the attack-path schema.  Two-tier headline PDF + CSVs via
+`python -m analysis.injecagent_e2e_analytics`.
+
+**Not yet started:** Eval F (multi-domain attacks), ablation study, Group B.
 
 ---
 
@@ -470,6 +481,7 @@ agenticcyops-experiments/
 │   ├── run_baseline.sh              # Interactive domain baseline verification (overwrite protection prompt)
 │   ├── run_autonomous_baseline.sh   # Fully automated baseline runner (all groups, domains, configs; --skip-existing, --groups)
 │   ├── run_attack_paths.sh          # Unified attack path experiments — writes logs/<domain>_eval_attacks_<group>/ (overwrite protection prompt)
+│   ├── run_injecagent_e2e.sh        # InjecAgent live-LLM static sweep per validator group — writes logs/<domain>_injecagent_e2e_<group>/
 ├── README.md                         # This file
 ├── experiment_plan.md                # Full evaluation protocol
 ├── task_checklist.md                 # 10-day execution checklist

@@ -1,13 +1,12 @@
-"""Select a stratified subset of InjecAgent cases for GCG training.
+"""Select a stratified subset of InjecAgent cases for live e2e evaluation.
 
-Running GCG on all 2,108 cases × 3 target models is impractical.  We
-pick a representative **50-case subset** by stratified sampling across
-the 17 upstream attack categories, covering both direct-harm and
-data-stealing families with base (non-jailbreak) variants only --
-adaptive strings trained on base cases transfer to enhanced variants
-anyway.
+Running every (group x domain x config x trial) over all 2,108 upstream
+cases is too expensive at live-LLM rates.  We pick a representative
+**50-case subset** by stratified sampling across the 17 upstream attack
+categories, covering both direct-harm and data-stealing families with
+base (non-jailbreak) variants only.
 
-Output: ``benchmarks/injecagent/adaptive/representative_cases.json``
+Output: ``benchmarks/injecagent/representative_cases.json``
 (list of cases with an added ``ia_case_id`` for referencing).
 """
 
