@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 from config import BASE_DIR
 from logging_utils import ExperimentLogger
-from memory.access_control import AccessController
+from memory.access_control import AccessController, _normalize_store_id
 from memory.write_filter import WriteFilter
 from memory.memory_integrity import MemoryIntegrity
 from memory.access_isolation import AccessIsolation
@@ -41,6 +41,9 @@ class MemoryReadRequest(BaseModel):
     query: str
     n_results: int = 5
     auth_token: str = ""  # Fix #7: request signing (no underscore for Pydantic)
+    # Ablation switches forwarded by the orchestrator when running
+    # principle-isolation experiments.  Default False -> full enforcement.
+    skip_p5: bool = False
 
 
 class MemoryWriteRequest(BaseModel):
@@ -51,6 +54,11 @@ class MemoryWriteRequest(BaseModel):
     incident_evidence: str
     metadata: Optional[dict] = None
     auth_token: str = ""  # Fix #7: request signing
+    # Ablation switches.  When set, MMA bypasses the corresponding check;
+    # used by the host orchestrator when --disable-principles includes P4
+    # or P5.  No-op for the production code path.
+    skip_p4: bool = False
+    skip_p5: bool = False
 
 
 class MemoryListRequest(BaseModel):
@@ -178,7 +186,11 @@ def create_app(
     # -- Helpers --------------------------------------------------------
 
     def _get_collection(store_id: str):
-        coll_name = store_id_to_name.get(store_id)
+        # Accept either short ("M1") or long-form ("M1_threat_repository")
+        # IDs.  Caller may pass whichever the agent emitted; normalization
+        # mirrors AccessController.can_read/can_write.
+        coll_name = (store_id_to_name.get(store_id)
+                     or store_id_to_name.get(_normalize_store_id(store_id)))
         if coll_name is None:
             raise HTTPException(
                 status_code=404,
@@ -197,8 +209,9 @@ def create_app(
         if _mma_secret and not _verify_auth_token(req.phase, req.store_id, req.auth_token):
             raise HTTPException(status_code=403, detail="Invalid auth token.")
 
-        # P5-L1: Phase-store access control
-        if not access_controller.can_read(req.phase, req.store_id):
+        # P5-L1: Phase-store access control (skipped under -P5 ablation)
+        if (not req.skip_p5
+                and not access_controller.can_read(req.phase, req.store_id)):
             latency = (time.perf_counter() - start) * 1000
             logger.log_memory_read(
                 agent=req.phase,
@@ -297,8 +310,9 @@ def create_app(
         if _mma_secret and not _verify_auth_token(req.phase, req.store_id, req.auth_token):
             raise HTTPException(status_code=403, detail="Invalid auth token.")
 
-        # P5-L1: Phase-store access control
-        if not access_controller.can_write(req.phase, req.store_id):
+        # P5-L1: Phase-store access control (skipped under -P5 ablation)
+        if (not req.skip_p5
+                and not access_controller.can_write(req.phase, req.store_id)):
             latency = (time.perf_counter() - start) * 1000
             logger.log_memory_write(
                 agent=req.phase,
@@ -312,32 +326,35 @@ def create_app(
                 detail=f"Phase '{req.phase}' is not allowed to write to '{req.store_id}'.",
             )
 
-        # P4: Multi-layer memory integrity (L1-L6)
-        metadata = req.metadata or {}
-        allowed, reason, details = memory_integrity.validate_write(
-            store_id=req.store_id,
-            content=req.document,
-            metadata=metadata,
-            incident_evidence=req.incident_evidence,
-        )
-
-        score = details.get("similarity", 0.0)
-
-        if not allowed:
-            latency = (time.perf_counter() - start) * 1000
-            logger.log_memory_write(
-                agent=req.phase,
-                store=req.store_id,
-                auth_decision="deny",
-                mechanism=reason,
-                latency_ms=latency,
-                payload=req.document,
-                cosine_similarity=score,
+        # P4: Multi-layer memory integrity (skipped under -P4 ablation)
+        score = 0.0
+        if not req.skip_p4:
+            metadata = req.metadata or {}
+            allowed, reason, details = memory_integrity.validate_write(
+                store_id=req.store_id,
+                content=req.document,
+                metadata=metadata,
+                incident_evidence=req.incident_evidence,
             )
-            raise HTTPException(
-                status_code=422,
-                detail=f"Write rejected: {reason}. {details}",
-            )
+            score = details.get("similarity", 0.0)
+
+            if not allowed:
+                latency = (time.perf_counter() - start) * 1000
+                logger.log_memory_write(
+                    agent=req.phase,
+                    store=req.store_id,
+                    auth_decision="deny",
+                    mechanism=reason,
+                    latency_ms=latency,
+                    payload=req.document,
+                    cosine_similarity=score,
+                )
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Write rejected: {reason}. {details}",
+                )
+        else:
+            metadata = req.metadata or {}
 
         # Write accepted — upsert into ChromaDB
         collection = _get_collection(req.store_id)
@@ -351,11 +368,17 @@ def create_app(
         )
 
         latency = (time.perf_counter() - start) * 1000
+        # When -P4 ablation is in effect we accept the write without
+        # running integrity checks; flag this in the mechanism string so
+        # analytics can tell the ablation accepts apart from genuine
+        # P4 approvals.
+        success_mech = ("P4_disabled_accept" if req.skip_p4
+                         else "P4_memory_integrity")
         logger.log_memory_write(
             agent=req.phase,
             store=req.store_id,
             auth_decision="allow",
-            mechanism="P4_memory_integrity",
+            mechanism=success_mech,
             latency_ms=latency,
             payload=req.document,
             cosine_similarity=score,

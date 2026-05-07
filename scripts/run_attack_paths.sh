@@ -33,7 +33,7 @@ MMA_PORT=9100
 PIDS=()
 
 ALL_DOMAINS=("cyberops" "healthcare" "finance" "legal")
-ALL_CONFIGS=("flat" "acl_hardened" "agenticcyops")
+ALL_CONFIGS=("flat" "acl_hardened" "agenticcyops" "llm_judge")
 
 # ---- Group definitions ----
 declare -A GP_PRIMARY GP_PROVIDER GP_PORTS GP_CONSENSUS GP_DESC
@@ -138,13 +138,14 @@ if [ -z "$1" ]; then
 
     # Configs
     echo ""
-    echo "  Configs: 1) flat  2) acl_hardened  3) agenticcyops  4) all"
-    read -p "  Select (e.g. 3, or 4 for all): " cfg_choices
+    echo "  Configs: 1) flat  2) acl_hardened  3) agenticcyops  4) llm_judge  5) all"
+    read -p "  Select (e.g. 3, or 5 for all): " cfg_choices
     SELECTED_CONFIGS=()
     for c in $cfg_choices; do
         case "$c" in
             1) SELECTED_CONFIGS+=("flat") ;; 2) SELECTED_CONFIGS+=("acl_hardened") ;;
-            3) SELECTED_CONFIGS+=("agenticcyops") ;; 4) SELECTED_CONFIGS=("${ALL_CONFIGS[@]}"); break ;;
+            3) SELECTED_CONFIGS+=("agenticcyops") ;; 4) SELECTED_CONFIGS+=("llm_judge") ;;
+            5) SELECTED_CONFIGS=("${ALL_CONFIGS[@]}"); break ;;
         esac
     done
     [ ${#SELECTED_CONFIGS[@]} -eq 0 ] && echo "  No configs." && exit 0
@@ -220,8 +221,17 @@ run_domain() {
     local domain="$1"
     # Unified naming: logs/<domain>_eval_attacks_<group> and
     # results/eval_attacks/group_<group>/<domain>/ for every domain.
-    local log_dir="logs/${domain}_eval_attacks_${GROUP}"
-    local result_dir="results/eval_attacks/group_${GROUP}/${domain}"
+    # Ablation runs (DISABLE_PRINCIPLES env) get a `_disabled_<set>`
+    # suffix on both paths so they don't clobber the production run.
+    local _ablation_tag=""
+    if [ -n "$DISABLE_PRINCIPLES" ]; then
+        # Normalize: P1,P3 -> P1P3 (sorted, uppercase)
+        _ablation_tag="_disabled_$(echo "$DISABLE_PRINCIPLES" \
+            | tr ',' '\n' | tr '[:lower:]' '[:upper:]' \
+            | sort -u | tr -d '\n')"
+    fi
+    local log_dir="logs/${domain}_eval_attacks_${GROUP}${_ablation_tag}"
+    local result_dir="results/eval_attacks/group_${GROUP}${_ablation_tag}/${domain}"
 
     echo ""
     echo "============================================================"
@@ -282,6 +292,12 @@ run_domain() {
     for config in "${SELECTED_CONFIGS[@]}"; do
         echo "--- ${config} ---"
 
+        # Forward ablation flag if set (only meaningful for agenticcyops).
+        local _disable_args=()
+        if [ -n "$DISABLE_PRINCIPLES" ]; then
+            _disable_args=(--disable-principles "$DISABLE_PRINCIPLES")
+        fi
+
         for ap in "${domain_aps[@]}"; do
             echo "  $ap ($TRIALS trials/variant)..."
             run_py -m attacks.harness \
@@ -289,6 +305,7 @@ run_domain() {
                 --group "$GROUP" --model-url "$LLM_URL" --llm-provider "$LLM_PROVIDER" \
                 --consensus-config "$CONSENSUS_CFG" \
                 --trials "$TRIALS" --tool-port $TOOL_BASE_PORT \
+                "${_disable_args[@]}" \
                 --verbose 2>&1 | grep -E "v[0-9]+ t[0-9]+|Error|SUMMARY" || true
         done
 
@@ -302,6 +319,7 @@ run_domain() {
                 --group "$GROUP" --model-url "$LLM_URL" --llm-provider "$LLM_PROVIDER" \
                 --consensus-config "$CONSENSUS_CFG" \
                 --trials "$benign_count" --tool-port $TOOL_BASE_PORT \
+                "${_disable_args[@]}" \
                 2>&1 | grep -E "benign|Error|SUMMARY" || true
         fi
         echo ""

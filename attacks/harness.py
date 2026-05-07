@@ -29,7 +29,7 @@ from consensus.validator import ConsensusValidator
 
 
 CYBEROPS_APS = ["ap1", "ap2", "ap3", "ap4", "ap5", "ap6"]
-CONFIGS = ["flat", "acl_hardened", "agenticcyops"]
+CONFIGS = ["flat", "acl_hardened", "agenticcyops", "llm_judge"]
 AGENT_CLASSES = {
     "monitor": MonitorAgent,
     "analyze": AnalyzeAgent,
@@ -78,6 +78,7 @@ class AttackHarness:
         mma_url: str = "http://localhost:9100",
         tool_base_port: int = 9000,
         verbose: bool = False,
+        disabled_principles: Optional[set] = None,
     ):
         self.domain = domain
         self.config = config
@@ -87,10 +88,15 @@ class AttackHarness:
         self.mma_url = mma_url
         self.tool_base_port = tool_base_port
         self.verbose = verbose
+        self.disabled_principles: set = {p.upper() for p in (disabled_principles or set())}
 
         # Determine eval name (include group). Unified naming across
-        # all domains: {domain}_eval_attacks_{group}.
+        # all domains: {domain}_eval_attacks_{group}.  Ablation runs get
+        # a `_disabled_<set>` suffix so logs / results land in their own
+        # directory rather than overwriting the production run.
         eval_name = f"{domain}_eval_attacks_{group}"
+        if self.disabled_principles:
+            eval_name += "_disabled_" + "".join(sorted(self.disabled_principles))
         self.logger = ExperimentLogger(
             eval_name=eval_name,
             domain=domain,
@@ -129,16 +135,17 @@ class AttackHarness:
                 agent_kwargs["llm_url"] = llm_url
             self.agents[phase] = AgentCls(**agent_kwargs)
 
-        # Build consensus (agenticcyops only)
+        # Build consensus (agenticcyops + llm_judge ablation)
         consensus = None
-        if config == "agenticcyops":
+        if config in ("agenticcyops", "llm_judge"):
             try:
                 consensus = ConsensusValidator(config_name=consensus_config, logger=self.logger)
             except Exception as e:
                 if verbose:
                     print(f"  Consensus init failed: {e}")
 
-        # Load shared embedding model for P2-L2/P2-L3 (agenticcyops only, CPU)
+        # Load shared embedding model for P2-L2/P2-L3 (agenticcyops only;
+        # llm_judge ablation skips P2 so doesn't need embeddings)
         embedding_model = None
         if config == "agenticcyops":
             try:
@@ -160,6 +167,7 @@ class AttackHarness:
             agents=self.agents,
             logger=self.logger,
             embedding_model=embedding_model,
+            disabled_principles=self.disabled_principles,
         )
 
     async def reset_tools(self):
@@ -802,13 +810,22 @@ async def main():
     parser.add_argument("--consensus-config", default="default_consensus")
     parser.add_argument("--mma-url", default="http://localhost:9100")
     parser.add_argument("--tool-port", type=int, default=9000)
+    parser.add_argument("--disable-principles", default="",
+                        help="Comma-separated list of principles (P1-P5) "
+                              "to disable for ablation studies. Only "
+                              "affects the agenticcyops config. "
+                              "Example: --disable-principles P3,P5")
     args = parser.parse_args()
 
+    disabled = {p.strip().upper() for p in args.disable_principles.split(",")
+                if p.strip()}
     configs = CONFIGS if args.config == "all" else [args.config]
     all_results = []
 
     for config in configs:
-        print(f"\n--- Running {args.domain} / {config} / Group {args.group} ---")
+        print(f"\n--- Running {args.domain} / {config} / Group {args.group}"
+              f"{' / disabled=' + ','.join(sorted(disabled)) if disabled else ''}"
+              f" ---")
         harness = AttackHarness(
             domain=args.domain,
             config=config,
@@ -819,6 +836,7 @@ async def main():
             mma_url=args.mma_url,
             tool_base_port=args.tool_port,
             verbose=args.verbose,
+            disabled_principles=disabled,
         )
 
         try:

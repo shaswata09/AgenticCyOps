@@ -46,6 +46,7 @@ class SOARHost:
         agents: Optional[dict] = None,
         logger: Optional[ExperimentLogger] = None,
         embedding_model=None,
+        disabled_principles: Optional[set] = None,
     ):
         self.domain = domain
         self.config = config
@@ -56,12 +57,28 @@ class SOARHost:
         self.agents = agents or {}
         self.logger = logger
 
+        # Ablation switch -- only meaningful for the agenticcyops config.
+        # Layer call sites consult ``self._principle_active("Px")`` and
+        # short-circuit when the principle is disabled.  Stored uppercase
+        # so callers can pass either case.
+        self.disabled_principles: set = {p.upper() for p in (disabled_principles or set())}
+
         self.enforcer = ManifestEnforcer(domain=domain, logger=logger)
         self.handoff = PhaseHandoff(logger=logger)
 
-        # P1 + P2-L2 + P2-L3 + P3: only instantiated for agenticcyops config
-        if config == "agenticcyops":
+        # Layer instantiation
+        #   agenticcyops -> P1 identity + P2 manifest/params/output + P3 full
+        #                   verified-execution stack (which wraps consensus)
+        #   llm_judge    -> P1 identity only; the new elif branch in
+        #                   _process_tool_call calls `self.consensus`
+        #                   directly without P2/P3/P4/P5
+        #   flat / acl_hardened -> none of the above (no auth_interface)
+        if config in ("agenticcyops", "llm_judge"):
             self.auth_interface = AuthenticatedInterface(domain=domain, logger=logger)
+        else:
+            self.auth_interface = None
+
+        if config == "agenticcyops":
             self.param_validator = ParameterValidator(
                 domain=domain, embedding_model=embedding_model, logger=logger
             )
@@ -75,7 +92,6 @@ class SOARHost:
                 logger=logger,
             )
         else:
-            self.auth_interface = None
             self.param_validator = None
             self.output_classifier = None
             self.verified_execution = None
@@ -239,7 +255,8 @@ class SOARHost:
                                 f"{self.mma_url}/memory/read",
                                 json={"phase": phase, "store_id": mr["store"],
                                       "query": mr.get("query", ""), "n_results": 3,
-                                      "auth_token": _tok},
+                                      "auth_token": _tok,
+                                      "skip_p5": not self._principle_active("P5")},
                                 timeout=10)
 
                             # Parse specific P5 mechanism from MMA response when denied.
@@ -343,6 +360,16 @@ class SOARHost:
             return reason.split(":")[0] + "."
         return "Action denied."
 
+    def _principle_active(self, principle: str) -> bool:
+        """True iff ``principle`` (e.g. 'P3') is NOT in disabled_principles.
+
+        Only meaningful for the agenticcyops config; the flat / acl_hardened
+        branches never consult this helper.  Used by ablation studies to
+        disable specific principles at runtime via the harness's
+        ``--disable-principles`` CLI flag.
+        """
+        return principle.upper() not in self.disabled_principles
+
     async def _process_tool_call(self, phase: str, tc, context: dict) -> dict:
         """Process a tool call with config-appropriate enforcement.
 
@@ -372,8 +399,18 @@ class SOARHost:
                     )
                 return {"status": "denied", "tool_id": tool_id, "reason": f"403: {reason}"}
 
-        elif self.config == "agenticcyops":
-            # ── Step 1: P1-L1 — Component identity ──
+        elif self.config == "llm_judge":
+            # Ablation: P1-L1 identity verification, then route the
+            # proposal to the consensus-quorum LLM judge.  Skips
+            # P2/P3/P4/P5 entirely so we can isolate "what does an LLM
+            # panel-as-judge alone catch?" -- the standard reviewer
+            # ablation.  Mechanism strings emitted:
+            #     P1_authenticated_interface  (P1 fail)
+            #     P3_consensus_reject         (judges deny)
+            #     P3_consensus_unavailable    (every validator errored)
+            #     P3_consensus_error          (call itself raised)
+            #     llm_judge_approved          (judges allow -> falls
+            #                                  through to executor below)
             if self.auth_interface:
                 verified, reason = self.auth_interface.verify_component(tool_id, "tools")
                 if not verified:
@@ -387,22 +424,102 @@ class SOARHost:
                     return {"status": "denied", "tool_id": tool_id,
                             "reason": self._sanitize_reason(reason)}
 
+            if self.consensus is not None:
+                # Build the same proposal shape the agenticcyops P3 path
+                # constructs (lines 436-445).  Hoist arguments fields to
+                # the proposal root so validators that read action/target
+                # at top level work uniformly.
+                proposal = tc.to_proposal()
+                proposal["phase"] = phase
+                args = proposal.get("arguments", {})
+                for field in ("action", "target", "target_user", "target_hosts",
+                              "target_users", "account_id", "patient_id", "case_id"):
+                    if field in args and field not in proposal:
+                        proposal[field] = args[field]
+                p3_context = {**context, "current_phase": phase}
+
+                try:
+                    result = await self.consensus.validate_with_details(
+                        proposal, p3_context)
+                except Exception as exc:
+                    if self.logger:
+                        self.logger.log_tool_call(
+                            agent=f"{phase}_agent",
+                            tool=tool_id,
+                            auth_decision="allow",
+                            mechanism="P3_consensus_error",
+                            interception_step=6)
+                    # Fall through to execution -- benchmark records this
+                    # as an "allow" but with the error-mechanism marker
+                    # so analytics can filter these trials out.
+                else:
+                    votes = list(result.votes)
+                    all_error = bool(votes) and all(
+                        v.validator_id == "error" for v in votes)
+                    if not votes or all_error:
+                        if self.logger:
+                            self.logger.log_tool_call(
+                                agent=f"{phase}_agent",
+                                tool=tool_id,
+                                auth_decision="allow",
+                                mechanism="P3_consensus_unavailable",
+                                interception_step=6)
+                        # Same fall-through semantics as InjecAgent's
+                        # evaluate_with_consensus: don't silently mask
+                        # results when validators are down.
+                    elif not result.approved:
+                        if self.logger:
+                            self.logger.log_tool_call(
+                                agent=f"{phase}_agent",
+                                tool=tool_id,
+                                auth_decision="deny",
+                                mechanism="P3_consensus_reject",
+                                interception_step=6)
+                        return {"status": "denied", "tool_id": tool_id,
+                                "reason": (f"consensus rejected "
+                                            f"({result.rejections}/{len(votes)} "
+                                            f"reject, threshold {result.threshold})")}
+                    else:
+                        if self.logger:
+                            self.logger.log_tool_call(
+                                agent=f"{phase}_agent",
+                                tool=tool_id,
+                                auth_decision="allow",
+                                mechanism="llm_judge_approved",
+                                interception_step=6)
+
+        elif self.config == "agenticcyops":
+            # ── Step 1: P1-L1 — Component identity ──
+            if self.auth_interface and self._principle_active("P1"):
+                verified, reason = self.auth_interface.verify_component(tool_id, "tools")
+                if not verified:
+                    if self.logger:
+                        self.logger.log_tool_call(
+                            agent=f"{phase}_agent",
+                            tool=tool_id,
+                            auth_decision="deny",
+                            mechanism="P1_authenticated_interface",
+                            interception_step=1)
+                    return {"status": "denied", "tool_id": tool_id,
+                            "reason": self._sanitize_reason(reason)}
+
             # ── Step 2: P2-L1 — Manifest enforcement ──
-            allowed, reason = self.enforcer.validate_tool_call(phase, tool_id)
-            if not allowed:
-                if self.logger:
-                    self.logger.log_tool_call(
-                        agent=f"{phase}_agent",
-                        tool=tool_id,
-                        auth_decision="deny",
-                        mechanism="P2_capability_scoping",
-                        interception_step=2,
-                    )
-                return {"status": "denied", "tool_id": tool_id,
-                        "reason": self._sanitize_reason(reason)}
+            if self._principle_active("P2"):
+                allowed, reason = self.enforcer.validate_tool_call(phase, tool_id)
+                if not allowed:
+                    if self.logger:
+                        self.logger.log_tool_call(
+                            agent=f"{phase}_agent",
+                            tool=tool_id,
+                            auth_decision="deny",
+                            mechanism="P2_capability_scoping",
+                            interception_step=2,
+                        )
+                    return {"status": "denied", "tool_id": tool_id,
+                            "reason": self._sanitize_reason(reason)}
 
             # ── Step 3: P2-L2 — Parameter validation ──
-            if self.param_validator:
+            if self.param_validator and self._principle_active("P2"):
                 incident_evidence = json.dumps(
                     context.get("incident", {}), default=str
                 )
@@ -424,7 +541,8 @@ class SOARHost:
         # P3: Verified Execution — full multi-layer pipeline (agenticcyops only)
         # Fix #1: Force P3 for negative-impact tools regardless of requires_consensus
         _p3_approved_at = None  # Fix L7: reliable variable init (not dir())
-        if self.config == "agenticcyops" and self.verified_execution:
+        if (self.config == "agenticcyops" and self.verified_execution
+                and self._principle_active("P3")):
             needs_p3 = self.enforcer.requires_consensus(phase, tool_id)
             if not needs_p3 and hasattr(self.verified_execution, 'intent_chain'):
                 action = tc.arguments.get("action", "") if hasattr(tc, 'arguments') else ""
@@ -486,7 +604,8 @@ class SOARHost:
         # ── Post-execution checks (agenticcyops only) ──
         if self.config == "agenticcyops":
             # ── Step 6: P1-L2 — Response integrity ──
-            if self.auth_interface and isinstance(response, dict):
+            if (self.auth_interface and isinstance(response, dict)
+                    and self._principle_active("P1")):
                 resp_ok, resp_reason = self.auth_interface.validate_response(
                     tool_id, response, _latency
                 )
@@ -505,7 +624,8 @@ class SOARHost:
             # ── Step 6b: P3-L7 — Execution verification (Fix #3) ──
             # Compare approved proposal against what was actually executed
             # (same tc object — hash match verifies no TOCTOU modification)
-            if self.verified_execution and _p3_approved_at is not None:
+            if (self.verified_execution and _p3_approved_at is not None
+                    and self._principle_active("P3")):
                 _executed_proposal = tc.to_proposal()
                 _executed_proposal["phase"] = phase
                 for _f in ("action", "target", "target_user", "target_hosts",
@@ -529,7 +649,8 @@ class SOARHost:
                             "reason": "Execution verification failed."}
 
             # ── Step 7: P2-L3 — Output classification (Fix #8: actual redaction) ──
-            if self.output_classifier and isinstance(response, dict):
+            if (self.output_classifier and isinstance(response, dict)
+                    and self._principle_active("P2")):
                 safe, class_reason, class_details = self.output_classifier.classify(
                     tool_id, response, agent_phase=phase
                 )
@@ -590,6 +711,11 @@ class SOARHost:
                             "incident_evidence": context.get("incident", {}).get("description", ""),
                             "metadata": mw.get("metadata", {}),
                             "auth_token": auth_token,
+                            # Ablation switches -- MMA bypasses the
+                            # corresponding check when set.  Default
+                            # (full enforcement) when not in ablation.
+                            "skip_p4": not self._principle_active("P4"),
+                            "skip_p5": not self._principle_active("P5"),
                         },
                         timeout=10,
                     )

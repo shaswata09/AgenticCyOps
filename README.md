@@ -158,6 +158,35 @@ per-trial JSONL audit logs at `logs/<domain>_injecagent_e2e_<G>/<config>_<ts>.js
 matching the attack-path schema.  Two-tier headline PDF + CSVs via
 `python -m analysis.injecagent_e2e_analytics`.
 
+### Eval H (Agent Security Bench) -- SCAFFOLD
+
+Fourth third-party adversarial benchmark from
+[agiresearch/ASB](https://github.com/agiresearch/ASB)
+([arXiv 2410.02644](https://arxiv.org/abs/2410.02644), ICLR 2025) —
+4 attack families (Direct PI, Indirect PI, Memory Poisoning, PoT
+Backdoor) across 10 scenarios and 400+ tools.  MIT-licensed.
+
+ASB scenarios (e-commerce, autonomous driving, academic advising, …)
+don't naturally fit our four enterprise domains, so they run through
+a single new neutral domain — [`domains/general/`](domains/general/) —
+that exercises domain-invariant defense layers (P1 identity,
+P2-L2 semantic similarity, P4 memory integrity, P3-L6 consensus).
+Domain-tuned layers (P3-L0.5 operational context, P5 sensitive
+patterns) are intentionally not exercised; results are reported as a
+**lower-bound on full-stack performance**.
+
+PoT backdoor specifically: we measure post-deployment runtime defense
+against backdoor-triggered actions; we do **not** detect the
+training-time compromise itself.  See
+[benchmarks/asb/README.md](benchmarks/asb/README.md) for full
+details and the threat-model framing.
+
+```bash
+./benchmarks/asb/scripts/ingest_upstream.sh
+python -m benchmarks.asb.scripts.convert_cases
+python -m benchmarks.asb.run_static
+```
+
 **Not yet started:** Eval F (multi-domain attacks), ablation study, Group B.
 
 ---
@@ -562,18 +591,21 @@ agenticcyops-experiments/
 │   │       ├── ap8_variants.json           # Wrong account, wildcard freeze, excessive amount
 │   │       └── benign_workflows.json
 │   │
-│   └── legal/                        # Adapter: 13 tools, 8 memory stores
-│       ├── configs/
-│       ├── tools/                    # L1–L13 (Docket Search, Court Filing, Billing, etc.)
-│       ├── seed_data/
-│       ├── prompts/                 # Intake, Research, Filing, Client Reporting agents
-│       └── payloads/                # 5 APs × 5 variants + benign
-│           ├── ap1_variants.json           # Research → Court Filing
-│           ├── ap2_variants.json           # Poisoned case law → wrong analysis
-│           ├── ap4_variants.json           # Privileged comms in billing
-│           ├── ap7_variants.json           # Legal chains (file+pay, sign+file, bulk filings)
-│           ├── ap8_variants.json           # Wrong case, wildcard signing, excessive payment
-│           └── benign_workflows.json
+│   ├── legal/                        # Adapter: 13 tools, 8 memory stores
+│   │   ├── configs/
+│   │   ├── tools/                    # L1–L13 (Docket Search, Court Filing, Billing, etc.)
+│   │   ├── seed_data/
+│   │   ├── prompts/                 # Intake, Research, Filing, Client Reporting agents
+│   │   └── payloads/                # 5 APs × 5 variants + benign
+│   │       ├── ap1_variants.json           # Research → Court Filing
+│   │       ├── ap2_variants.json           # Poisoned case law → wrong analysis
+│   │       ├── ap4_variants.json           # Privileged comms in billing
+│   │       ├── ap7_variants.json           # Legal chains (file+pay, sign+file, bulk filings)
+│   │       ├── ap8_variants.json           # Wrong case, wildcard signing, excessive payment
+│   │       └── benign_workflows.json
+│   │
+│   └── general/                      # Neutral domain for third-party benchmarks (ASB, etc.)
+│       └── configs/                  # 17 minimal/empty configs; only PII patterns + access_policy active
 │
 ├── host/                             # SOAR Host orchestrator (DOMAIN-AGNOSTIC)
 │   ├── orchestrator.py               # LangGraph CoT + phase routing + 7-step enforcement pipeline
@@ -635,6 +667,20 @@ agenticcyops-experiments/
 │   │   ├── run_baseline.py
 │   │   ├── run_defended.py
 │   │   └── compare.py
+│   ├── injecagent/                   # InjecAgent IPI benchmark (Eval G)
+│   │   ├── data/                     # vendored upstream cases (MIT)
+│   │   ├── harness/                  # IA_* tool overlay + trial driver
+│   │   ├── representative_cases.json # 50-case stratified subset
+│   │   ├── run_static.py             # symbolic-only sweep
+│   │   └── run_e2e.py                # live-LLM sweep (P1-P5 + P3-L6)
+│   ├── asb/                          # Agent Security Bench (Eval H)
+│   │   ├── data/                     # vendored upstream snapshot (MIT)
+│   │   ├── harness/                  # ASB_* tool overlay
+│   │   ├── scripts/
+│   │   │   ├── ingest_upstream.sh    # clones agiresearch/ASB at pinned commit
+│   │   │   └── convert_cases.py      # YAML matrices -> per-case JSON
+│   │   ├── run_static.py             # symbolic sweep (DPI/IPI/MP/PoT × general domain)
+│   │   └── README.md                 # threat-model framing + run flow
 │   └── boundary/                     # Trust boundary analysis (all domains)
 │       ├── classify_boundaries.py
 │       ├── boundary_weights.csv      # CyberOps (200 boundaries)
@@ -642,15 +688,11 @@ agenticcyops-experiments/
 │       ├── stress_test.py
 │       └── sensitivity.py
 │
-├── ablation/
-│   ├── run_ablation.py               # --domain flag for cross-domain spot checks
-│   ├── validator_diversity.py
-│   └── configs/
-│       ├── no_p1.yaml
-│       ├── no_p2.yaml
-│       ├── no_p3.yaml
-│       ├── no_p4.yaml
-│       └── no_p5.yaml
+├── docs/
+│   ├── ablations.md                  # Ablation run-command catalogue
+│   │                                 # (single-principle, leave-one-out,
+│   │                                 # threshold sweep, panel-size sweep)
+│   └── engineering_challenges.md
 │
 ├── analysis/
 │   ├── __init__.py
@@ -667,15 +709,14 @@ agenticcyops-experiments/
 │
 ├── logs/                             # (gitignored)
 │   ├── vllm/
-│   ├── cyberops_eval_attacks_<group>/
+│   ├── cyberops_eval_attacks_<group>[_disabled_<set>]/    # ablations get _disabled_ suffix
 │   ├── healthcare_eval_attacks_<group>/
 │   ├── finance_eval_attacks_<group>/
 │   ├── legal_eval_attacks_<group>/
+│   ├── cyberops_injecagent_e2e_<group>/                   # InjecAgent live e2e
 │   ├── eval_b/
 │   ├── eval_c/
-│   ├── eval_d/
-│   ├── ablation/
-│   └── validator_diversity/
+│   └── eval_d/
 │
 ├── results/                          # (gitignored)
 │   ├── baseline/                    # Baseline verification results
@@ -1012,20 +1053,47 @@ python run_defended.py      # AgenticCyOps + Qwen3
 python compare.py
 ```
 
-### Ablation + Cross-Domain Spot Check
+### Ablation studies
+
+Implemented as a runtime `--disable-principles` flag on
+`attacks.harness` plus consensus-sweep profiles in
+[configs/validators.yaml](configs/validators.yaml).  Full run-command
+catalogue in [docs/ablations.md](docs/ablations.md).
 
 ```bash
-# CyberOps ablation
-python -m ablation.run_ablation --domain cyberops --all --trials 30
+# Leave-one-out per principle (5 runs)
+for p in P1 P2 P3 P4 P5; do
+  DISABLE_PRINCIPLES=$p ./scripts/run_attack_paths.sh A cyberops all agenticcyops 6
+done
 
-# Finance cross-domain spot check (P2 ablation)
-python -m ablation.run_ablation --domain finance --principle P2 --ap ap1 --trials 30
+# Single-principle isolation (5 runs) -- e.g. P3-only:
+DISABLE_PRINCIPLES=P1,P2,P4,P5 \
+  ./scripts/run_attack_paths.sh A cyberops all agenticcyops 6
+
+# Consensus threshold sweep (4 runs) -- harness-direct:
+for n in 1 2 3 4; do
+  python -m attacks.harness --domain cyberops --eval A --config agenticcyops \
+    --group A --consensus-config "threshold_sweep_${n}of4" --trials 6
+done
+
+# Consensus panel-size sweep (3 runs; 4 = production)
+for profile in panel_1_qwen panel_2_qwen_claude panel_3_qwen_claude_gpt4o; do
+  python -m attacks.harness --domain cyberops --eval A --config agenticcyops \
+    --group A --consensus-config "$profile" --trials 6
+done
 ```
 
-### Validator Diversity
+Outputs land under `results/eval_attacks/group_A_disabled_<set>/cyberops/`
+for principle ablations; logs at
+`logs/cyberops_eval_attacks_A_disabled_<set>/`.
+
+### LLM-Judge baseline
+
+Standalone fourth config (`llm_judge`) — P1 identity check + consensus
+quorum, no P2/P3/P4/P5.  Reviewer-asked ablation row.
 
 ```bash
-python -m ablation.validator_diversity --trials 30
+./scripts/run_attack_paths.sh A cyberops all llm_judge 6
 ```
 
 ### GLM-4.7 Diversity Check
@@ -1059,11 +1127,14 @@ for domain in healthcare finance legal; do
 done
 # TAMAS
 cd benchmarks/tamas && python run_baseline.py && python run_defended.py && python compare.py && cd ../..
-# Ablation
-python -m ablation.run_ablation --domain cyberops --all --trials 30
-python -m ablation.run_ablation --domain finance --principle P2 --ap ap1 --trials 30
-# Validator diversity
-python -m ablation.validator_diversity --trials 30
+# Ablation (see docs/ablations.md for the full catalogue)
+for p in P1 P2 P3 P4 P5; do
+  DISABLE_PRINCIPLES=$p ./scripts/run_attack_paths.sh A cyberops all agenticcyops 6
+done
+for n in 1 2 3 4; do
+  python -m attacks.harness --domain cyberops --eval A --config agenticcyops \
+    --group A --consensus-config "threshold_sweep_${n}of4" --trials 6
+done
 # Memory poisoning
 python -m attacks.harness --domain cyberops --eval C --poison-rates 0.05 0.10 0.20 --trials 10
 ```

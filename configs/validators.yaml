@@ -81,3 +81,35 @@ all_with_gpt4o:
 full_diversity:
   validators: ["V1_qwen", "V2_deepseek", "V3_llama", "V5_mistral", "V6_gpt4o"]
   threshold: 4
+
+# ---- Ablation: consensus threshold sweep -----------------------------
+# Same 4 validators as default_consensus; vary the approval threshold to
+# measure sensitivity vs. false-rejection.  Used by the threshold-sweep
+# ablation table in the paper.
+threshold_sweep_1of4:
+  validators: ["V1_qwen", "V2_deepseek", "V6_gpt4o", "V4_claude"]
+  threshold: 1
+threshold_sweep_2of4:
+  validators: ["V1_qwen", "V2_deepseek", "V6_gpt4o", "V4_claude"]
+  threshold: 2
+threshold_sweep_3of4:   # alias of default_consensus; explicit for table
+  validators: ["V1_qwen", "V2_deepseek", "V6_gpt4o", "V4_claude"]
+  threshold: 3
+threshold_sweep_4of4:
+  validators: ["V1_qwen", "V2_deepseek", "V6_gpt4o", "V4_claude"]
+  threshold: 4
+
+# ---- Ablation: panel size sweep --------------------------------------
+# Vary the number of validators with threshold = ceil(N/2)+1 (strict
+# majority) so the rejection logic is comparable across panel sizes.
+panel_1_qwen:
+  validators: ["V1_qwen"]
+  threshold: 1
+panel_2_qwen_claude:
+  validators: ["V1_qwen", "V4_claude"]
+  threshold: 2          # unanimous (smallest panel that has any consensus)
+panel_3_qwen_claude_gpt4o:
+  validators: ["V1_qwen", "V4_claude", "V6_gpt4o"]
+  threshold: 2
+# panel_4 == default_consensus (validators+threshold identical), kept
+# implicit so existing runs and the panel sweep share the same row.

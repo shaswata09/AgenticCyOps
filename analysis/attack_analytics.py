@@ -45,9 +45,13 @@ plt.rcParams.update({
     "axes.titlesize": 13,
 })
 
-CONFIGS = ["flat", "acl_hardened", "agenticcyops"]
-CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened", "agenticcyops": "AgenticCyOps"}
-CONFIG_COLORS = {"flat": "#e74c3c", "acl_hardened": "#f39c12", "agenticcyops": "#2ecc71"}
+CONFIGS = ["flat", "acl_hardened", "llm_judge", "agenticcyops"]
+CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened",
+                 "llm_judge": "LLM Judge (P1+consensus)",
+                 "agenticcyops": "AgenticCyOps"}
+CONFIG_COLORS = {"flat": "#e74c3c", "acl_hardened": "#f39c12",
+                 "llm_judge": "#9b59b6",
+                 "agenticcyops": "#2ecc71"}
 
 HEADER_COLOR = "#2c3e50"
 ACCENT = "#2980b9"

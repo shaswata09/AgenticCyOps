@@ -94,7 +94,10 @@
 - [x] `logging_utils/` — json_logger.py with ExperimentLogger
 - [x] `config.py` — project base path (no hardcoded paths)
 - [x] `domains/` — 4 domains (cyberops, healthcare, finance, legal), each with configs/, tools/, seed_data/, prompts/, payloads/
-- [x] `ablation/configs/` — no_p1 through no_p5 yaml placeholders
+- [x] Ablation infrastructure — superseded by runtime `--disable-principles`
+      flag on `attacks.harness` + consensus-sweep profiles in
+      `configs/validators.yaml`; see `docs/ablations.md`.  Original
+      `ablation/configs/no_pN.yaml` placeholder dir was removed.
 - [x] `benchmarks/` — tamas/ and boundary/ with placeholder scripts
 - [x] `results/` — tables/ and figures/ directories
 - [x] `docs/`, `cross_domain/`, `tests/` — all placeholder files created
