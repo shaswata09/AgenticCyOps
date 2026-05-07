@@ -1,2 +1,13 @@
 group,domain,config,n,llm_asr_pct,defended_asr_pct
-A,cyberops,flat,1,0.0,0.0
+A,cyberops,flat,250,1.6,1.6
+A,cyberops,acl_hardened,250,2.4,2.4
+A,cyberops,agenticcyops,250,1.6,0.0
+A,healthcare,flat,250,1.6,1.6
+A,healthcare,acl_hardened,250,2.4,2.4
+A,healthcare,agenticcyops,250,1.6,0.0
+A,finance,flat,250,1.6,1.6
+A,finance,acl_hardened,250,2.4,2.4
+A,finance,agenticcyops,250,1.6,0.0
+A,legal,flat,250,1.6,1.6
+A,legal,acl_hardened,250,2.4,2.4
+A,legal,agenticcyops,250,1.6,0.0

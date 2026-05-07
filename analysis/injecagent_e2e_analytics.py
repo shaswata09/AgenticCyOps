@@ -431,30 +431,14 @@ def page_methodology(pdf):
 # --------------------------------------------------------------------- #
 
 
-def generate(root: Path, out_dir: Path) -> None:
-    runs = discover_runs(root)
-    if not runs:
-        raise SystemExit(
-            f"No e2e_*_validator_group_*/ directories found under {root}.\n"
-            "Run ./scripts/run_injecagent_e2e.sh <GROUP> first.")
-
-    print(f"Found {len(runs)} e2e run directories:")
-    for r in runs:
-        print(f"  group={r['group']}  path={r['path'].name}")
-
-    frames = [load_run_rows(r) for r in runs]
-    frames = [f for f in frames if not f.empty]
-    if not frames:
-        raise SystemExit("Every run directory was empty -- nothing to analyze.")
-    live = pd.concat(frames, ignore_index=True)
-
-    static_sym = load_static_symbolic(root)
+def _write_artifacts(live: pd.DataFrame,
+                     static_sym: Optional[pd.DataFrame],
+                     toolkit_lookup: dict,
+                     out_dir: Path) -> None:
+    """Write the PDF + 3 CSVs from a (possibly per-group) live DataFrame."""
     tier_tbl = two_tier_table(static_sym, live)
-    toolkit_lookup = load_toolkit_lookup()
-
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # CSVs first so the PDF run has them to cross-reference
     live.to_csv(out_dir / "injecagent_e2e_combined.csv", index=False)
     tier_tbl.to_csv(out_dir / "injecagent_e2e_two_tier_asr.csv",
                      index=False, float_format="%.3f")
@@ -484,23 +468,81 @@ def generate(root: Path, out_dir: Path) -> None:
         page_hygiene(pdf, live)
         page_methodology(pdf)
 
-    print(f"\nwrote {pdf_path}")
-    print(f"wrote {out_dir / 'injecagent_e2e_two_tier_asr.csv'}")
-    print(f"wrote {out_dir / 'injecagent_e2e_combined.csv'}")
+    print(f"  wrote {pdf_path}")
+    print(f"  wrote {out_dir / 'injecagent_e2e_two_tier_asr.csv'}")
+    print(f"  wrote {out_dir / 'injecagent_e2e_combined.csv'}")
     if toolkit_csv_path:
-        print(f"wrote {toolkit_csv_path}")
+        print(f"  wrote {toolkit_csv_path}")
+
+
+def generate(root: Path,
+              groups: Optional[list[str]] = None,
+              cross_group_out_dir: Optional[Path] = None) -> None:
+    """Per-group analytics by default.  Each group's PDF + CSVs land
+    inside that group's run directory at
+    ``e2e_validator_group_<G>/e2e_analytics/``.
+
+    If ``cross_group_out_dir`` is provided, also emit a combined
+    cross-group report (every run pooled) into that path -- useful
+    once multiple groups have run.
+
+    ``groups`` filters the run set to a subset (e.g. ``["A"]``).
+    """
+    runs = discover_runs(root)
+    if groups:
+        wanted = {g.upper() for g in groups}
+        runs = [r for r in runs if r["group"].upper() in wanted]
+    if not runs:
+        raise SystemExit(
+            f"No matching e2e_*_validator_group_*/ directories under {root}.\n"
+            "Run ./scripts/run_injecagent_e2e.sh <GROUP> first.")
+
+    print(f"Found {len(runs)} e2e run director{'y' if len(runs)==1 else 'ies'}:")
+    for r in runs:
+        print(f"  group={r['group']}  path={r['path'].name}")
+
+    static_sym = load_static_symbolic(root)
+    toolkit_lookup = load_toolkit_lookup()
+
+    # --- Per-group artifacts (always emitted) -------------------------
+    per_group_frames: list[pd.DataFrame] = []
+    for r in runs:
+        df = load_run_rows(r)
+        if df.empty:
+            print(f"\n[skip] group={r['group']}  empty run directory")
+            continue
+        out_dir = r["path"] / "e2e_analytics"
+        print(f"\n[group {r['group']}] -> {out_dir}")
+        _write_artifacts(df, static_sym, toolkit_lookup, out_dir)
+        per_group_frames.append(df)
+
+    # --- Optional cross-group rollup ----------------------------------
+    if cross_group_out_dir is not None and per_group_frames:
+        live_all = pd.concat(per_group_frames, ignore_index=True)
+        print(f"\n[cross-group rollup] -> {cross_group_out_dir}")
+        _write_artifacts(live_all, static_sym, toolkit_lookup,
+                          cross_group_out_dir)
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        description="Per-group InjecAgent E2E analytics. "
+                    "Each group's PDF+CSVs land in its own run directory.")
     ap.add_argument("--results-root",
                     default="/storage/data/AgenticCyOps_Private/results/injecagent")
-    ap.add_argument("--out-dir", default=None,
-                    help="Default: <results-root>/e2e_analytics/")
+    ap.add_argument("--groups", default="",
+                    help="Comma-separated subset to process, e.g. 'A,C'. "
+                         "Default: every group with results on disk.")
+    ap.add_argument("--cross-group-out-dir", type=Path, default=None,
+                    help="If set, also emit a combined cross-group report "
+                         "to this directory (in addition to the per-group "
+                         "artifacts).")
     args = ap.parse_args()
+
     root = Path(args.results_root)
-    out_dir = Path(args.out_dir) if args.out_dir else root / "e2e_analytics"
-    generate(root, out_dir)
+    groups = [g.strip() for g in args.groups.split(",") if g.strip()] or None
+    generate(root, groups=groups,
+              cross_group_out_dir=args.cross_group_out_dir)
 
 
 if __name__ == "__main__":

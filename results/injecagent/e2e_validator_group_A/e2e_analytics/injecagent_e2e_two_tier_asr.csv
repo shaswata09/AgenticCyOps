@@ -1,0 +1,4 @@
+config,tier1_symbolic,tier2_live_llm_asr,tier2_live_defended
+flat,100.000,1.600,1.600
+acl_hardened,100.000,2.400,2.400
+agenticcyops,13.619,1.600,0.000
