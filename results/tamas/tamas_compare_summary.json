@@ -7,13 +7,13 @@
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 0,
       "mcnemar": null
@@ -25,20 +25,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -48,20 +48,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -71,20 +71,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -94,20 +94,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -117,20 +117,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -140,20 +140,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -163,13 +163,13 @@
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 0,
       "mcnemar": null
@@ -181,20 +181,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -204,20 +204,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -227,13 +227,13 @@
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 0,
       "mcnemar": null
@@ -245,20 +245,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -268,20 +268,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -291,20 +291,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -314,20 +314,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
-        "asr": 0.05,
+        "asr": 0.2,
         "tsr": 1,
-        "ers": 0.95,
-        "n": 20
+        "ers": 0.8,
+        "n": 5
       },
-      "asr_reduction": 0.95,
+      "asr_reduction": 0.8,
       "mcnemar": {
-        "b": 19,
+        "b": 4,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 3.814697265625e-06
+        "n_pairs": 5,
+        "p_value": 0.125
       }
     },
     {
@@ -337,20 +337,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -360,20 +360,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -383,13 +383,13 @@
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 0,
       "mcnemar": null
@@ -401,20 +401,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
-        "asr": 0.05,
+        "asr": 0.2,
         "tsr": 1,
-        "ers": 0.95,
-        "n": 20
+        "ers": 0.8,
+        "n": 5
       },
-      "asr_reduction": 0.95,
+      "asr_reduction": 0.8,
       "mcnemar": {
-        "b": 19,
+        "b": 4,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 3.814697265625e-06
+        "n_pairs": 5,
+        "p_value": 0.125
       }
     },
     {
@@ -424,20 +424,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -447,13 +447,13 @@
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 0,
       "mcnemar": null
@@ -465,20 +465,20 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     },
     {
@@ -488,19 +488,19 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
-        "asr": 0.95,
+        "asr": 1,
         "tsr": 1,
-        "ers": 0.050000000000000044,
-        "n": 20
+        "ers": 0.0,
+        "n": 5
       },
-      "asr_reduction": 0.050000000000000044,
+      "asr_reduction": 0,
       "mcnemar": {
-        "b": 1,
+        "b": 0,
         "c": 0,
-        "n_pairs": 20,
+        "n_pairs": 5,
         "p_value": 1.0
       }
     },
@@ -511,31 +511,31 @@
         "asr": 1,
         "tsr": 1,
         "ers": 0.0,
-        "n": 20
+        "n": 5
       },
       "defended": {
         "asr": 0,
         "tsr": 1,
         "ers": 1.0,
-        "n": 20
+        "n": 5
       },
       "asr_reduction": 1,
       "mcnemar": {
-        "b": 20,
+        "b": 5,
         "c": 0,
-        "n_pairs": 20,
-        "p_value": 1.9073486328125e-06
+        "n_pairs": 5,
+        "p_value": 0.0625
       }
     }
   ],
   "aggregate": {
     "n_cells": 19,
     "mean_baseline_asr": 1,
-    "mean_defended_asr": 0.0553,
-    "mean_asr_reduction": 0.9447,
+    "mean_defended_asr": 0.0737,
+    "mean_asr_reduction": 0.9263,
     "mean_baseline_tsr": 1,
     "mean_defended_tsr": 1,
     "mean_baseline_ers": 0.0,
-    "mean_defended_ers": 0.9447
+    "mean_defended_ers": 0.9263
   }
 }
