@@ -33,7 +33,7 @@ MMA_PORT=9100
 PIDS=()
 
 ALL_DOMAINS=("cyberops" "healthcare" "finance" "legal")
-ALL_CONFIGS=("flat" "acl_hardened" "agenticcyops" "llm_judge")
+ALL_CONFIGS=("flat" "acl_hardened" "agenticcyops")
 
 # ---- Group definitions ----
 declare -A GP_PRIMARY GP_PROVIDER GP_PORTS GP_CONSENSUS GP_DESC
@@ -136,16 +136,16 @@ if [ -z "$1" ]; then
         esac
     done
 
-    # Configs
+    # Configs (production trio only -- ablations live in scripts/run_ablations.sh)
     echo ""
-    echo "  Configs: 1) flat  2) acl_hardened  3) agenticcyops  4) llm_judge  5) all"
-    read -p "  Select (e.g. 3, or 5 for all): " cfg_choices
+    echo "  Configs: 1) flat  2) acl_hardened  3) agenticcyops  4) all"
+    read -p "  Select (e.g. 3, or 4 for all): " cfg_choices
     SELECTED_CONFIGS=()
     for c in $cfg_choices; do
         case "$c" in
             1) SELECTED_CONFIGS+=("flat") ;; 2) SELECTED_CONFIGS+=("acl_hardened") ;;
-            3) SELECTED_CONFIGS+=("agenticcyops") ;; 4) SELECTED_CONFIGS+=("llm_judge") ;;
-            5) SELECTED_CONFIGS=("${ALL_CONFIGS[@]}"); break ;;
+            3) SELECTED_CONFIGS+=("agenticcyops") ;;
+            4) SELECTED_CONFIGS=("${ALL_CONFIGS[@]}"); break ;;
         esac
     done
     [ ${#SELECTED_CONFIGS[@]} -eq 0 ] && echo "  No configs." && exit 0
