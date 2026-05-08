@@ -529,7 +529,7 @@ Four iterative red team passes against the integrated system. All findings fixed
 **Interactive analysis notebooks (stored in `results/notebooks/`):**
 - [x] `results/notebooks/01_baseline_findings.ipynb` — 34 cells (12 markdown + 22 code, ~2.0 MB) with 16 embedded charts. Covers all 6 groups (A-F). Sections: Setup & Data Loading (full 72-row config×domain×group preview), Config Comparison Overview, Domain-specific FP rate per group, Principle Activity Across Configs, Attack Surface Reduction (3-config donut comparison: Flat/ACL/AgenticCyOps), False Positive Analysis, **Token Consumption per Configuration×Domain×Group (shows ~35% token reduction in AgenticCyOps vs Flat/ACL)**, Latency & Token Overhead, Cross-Domain Consistency, Cross-Group Validator Diversity, Key Findings Summary. Validator configs correctly reflect the actual Qwen3-235B / Claude / Mistral / DeepSeek / Llama / GPT-4o stack (no Gemini references).
 - [x] `results/notebooks/02_attack_findings.ipynb` — 33 cells (11 markdown + 22 code, ~2.0 MB) with 13 embedded charts. Covers all 5 ran groups (A, C, D, E, F). Sections: Setup, **Overall ASR Comparison (HERO chart aggregated across 5 groups with min-max error bars)**, Executive Summary table (15 group×config columns), AgenticCyOps Defense Breakdown (5 per-group panels showing principle blocking distribution), Per-AP Deep Dive (small multiples 5×3 per AP, 5 group bars per config), Variant Effectiveness Analysis (per-group heatmap + top-5 variants per group), Cross-Group Validator Diversity Impact, Flat vs ACL vs AgenticCyOps Progression, Attack Vector Coverage, Key Findings & Paper Claims, Statistical Significance. Group D divergences (AP-8/11/12/13/14) visible throughout.
-- [x] `results/notebooks/03_tamas_findings.ipynb` — 19 cells (8 markdown + 11 code, ~850 KB) with 8 embedded charts. TAMAS benchmark validation (Eval D). Sections: Setup & Data Loading (loads `results/tamas/` + `results/tamas/real_logs/` artifacts), **Simulated TAMAS Aggregate** (ASR/TSR/ERS bars + residual-ASR heatmap per attack×scenario), **Per-Attack-Type Breakdown** (baseline vs defended per category + defense-mechanism attribution stacked), **Real TAMAS Score from Live-LLM Logs** (per-config ERS, per-TAMAS-category ASR across 3 configs, per-group AgenticCyOps ERS), **McNemar Significance Table** (19 cells colored by p-value), **AP→TAMAS Mapping** (15 APs to 6 categories + coverage chart), Key Findings. Shows both simulated 94.47% ERS and real-logs 83.68% ERS.
+- [x] `results/notebooks/03_tamas_findings.ipynb` — 19 cells (8 markdown + 11 code, ~850 KB) with 8 embedded charts. TAMAS benchmark validation (Eval D). Sections: Setup & Data Loading (loads `results/tamas/` simulated artifacts + `results/tamas/group_<G>/` per-group real-logs analytics), **Simulated TAMAS Aggregate** (ASR/TSR/ERS bars + residual-ASR heatmap per attack×scenario), **Per-Attack-Type Breakdown** (baseline vs defended per category + defense-mechanism attribution stacked), **Real TAMAS Score from Live-LLM Logs** (per-config ERS, per-TAMAS-category ASR across 3 configs, per-group AgenticCyOps ERS), **McNemar Significance Table** (19 cells colored by p-value), **AP→TAMAS Mapping** (15 APs to 6 categories + coverage chart), Key Findings. Shows both simulated 94.47% ERS and real-logs 83.68% ERS.
 - All three notebooks executed successfully end-to-end with all charts rendered inline (no external file dependencies). 100% real data from `results/baseline/`, `results/eval_attacks/`, and `results/tamas/` logs — zero mock/synthetic values. Open via `jupyter lab results/notebooks/` or in VSCode for interactive exploration and paper figure generation.
 
 **Pending:**
@@ -666,7 +666,7 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
 - [x] `results/tamas/tamas_defense_attribution.csv` (per-mechanism block counts)
 - [x] `results/tamas/tamas_compare_summary.{json,csv,md}` (per-cell ASR/TSR/ERS + McNemar)
 
-**Real TAMAS score from live-LLM AgenticCyOps logs (`results/tamas/real_logs/`):**
+**Real TAMAS score from live-LLM AgenticCyOps logs (`results/tamas/group_<G>/`, e.g. `group_A/` for Group A; previously `results/tamas/real_logs/`):**
 
 - [x] `analysis/tamas_from_logs.py` -- maps AP-1..AP-15 → 6 TAMAS categories
 - [x] Across 5 groups (A, C, D, E, F):
@@ -679,7 +679,7 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
 
 - [x] Per-TAMAS-category ASR under AgenticCyOps: Tool Misuse 1.55%, Data Exfil 0%, Direct PI 11.67%, Indirect PI 6.45%, Byzantine 6.26%, Persuasive 72.00% (weak spot = AP-11)
 - [x] Per-group AgenticCyOps ERS: A=84.75%, C=85.00%, **D=73.10%**, E=85.44%, F=90.12%
-- [x] 9-page PDF at `results/tamas/real_logs/tamas_from_logs.pdf`
+- [x] 9-page PDF at `results/tamas/group_<G>/tamas_from_logs.pdf` per validator group
 
 **Narrative for paper R3:** "same P1-P5 wrappers applied to generic TAMAS agents -- zero domain-specific modification. AgenticCyOps scores 94.47 ERS in the simulated upper-bound run and 83.68 ERS in the real-logs projection across 5 validator groups, vs 41.11 ERS for the vanilla Flat MAS baseline."
 

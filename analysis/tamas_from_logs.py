@@ -17,7 +17,8 @@ Usage::
 
     python -m analysis.tamas_from_logs                # all groups, cyberops
     python -m analysis.tamas_from_logs --groups A,C,E,F --domain cyberops
-    python -m analysis.tamas_from_logs --out-dir results/tamas/real_logs
+    python -m analysis.tamas_from_logs --groups A           # -> results/tamas/group_A/
+    python -m analysis.tamas_from_logs --groups A,C,E,F     # -> results/tamas/group_A_C_E_F/
 """
 
 from __future__ import annotations
@@ -750,11 +751,17 @@ def main() -> None:
     ap.add_argument("--groups", type=str, default="A,C,E,F",
                     help="comma-separated group IDs")
     ap.add_argument("--domain", type=str, default="cyberops")
-    ap.add_argument("--out-dir", type=Path,
-                    default=BASE_DIR / "results" / "tamas" / "real_logs")
+    ap.add_argument("--out-dir", type=Path, default=None,
+                    help="Default: results/tamas/group_<G>/ for one group, "
+                         "or results/tamas/group_<sorted_concat>/ for many. "
+                         "(Override to write to a custom path.)")
     args = ap.parse_args()
-    groups = [g.strip().upper() for g in args.groups.split(",") if g.strip()]
-    generate(groups, args.domain, args.out_dir)
+    groups = sorted({g.strip().upper() for g in args.groups.split(",") if g.strip()})
+    out_dir = args.out_dir
+    if out_dir is None:
+        suffix = groups[0] if len(groups) == 1 else "_".join(groups)
+        out_dir = BASE_DIR / "results" / "tamas" / f"group_{suffix}"
+    generate(groups, args.domain, out_dir)
 
 
 if __name__ == "__main__":

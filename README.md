@@ -118,7 +118,7 @@ Per-TAMAS-category ASR under AgenticCyOps: Tool Misuse 1.66%, Data Exfiltration 
 
 Per-group ERS: A=84.75%, C=85.00%, D=73.10%, E=85.44%, F=90.12%.
 
-Artifacts: `results/tamas/tamas_findings.pdf` (simulated, 9 pages), `results/tamas/real_logs/tamas_from_logs.pdf` (real-logs, 9 pages), `analysis/tamas_analytics.py`, `analysis/tamas_from_logs.py`.
+Artifacts: `results/tamas/tamas_findings.pdf` (simulated, group-agnostic, 9 pages), `results/tamas/group_<G>/tamas_from_logs.pdf` (real-logs per validator group; e.g. `group_A/` for Group A, 9 pages), `analysis/tamas_analytics.py`, `analysis/tamas_from_logs.py`.
 
 ### Eval G (InjecAgent Benchmark) -- STATIC
 

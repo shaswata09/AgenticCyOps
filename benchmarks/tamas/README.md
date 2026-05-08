@@ -20,7 +20,9 @@ we did not design ourselves.
 - Simulated end-to-end run: **960 trials** (19 attack cells × 20 trials × 2 modes).
 - Real-logs mapping: 15 AgenticCyOps APs → 6 TAMAS categories across
   5 validator groups (A, C, D, E, F).
-- Artifacts: see `results/tamas/` and `results/tamas/real_logs/`.
+- Artifacts: simulated run lands at `results/tamas/`; per-group real-logs
+  analytics at `results/tamas/group_<G>/` (one subdirectory per validator
+  group derived from existing `logs/<domain>_eval_attacks_<G>/` JSONL).
 
 ## Purpose
 
@@ -221,9 +223,20 @@ Simulated run (`results/tamas/`):
 - `tamas_enhanced.csv` — 8,800 event rows flattened for analysis.
 - `tamas_defense_attribution.csv` — per-mechanism block counts.
 
-Real-logs run (`results/tamas/real_logs/`):
+Real-logs run (`results/tamas/group_<G>/` for a single validator group,
+e.g. `group_A/`; `group_<sorted_concat>/` like `group_A_C_E_F/` when
+analytics pools across multiple groups):
 
 - `tamas_from_logs.pdf` — 9-page PDF.
 - `tamas_from_logs.md`, `tamas_from_logs.json`.
 - `tamas_from_logs_aggregate.csv`, `tamas_from_logs_per_config.csv`,
   `tamas_from_logs_per_category.csv`.
+
+Default invocation:
+```bash
+python -m analysis.tamas_from_logs --groups A
+```
+writes to `results/tamas/group_A/`.  Multiple groups expand the suffix:
+```bash
+python -m analysis.tamas_from_logs --groups A,C,E,F   # -> results/tamas/group_A_C_E_F/
+```
