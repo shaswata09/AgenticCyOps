@@ -112,8 +112,17 @@ def load_run_rows(run: dict) -> pd.DataFrame:
 
 
 def load_static_symbolic(root: Path) -> Optional[pd.DataFrame]:
-    p = root / "static" / "injecagent_static_results.csv"
-    if not p.exists():
+    """Find the Tier-1 symbolic CSV produced by the benchmark's
+    ``run_static.py``.  InjecAgent writes
+    ``static/injecagent_static_results.csv``; ASB writes
+    ``asb_static_results.csv`` directly under the results-root."""
+    candidates = [
+        root / "static" / "injecagent_static_results.csv",
+        root / "asb_static_results.csv",
+        root / "static" / "asb_static_results.csv",
+    ]
+    p = next((c for c in candidates if c.exists()), None)
+    if p is None:
         return None
     df = pd.read_csv(p)
     df["attack_succeeded"] = df["allowed"].astype(bool).astype(int)

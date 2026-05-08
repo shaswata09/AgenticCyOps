@@ -77,7 +77,7 @@ ATTACK_FILES = {
     "DPI": "dpi.json",
     "IPI": "ipi.json",
     "MP":  "mp.json",
-    "PoT": "pot.json",
+    "POT": "pot.json",        # canonical key (uppercase, matches run_e2e.py)
 }
 DEFAULT_ATTACKS = list(ATTACK_FILES)
 DEFAULT_CONFIGS = ["flat", "acl_hardened", "agenticcyops"]

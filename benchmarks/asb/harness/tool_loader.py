@@ -29,7 +29,7 @@ import json
 import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 TOOLS_PATH = DATA_DIR / "tools.json"
@@ -115,17 +115,34 @@ def resolve_case_tools(case: dict) -> dict[str, Any]:
     reg = load_asb_tools()
     o2a = reg["original_name_to_asb_name"]
 
+    # Cases store tool names in bare form (e.g. "FinancialAnalysis" /
+    # "ResourceAllocationHijack") but the registry is keyed by
+    # ``<scenario>_<tool>`` to keep namespacing per-agent.  Build the
+    # composite key for the lookup; fall through to the bare name as a
+    # fallback for cases that already carry the prefixed form.
+    scenario = case.get("scenario", "")
     user_orig = case.get("User Tool", "")
     attacker_origs = case.get("Attacker Tools", []) or []
 
+    def _resolve(name: str) -> Optional[str]:
+        if not name:
+            return None
+        if name in o2a:
+            return o2a[name]
+        if scenario:
+            keyed = f"{scenario}_{name}"
+            if keyed in o2a:
+                return o2a[keyed]
+        return None
+
     missing: list[str] = []
-    user_resolved = o2a.get(user_orig)
+    user_resolved = _resolve(user_orig)
     if user_orig and not user_resolved:
         missing.append(user_orig)
 
     attacker_resolved: list[str] = []
     for orig in attacker_origs:
-        a = o2a.get(orig)
+        a = _resolve(orig)
         if a:
             attacker_resolved.append(a)
         else:
