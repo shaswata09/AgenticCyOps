@@ -528,8 +528,11 @@ def _page_methodology(
     ax.axis("off")
     ax.text(0.06, 0.95, "Methodology", fontsize=16, weight="bold", color="#2980b9")
 
-    n_groups = len(meta_by_group)
-    groups = sorted(meta_by_group.keys())
+    # meta_by_group keys are "<group>/<domain>" pairs after the
+    # multi-domain refactor; surface the distinct groups + domains.
+    groups = sorted({k.split("/")[0] for k in meta_by_group.keys()})
+    domains = sorted({k.split("/")[1] for k in meta_by_group.keys() if "/" in k})
+    n_cells = len(meta_by_group)
     if not per_config_all.empty:
         trials_total = int(per_config_all["tool_calls"].sum())
     else:
@@ -540,8 +543,9 @@ def _page_methodology(
         "Reference:      arxiv 2506.02635",
         "",
         "Data source:    Real AgenticCyOps evaluation logs",
-        f"Groups covered: {', '.join(groups)}  (n={n_groups})",
-        f"Domain:         cyberops",
+        f"Groups covered: {', '.join(groups)}  (n={len(groups)})",
+        f"Domains pooled: {', '.join(domains)}  (n={len(domains)})",
+        f"Total cells:    {n_cells}  (group x domain)",
         "Configs:        flat, acl_hardened, agenticcyops",
         "",
         "Attack paths -> TAMAS categories (see mapping page):",
@@ -550,10 +554,12 @@ def _page_methodology(
         "  across mapped APs.",
         "",
         "ASR computation:",
-        "  Per AP:  from eval_attacks/group_X/cyberops/enhanced_attack_results.csv",
-        "           (30 trials per AP per config = 2 variants x 15 trials)",
+        "  Per AP:  from eval_attacks/group_X/<domain>/enhanced_attack_results.csv",
+        "           (1,125 trials per group/domain cell = 15 APs x 5 variants",
+        "            x 5 trials x 3 configs)",
         "  Per TAMAS category: equal-weighted mean of mapped AP ASRs.",
-        "  Overall ASR (headline): equal-weighted mean of 6 category scores.",
+        "  Overall ASR (headline): equal-weighted mean of 6 category scores",
+        "  pooled across (group, domain) cells.",
         "",
         "TSR computation:",
         "  From results/baseline/group_X/cyberops/baseline_summary.csv.",
@@ -575,9 +581,9 @@ def _page_methodology(
         "Caveats:",
         "  * 15 APs -> 6 TAMAS categories is many-to-few; coverage per",
         "    TAMAS category is uneven (see coverage chart).",
-        "  * Currently cyberops-only; TAMAS paper also evaluates",
-        "    healthcare/social but those domains have baseline data",
-        "    and pending full attack runs.",
+        "  * Domain pool is whatever is currently on disk in",
+        "    logs/<domain>_eval_attacks_<G>/.  Missing (group, domain)",
+        "    cells are silently skipped.",
         "  * 'Byzantine' in TAMAS overlaps structurally with 4 APs; the",
         "    category is the largest bucket in our mapping.",
     ]
@@ -593,18 +599,37 @@ def _page_methodology(
 
 def generate(
     groups: list[str],
-    domain: str,
+    domains: list[str],
     out_dir: Path,
 ) -> None:
+    """Compute TAMAS-from-logs across the cross product of (groups, domains).
+
+    All resulting (group, domain) frames are concatenated and the
+    config-level aggregate is the equal-weighted mean across (group,
+    domain) cells (since each AP is run with the same trial count per
+    cell, this is equivalent to a flat mean of cells).
+    """
     per_cat_frames: list[pd.DataFrame] = []
     per_cfg_frames: list[pd.DataFrame] = []
     meta_by_group: dict[str, dict] = {}
 
     for g in groups:
-        per_cat, per_cfg, meta = tamas_score_for_group(g, domain)
-        per_cat_frames.append(per_cat)
-        per_cfg_frames.append(per_cfg)
-        meta_by_group[g] = meta
+        for d in domains:
+            try:
+                per_cat, per_cfg, meta = tamas_score_for_group(g, d)
+            except FileNotFoundError as exc:
+                print(f"[skip] group={g} domain={d}: {exc}")
+                continue
+            per_cat_frames.append(per_cat)
+            per_cfg_frames.append(per_cfg)
+            # Track per-(group,domain) meta; collapse to per-group dict
+            # for downstream methodology page rendering.
+            key = f"{g}/{d}"
+            meta_by_group[key] = meta
+
+    if not per_cat_frames:
+        raise SystemExit("[fail] No (group, domain) pairs produced data; "
+                         "check logs/<domain>_eval_attacks_<G>/ exist.")
 
     per_cat_all = pd.concat(per_cat_frames, ignore_index=True)
     per_cfg_all = pd.concat(per_cfg_frames, ignore_index=True)
@@ -635,15 +660,17 @@ def generate(
     agg_per_config.to_csv(out_dir / "tamas_from_logs_aggregate.csv", index=False)
 
     # --- write Markdown summary ----------------------------------------
+    domain_label = (domains[0] if len(domains) == 1
+                    else "+".join(domains))
     md = _build_markdown(agg_per_config, per_cfg_all, per_cat_all,
-                        groups, domain)
+                        groups, domain_label)
     (out_dir / "tamas_from_logs.md").write_text(md)
 
     # --- write JSON summary --------------------------------------------
     json_path = out_dir / "tamas_from_logs.json"
     with open(json_path, "w") as f:
         json.dump({
-            "meta": {"groups": groups, "domain": domain,
+            "meta": {"groups": groups, "domains": domains,
                     "generated": datetime.now().isoformat()},
             "aggregate":       agg_per_config.to_dict(orient="records"),
             "per_group":       per_cfg_all.to_dict(orient="records"),
@@ -709,12 +736,18 @@ def _build_markdown(
             f"{int(r['false_blocks'])} | {int(r['n_groups'])} |"
         )
 
-    lines.append("\n## Per-Group Breakdown\n")
-    lines.append("| Group | Config | ASR | TSR | ERS | FP blocks |")
-    lines.append("|---|---|---|---|---|---|")
-    for _, r in per_cfg.iterrows():
+    lines.append("\n## Per-(Group, Domain) Breakdown\n")
+    lines.append("| Group | Domain | Config | ASR | TSR | ERS | FP blocks |")
+    lines.append("|---|---|---|---|---|---|---|")
+    # Stable sort by (group, domain, config-order)
+    cfg_ord = {"flat": 0, "acl_hardened": 1, "agenticcyops": 2}
+    sorted_rows = per_cfg.assign(
+        _o=per_cfg["config"].map(cfg_ord).fillna(99)
+    ).sort_values(["group", "domain", "_o"]).drop(columns="_o")
+    for _, r in sorted_rows.iterrows():
         lines.append(
-            f"| {r['group']} | {CONFIG_LABELS.get(r['config'], r['config'])} | "
+            f"| {r['group']} | {r.get('domain','-')} | "
+            f"{CONFIG_LABELS.get(r['config'], r['config'])} | "
             f"{(r['overall_asr'] or 0):.2%} | {r['tsr']:.2%} | "
             f"{(r['ers'] or 0):.2%} | {int(r['false_blocks'])} |"
         )
@@ -746,22 +779,36 @@ def _build_markdown(
     return "\n".join(lines) + "\n"
 
 
+_ALL_DOMAINS = ("cyberops", "healthcare", "finance", "legal")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--groups", type=str, default="A,C,E,F",
                     help="comma-separated group IDs")
-    ap.add_argument("--domain", type=str, default="cyberops")
+    ap.add_argument("--domain", type=str, default="cyberops",
+                    help="single domain, comma-list, or 'all' to pool "
+                         "across cyberops/healthcare/finance/legal")
     ap.add_argument("--out-dir", type=Path, default=None,
                     help="Default: results/tamas/group_<G>/ for one group, "
                          "or results/tamas/group_<sorted_concat>/ for many. "
                          "(Override to write to a custom path.)")
     args = ap.parse_args()
     groups = sorted({g.strip().upper() for g in args.groups.split(",") if g.strip()})
+
+    if args.domain == "all":
+        domains = list(_ALL_DOMAINS)
+    else:
+        domains = [d.strip() for d in args.domain.split(",") if d.strip()]
+        bad = [d for d in domains if d not in _ALL_DOMAINS]
+        if bad:
+            raise SystemExit(f"[fail] unknown domain(s): {bad}.  Valid: {_ALL_DOMAINS}")
+
     out_dir = args.out_dir
     if out_dir is None:
         suffix = groups[0] if len(groups) == 1 else "_".join(groups)
         out_dir = BASE_DIR / "results" / "tamas" / f"group_{suffix}"
-    generate(groups, args.domain, out_dir)
+    generate(groups, domains, out_dir)
 
 
 if __name__ == "__main__":
