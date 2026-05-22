@@ -1,0 +1,4 @@
+config,overall_asr,tsr,tsr_strict,ers,ers_strict,false_blocks,n_groups
+flat,0.550675,1.0,1.0,0.449325,0.449325,0,1
+acl_hardened,0.541775,1.0,0.928575,0.458225,0.426875,2,1
+agenticcyops,0.06914999999999999,1.0,0.74675,0.93085,0.696425,12,1
