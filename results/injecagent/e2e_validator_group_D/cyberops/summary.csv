@@ -1,0 +1,4 @@
+group,domain,config,n,llm_asr_pct,defended_asr_pct,refused_pct,defense_save_rate_pct
+D,cyberops,flat,300,0.33,0.33,74.67,0.0
+D,cyberops,acl_hardened,300,2.0,2.0,73.0,0.0
+D,cyberops,agenticcyops,300,0.67,0.0,70.67,100.0

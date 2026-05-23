@@ -1,0 +1,4 @@
+group,domain,config,n,llm_asr_pct,defended_asr_pct,refused_pct,defense_save_rate_pct
+C,legal,acl_hardened,300,1.67,1.67,87.0,0.0
+C,legal,flat,300,1.33,1.33,86.0,0.0
+C,legal,agenticcyops,300,3.33,0.0,86.67,100.0
