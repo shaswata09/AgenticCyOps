@@ -24,6 +24,8 @@ from .plotting import (
 )
 from .log_writer import DefenseEvalLogger
 from .evaluator import evaluate_filter_defense, evaluate_prompt_defense
+from .benign_loader import load_benign_payloads, list_benign_variants
+from .benign_evaluator import evaluate_prompt_defense_benign, detect_overrefusal
 
 __all__ = [
     "load_attack_payloads", "extract_untrusted_spans", "list_aps",
@@ -34,4 +36,6 @@ __all__ = [
     "plot_defense_comparison",
     "DefenseEvalLogger",
     "evaluate_filter_defense", "evaluate_prompt_defense",
+    "load_benign_payloads", "list_benign_variants",
+    "evaluate_prompt_defense_benign", "detect_overrefusal",
 ]

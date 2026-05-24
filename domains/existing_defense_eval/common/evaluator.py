@@ -33,6 +33,7 @@ def evaluate_filter_defense(
     aps: list[str] | None = None,
     extra_meta: dict | None = None,
     payloads_subdir: str = "payloads",
+    payloads: list[dict] | None = None,
 ) -> tuple[list[dict], Path]:
     """
     Run a filter-style defense across all (AP, variant, trial) combinations.
@@ -43,8 +44,12 @@ def evaluate_filter_defense(
                          malicious and would have prevented the agent from
                          ingesting it.
         payloads_subdir: Which payload directory under domains/<DOMAIN>/ to
-                         read from. Default 'payloads' (original dataset);
-                         pass 'optimized_payloads_v1' for adaptive variants.
+                         read from. Defaults to 'payloads'; override to point
+                         at an alternate subdirectory.
+        payloads:        Optional pre-loaded payload list. If supplied, the
+                         evaluator skips the attack-payload loader entirely
+                         (used by benign-FPR notebooks to pass benign payloads
+                         through the same loop with the same defense_fn).
 
     Returns:
         (results, log_path) where results is a list of per-trial dicts
@@ -53,7 +58,8 @@ def evaluate_filter_defense(
     meta = dict(extra_meta or {})
     meta.setdefault("payloads_subdir", payloads_subdir)
     logger = DefenseEvalLogger(log_dir, defense_id, domain, extra_meta=meta)
-    payloads = load_attack_payloads(domain, payloads_subdir=payloads_subdir)
+    if payloads is None:
+        payloads = load_attack_payloads(domain, payloads_subdir=payloads_subdir)
     if aps:
         payloads = [p for p in payloads if p["_ap"] in aps]
 
@@ -116,6 +122,7 @@ def evaluate_prompt_defense(
     aps: list[str] | None = None,
     extra_meta: dict | None = None,
     payloads_subdir: str = "payloads",
+    payloads: list[dict] | None = None,
 ) -> tuple[list[dict], Path]:
     """
     Run a prompt-modification defense.
@@ -130,17 +137,17 @@ def evaluate_prompt_defense(
                                   the malicious tool call. In that case
                                   the defense FAILED (bypass=True).
         payloads_subdir:          Which payload directory under
-                                  domains/<DOMAIN>/ to read from. Default
-                                  'payloads' (original); pass
-                                  'optimized_payloads_v1' for adaptive
-                                  variants.
+                                  domains/<DOMAIN>/ to read from. Defaults
+                                  to 'payloads'; override to point at an
+                                  alternate subdirectory.
 
     Returns: same shape as evaluate_filter_defense.
     """
     meta = dict(extra_meta or {})
     meta.setdefault("payloads_subdir", payloads_subdir)
     logger = DefenseEvalLogger(log_dir, defense_id, domain, extra_meta=meta)
-    payloads = load_attack_payloads(domain, payloads_subdir=payloads_subdir)
+    if payloads is None:
+        payloads = load_attack_payloads(domain, payloads_subdir=payloads_subdir)
     if aps:
         payloads = [p for p in payloads if p["_ap"] in aps]
 

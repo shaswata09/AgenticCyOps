@@ -16,8 +16,17 @@ import matplotlib.patches as mpatches
 from .attack_categories import AP_NAMES, ap_color, category
 
 
+def _ap_sort_key(a: str):
+    """Sort 'ap1'..'ap15' numerically; fall back to alphabetical for benign
+    variant ids like 'benign_01' that don't match the attack-AP pattern."""
+    try:
+        return (0, int(a[2:]))
+    except (ValueError, TypeError):
+        return (1, a)
+
+
 def _sorted_aps(asr_dict: dict) -> list[str]:
-    return sorted(asr_dict.keys(), key=lambda a: int(a[2:]))
+    return sorted(asr_dict.keys(), key=_ap_sort_key)
 
 
 def plot_bypass_per_ap(per_ap: dict, defense_name: str, domain: str,
@@ -76,7 +85,7 @@ def plot_bypass_by_category(per_ap: dict, defense_name: str, domain: str,
 def plot_per_variant_heatmap(per_variant: dict, defense_name: str, domain: str,
                              figsize=(10, 8)):
     """Heatmap: rows = AP, columns = variant_id."""
-    aps = sorted({k[0] for k in per_variant.keys()}, key=lambda a: int(a[2:]))
+    aps = sorted({k[0] for k in per_variant.keys()}, key=_ap_sort_key)
     variants = sorted({k[1] for k in per_variant.keys()})
     matrix = np.full((len(aps), len(variants)), np.nan)
     for (ap, var), rate in per_variant.items():
@@ -112,7 +121,7 @@ def plot_defense_comparison(per_ap_dict_by_defense: dict, domain: str,
     """
     defenses = list(per_ap_dict_by_defense.keys())
     all_aps = sorted({a for d in per_ap_dict_by_defense.values() for a in d},
-                     key=lambda a: int(a[2:]))
+                     key=_ap_sort_key)
     width = 0.8 / len(defenses)
     x = np.arange(len(all_aps))
     fig, ax = plt.subplots(figsize=figsize)
