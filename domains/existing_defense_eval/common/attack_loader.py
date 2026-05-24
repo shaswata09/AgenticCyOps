@@ -45,9 +45,13 @@ UNTRUSTED_FIELDS = {
 }
 
 
-def list_aps(domain: str) -> list[str]:
-    """Return sorted list of AP ids that have payload files in the domain."""
-    base = PROJECT_ROOT / "domains" / domain / "payloads"
+def list_aps(domain: str, payloads_subdir: str = "payloads") -> list[str]:
+    """Return sorted list of AP ids that have payload files in the domain.
+
+    payloads_subdir defaults to 'payloads' (original dataset). Pass
+    'optimized_payloads_v1' to enumerate the adaptive-variant dataset.
+    """
+    base = PROJECT_ROOT / "domains" / domain / payloads_subdir
     if not base.exists():
         return []
     aps = []
@@ -57,20 +61,24 @@ def list_aps(domain: str) -> list[str]:
     return sorted(aps, key=lambda a: int(a[2:]))
 
 
-def load_attack_payloads(domain: str, ap: str | None = None) -> list[dict]:
+def load_attack_payloads(domain: str, ap: str | None = None,
+                         payloads_subdir: str = "payloads") -> list[dict]:
     """
     Load attack-payload variants for a domain.
 
     Args:
-        domain: cyberops | healthcare | finance | legal
-        ap:     Optional AP filter (e.g., 'ap1'). If None, load all APs.
+        domain:          cyberops | healthcare | finance | legal
+        ap:              Optional AP filter (e.g., 'ap1'). If None, load all APs.
+        payloads_subdir: Which payload directory to read from. Default 'payloads'
+                         (original dataset); pass 'optimized_payloads_v1' for the
+                         adaptive-variant dataset.
 
     Returns:
         List of payload dicts. Each dict gets an injected '_ap' key.
     """
-    base = PROJECT_ROOT / "domains" / domain / "payloads"
+    base = PROJECT_ROOT / "domains" / domain / payloads_subdir
     if not base.exists():
-        raise FileNotFoundError(f"No payloads directory for domain '{domain}': {base}")
+        raise FileNotFoundError(f"No payloads directory '{payloads_subdir}' for domain '{domain}': {base}")
 
     if ap:
         files = [base / f"{ap}_variants.json"]

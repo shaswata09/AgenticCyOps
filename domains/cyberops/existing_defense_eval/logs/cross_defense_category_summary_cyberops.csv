@@ -1,0 +1,14 @@
+Defense,IPI_n_APs,IPI_mean_bypass_%,Struct_n_APs,Struct_mean_bypass_%,Overall_mean_bypass_%
+d8_adversarial_finetuning_secalign,10,2.0,5,0.0,1.3
+d6_sandwich_prevention_llama8b,10,4.0,5,0.0,2.7
+d6_sandwich_prevention,10,7.3,5,0.0,4.9
+d4_instructional_prevention,10,8.0,5,0.0,5.3
+d5_data_prompt_isolation_llama8b,10,10.0,5,0.0,6.7
+d4_instructional_prevention_llama8b,10,10.0,5,0.0,6.7
+d5_data_prompt_isolation,10,10.0,5,0.0,6.7
+d7_paraphrasing,10,42.0,5,32.0,38.7
+d3_perplexity_filter_llama8b,10,84.0,5,76.0,81.3
+d3_perplexity_filter,10,96.0,5,92.0,94.7
+d3_perplexity_filter_gpt2,10,96.0,5,92.0,94.7
+d1_finetuned_detector,10,94.0,5,100.0,96.0
+d2_llm_detector,10,96.0,5,96.0,96.0

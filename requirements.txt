@@ -55,6 +55,9 @@ accelerate>=1.2.0
 safetensors>=0.4.0
 einops>=0.8.0
 
+# ---- LoRA Adapters (Eval I D8: Meta-SecAlign-8B over Llama-3.1-8B-Instruct) ----
+peft>=0.13.0
+
 # ---- HuggingFace Model Downloads ----
 huggingface_hub>=0.28.0
 hf_transfer>=0.1.8
