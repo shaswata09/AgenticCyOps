@@ -1,5 +1,6 @@
 """Start all 16 CyberOps tool servers."""
 
+import argparse
 import asyncio
 import sys
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent.parent.parent.parent))
@@ -9,9 +10,15 @@ from logging_utils import ExperimentLogger
 
 
 async def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--base-port", type=int, default=9000,
+                         help="First port for tool servers; allocator "
+                              "assigns base_port, base_port+1, ...")
+    args = parser.parse_args()
+
     logger = ExperimentLogger(eval_name="tools", domain="cyberops", config="agenticcyops")
     registry = ServerRegistry(domain="cyberops", logger=logger)
-    await registry.start_all(base_port=9000)
+    await registry.start_all(base_port=args.base_port)
 
     print("\nCyberOps tools started:")
     for tool_id, port in registry.list_tools().items():

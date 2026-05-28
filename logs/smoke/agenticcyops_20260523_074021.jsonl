@@ -1,0 +1,1 @@
+{"timestamp": "2026-05-23T07:40:24.464504+00:00", "eval": "smoke", "domain": "cyberops", "config": "agenticcyops", "model": "Llama-3.1-8B-Instruct", "source": "monitor_agent", "destination": "llm", "action": "llm_call", "auth_decision": "allow", "latency_ms": 2690.2, "tokens_used": 646, "tokens_prompt": 380, "tokens_completion": 266, "provider": "openai", "tools_visible": 0}

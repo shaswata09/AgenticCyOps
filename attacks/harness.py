@@ -79,6 +79,8 @@ class AttackHarness:
         tool_base_port: int = 9000,
         verbose: bool = False,
         disabled_principles: Optional[set] = None,
+        api_key_env: Optional[str] = None,
+        extra_body: Optional[dict] = None,
     ):
         self.domain = domain
         self.config = config
@@ -89,6 +91,8 @@ class AttackHarness:
         self.tool_base_port = tool_base_port
         self.verbose = verbose
         self.disabled_principles: set = {p.upper() for p in (disabled_principles or set())}
+        self._api_key_env = api_key_env
+        self._extra_body = extra_body
 
         # Determine eval name (include group). Unified naming across
         # all domains: {domain}_eval_attacks_{group}.  Ablation runs get
@@ -133,6 +137,10 @@ class AttackHarness:
                 agent_kwargs["llm_provider"] = "anthropic"
             else:
                 agent_kwargs["llm_url"] = llm_url
+                if api_key_env:
+                    agent_kwargs["api_key_env"] = api_key_env
+                if extra_body:
+                    agent_kwargs["extra_body"] = extra_body
             self.agents[phase] = AgentCls(**agent_kwargs)
 
         # Build consensus (agenticcyops + llm_judge ablation)
@@ -815,10 +823,19 @@ async def main():
                               "to disable for ablation studies. Only "
                               "affects the agenticcyops config. "
                               "Example: --disable-principles P3,P5")
+    parser.add_argument("--api-key-env", default="",
+                        help="Env-var name to read the primary LLM's API key "
+                              "from (e.g. NVIDIA_API_KEY for cloud Nemotron). "
+                              "Leave empty for self-hosted vLLM endpoints.")
+    parser.add_argument("--extra-body-json", default="",
+                        help="JSON string passed as `extra_body` on every "
+                              "primary-LLM chat completion (model-specific "
+                              "extras like NVIDIA's reasoning toggle).")
     args = parser.parse_args()
 
     disabled = {p.strip().upper() for p in args.disable_principles.split(",")
                 if p.strip()}
+    extra_body = json.loads(args.extra_body_json) if args.extra_body_json.strip() else None
     configs = CONFIGS if args.config == "all" else [args.config]
     all_results = []
 
@@ -837,6 +854,8 @@ async def main():
             tool_base_port=args.tool_port,
             verbose=args.verbose,
             disabled_principles=disabled,
+            api_key_env=(args.api_key_env or None),
+            extra_body=extra_body,
         )
 
         try:

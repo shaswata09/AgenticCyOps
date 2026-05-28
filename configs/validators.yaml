@@ -82,6 +82,23 @@ full_diversity:
   validators: ["V1_qwen", "V2_deepseek", "V3_llama", "V5_mistral", "V6_gpt4o"]
   threshold: 4
 
+# ---- Small/mid-tier primary panels (Groups G/H/I/J) ------------------
+# These groups put a small or mid-size LLM (Qwen3-32B, Mistral-24B,
+# Llama-3.1-8B, GPT-OSS-120B) in the primary slot.  Each panel excludes
+# the validator that is identical to the primary to avoid self-voting.
+
+# Group G primary = Qwen3-32B; exclude V1_qwen.  Three diverse families
+# (Mistral, Anthropic, OpenAI), threshold 2.
+no_qwen_panel:
+  validators: ["V5_mistral", "V4_claude", "V6_gpt4o"]
+  threshold: 2
+
+# Group H primary = Mistral-24B; exclude V5_mistral.  Three diverse
+# families (Qwen, Anthropic, OpenAI), threshold 2.
+no_mistral_panel:
+  validators: ["V1_qwen", "V4_claude", "V6_gpt4o"]
+  threshold: 2
+
 # ---- Ablation: consensus threshold sweep -----------------------------
 # Same 4 validators as default_consensus; vary the approval threshold to
 # measure sensitivity vs. false-rejection.  Used by the threshold-sweep

@@ -59,6 +59,38 @@ GROUP_CONFIGS: dict[str, dict] = {
           "primary_model": "claude-sonnet-4-20250514",
           "primary_type":  "anthropic",
           "consensus":     "all_with_gpt4o"},
+    # ---- Small / mid-tier primary groups (G-J) ----
+    # Each panel excludes the validator that would duplicate the primary
+    # model family, avoiding self-voting in the consensus quorum.
+    "G": {"primary_url": "http://localhost:8002/v1",
+          "primary_model": "/storage/data/AgenticCyOps_Private/models/Qwen/Qwen3-32B",
+          "primary_type":  "openai",
+          "consensus":     "no_qwen_panel"},
+    "H": {"primary_url": "http://localhost:8003/v1",
+          "primary_model": "/storage/data/AgenticCyOps_Private/models/mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+          "primary_type":  "openai",
+          "consensus":     "no_mistral_panel"},
+    "I": {"primary_url": "http://10.116.35.188:8008/v1",
+          "primary_model": "Llama-3.1-8B-Instruct",
+          "primary_type":  "openai",
+          "consensus":     "with_mistral"},
+    "J": {"primary_url": "http://localhost:8006/v1",
+          "primary_model": "/storage/data/AgenticCyOps_Private/models/openai/gpt-oss-120b",
+          "primary_type":  "openai",
+          "consensus":     "with_mistral"},
+    # Self-hosted vLLM serving the BF16 variant of Nemotron-3-Nano-Omni.
+    # Moved off NVIDIA's NIM serverless because the 40 RPM cap + 404
+    # cold-evicts under load made multi-thousand-trial sweeps infeasible.
+    # The vLLM endpoint has --enable-auto-tool-choice set and supports
+    # the same chat_template_kwargs as NIM, so we keep thinking OFF for
+    # benchmark fairness (other groups are evaluated in non-thinking mode).
+    # Different family from any validator in `with_mistral`, so no
+    # self-vote risk.
+    "K": {"primary_url":  "http://10.116.34.125:8003/v1",
+          "primary_model": "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+          "primary_type":  "openai",
+          "extra_body":    {"chat_template_kwargs": {"enable_thinking": False}},
+          "consensus":     "with_mistral"},
 }
 
 
@@ -133,13 +165,36 @@ async def call_primary(group_id: str, messages: list[dict],
     ptype = cfg["primary_type"]
     model = cfg["primary_model"]
 
+    # Reasoning models burn tokens on internal "thinking" before any
+    # user-visible content.  Auto-bump max_tokens so the answer doesn't
+    # get truncated by the budget.
+    reasoning_budget = (cfg.get("extra_body") or {}).get("reasoning_budget")
+    if reasoning_budget:
+        max_tokens = max(max_tokens, reasoning_budget + 1024)
+
+    # Cloud rate limits (NIM: 40 RPM for Nemotron) -- enforced inside
+    # _do_call below so retries re-enter the throttle too.
+    from utils.rate_limiter import athrottle_for_url, acall_with_retry
+
     try:
         if ptype == "openai":
-            client = AsyncOpenAI(base_url=cfg["primary_url"], api_key="unused")
-            resp = await client.chat.completions.create(
-                model=model, messages=messages,
-                temperature=temperature, max_tokens=max_tokens,
-            )
+            # api_key_env: env-var name holding the real API key (e.g.
+            # "NVIDIA_API_KEY"); absent for self-hosted vLLM which ignores it.
+            api_key = os.environ.get(cfg["api_key_env"], "") if cfg.get("api_key_env") else "unused"
+            client = AsyncOpenAI(base_url=cfg["primary_url"], api_key=api_key)
+            kwargs = {"model": model, "messages": messages,
+                       "temperature": temperature, "max_tokens": max_tokens}
+            # Model-specific extras (e.g. NVIDIA Nemotron reasoning toggle)
+            if cfg.get("extra_body"):
+                kwargs["extra_body"] = cfg["extra_body"]
+            # Throttle + retry on rate-limit-shaped errors (NIM 404 cold-evict,
+            # 429).  Throttle is inside the retry loop so each retry waits for
+            # the next available slot rather than instantly re-firing.
+            async def _do_call():
+                if cfg.get("primary_url"):
+                    await athrottle_for_url(cfg["primary_url"])
+                return await client.chat.completions.create(**kwargs)
+            resp = await acall_with_retry(_do_call)
             usage = getattr(resp, "usage", None)
             return LlmResponse(
                 text=resp.choices[0].message.content or "",

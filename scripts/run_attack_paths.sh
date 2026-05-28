@@ -28,15 +28,15 @@ if [ -f ".env" ]; then
 fi
 
 CONDA_ENV="agenticcyops"
-TOOL_BASE_PORT=9000
-MMA_PORT=9100
+# Tool / MMA ports are no longer global; they are computed per
+# (GROUP, domain) inside run_domain() so parallel groups don't collide.
 PIDS=()
 
 ALL_DOMAINS=("cyberops" "healthcare" "finance" "legal")
 ALL_CONFIGS=("flat" "acl_hardened" "agenticcyops")
 
 # ---- Group definitions ----
-declare -A GP_PRIMARY GP_PROVIDER GP_PORTS GP_CONSENSUS GP_DESC
+declare -A GP_PRIMARY GP_PROVIDER GP_PORTS GP_CONSENSUS GP_DESC GP_API_KEY_ENV GP_EXTRA_BODY
 
 GP_PRIMARY[A]="http://localhost:8000/v1"; GP_PROVIDER[A]="openai"; GP_PORTS[A]="8000 8002 8005"; GP_CONSENSUS[A]="default_consensus"
 GP_DESC[A]="Qwen3-235B + V1(Qwen) + V2(DeepSeek) + V4(Claude) + V6(GPT-4o)"
@@ -56,7 +56,65 @@ GP_DESC[E]="Qwen3-235B + V1 + V5(Mistral) + V4 + V6"
 GP_PRIMARY[F]="anthropic"; GP_PROVIDER[F]="anthropic"; GP_PORTS[F]="8002 8005 8004"; GP_CONSENSUS[F]="all_with_gpt4o"
 GP_DESC[F]="Claude (API primary) + V1 + V2 + V3(Llama) + V6"
 
-ALL_GROUPS=("A" "B" "C" "D" "E" "F")
+# ---- Small/mid-tier primary groups ----
+# Each panel excludes the validator that duplicates the primary family
+# (no_qwen_panel for G, no_mistral_panel for H) to avoid self-voting.
+# GP_PORTS lists only localhost ports the preflight check should verify;
+# external/API primaries are not localhost-pingable and are exercised at
+# request time instead.
+
+GP_PRIMARY[G]="http://localhost:8002/v1"; GP_PROVIDER[G]="openai"; GP_PORTS[G]="8002 8003"; GP_CONSENSUS[G]="no_qwen_panel"
+GP_DESC[G]="Qwen3-32B (mid, self-host) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
+
+GP_PRIMARY[H]="http://localhost:8003/v1"; GP_PROVIDER[H]="openai"; GP_PORTS[H]="8002 8003"; GP_CONSENSUS[H]="no_mistral_panel"
+GP_DESC[H]="Mistral-Small-3.2-24B (mid) + V1(Qwen) + V4(Claude) + V6(GPT-4o)"
+
+GP_PRIMARY[I]="http://10.116.35.188:8008/v1"; GP_PROVIDER[I]="openai"; GP_PORTS[I]="8002 8003"; GP_CONSENSUS[I]="with_mistral"
+GP_DESC[I]="Llama-3.1-8B-Instruct (small, external) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
+
+GP_PRIMARY[J]="http://localhost:8006/v1"; GP_PROVIDER[J]="openai"; GP_PORTS[J]="8006 8002 8003"; GP_CONSENSUS[J]="with_mistral"
+GP_DESC[J]="GPT-OSS-120B (mid-large) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
+
+# K: self-hosted vLLM Nemotron at 10.116.34.125:8003 (external host,
+# external port -- no localhost preflight on the primary).  GP_PORTS
+# still lists the localhost validator ports (V1 Qwen 8002, V5 Mistral
+# 8003) that the consensus panel needs.  No API key needed.
+# Thinking mode off -- the model otherwise burns 30+s per trivial call
+# on internal reasoning, even self-hosted.  Flip to true if you want
+# to measure the reasoning-mode variant separately.
+GP_PRIMARY[K]="http://10.116.34.125:8003/v1"; GP_PROVIDER[K]="openai"; GP_PORTS[K]="8002 8003"; GP_CONSENSUS[K]="with_mistral"
+GP_DESC[K]="Nemotron-3-Nano-Omni-30B BF16 (self-hosted vLLM @ 10.116.34.125:8003) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
+GP_EXTRA_BODY[K]='{"chat_template_kwargs":{"enable_thinking":false}}'
+
+ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
+
+# ---- Per-(group, domain) port + ChromaDB allocator -----------------------
+# Multiple groups can now run in parallel without their tool/MMA servers
+# stomping on each other.  Each (group, domain) slot gets its own
+# 40-port window starting at 10000:
+#
+#   tool_base = 10000 + group_offset*160 + domain_offset*40
+#   mma_port  = tool_base + 30
+#
+# Group A cyberops -> 10000-10029 tools + 10030 MMA
+# Group A healthcare -> 10040-10069 tools + 10070 MMA
+# ...
+# Group K legal -> 11720-11749 tools + 11750 MMA
+#
+# Full footprint: ports 10000-11759.  ChromaDB also separates by group
+# (data/chromadb/group_<G>/<domain>/) so two parallel groups can seed
+# the same domain without overwriting each other.
+declare -A GROUP_OFFSET DOMAIN_OFFSET
+GROUP_OFFSET[A]=0;  GROUP_OFFSET[B]=1; GROUP_OFFSET[C]=2; GROUP_OFFSET[D]=3
+GROUP_OFFSET[E]=4;  GROUP_OFFSET[F]=5; GROUP_OFFSET[G]=6; GROUP_OFFSET[H]=7
+GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9; GROUP_OFFSET[K]=10
+DOMAIN_OFFSET[cyberops]=0; DOMAIN_OFFSET[healthcare]=1
+DOMAIN_OFFSET[finance]=2;  DOMAIN_OFFSET[legal]=3
+
+compute_tool_base() {
+    local _grp="$1" _dom="$2"
+    echo $((10000 + GROUP_OFFSET[$_grp]*160 + DOMAIN_OFFSET[$_dom]*40))
+}
 
 # ---- Helpers ----
 run_py() { conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"; }
@@ -73,12 +131,15 @@ wait_for_health() {
 cleanup() {
     echo ""; echo "[cleanup] Stopping background services..."
     for pid in "${PIDS[@]}"; do pkill -P "$pid" 2>/dev/null || true; kill "$pid" 2>/dev/null || true; done
-    for port in $(seq ${TOOL_BASE_PORT} $((TOOL_BASE_PORT + 15))) ${MMA_PORT}; do
+    # Only kill the ports this run actually allocated so we don't disturb
+    # parallel runs from other groups using their own slot.
+    for port in "${ALLOCATED_PORTS[@]}"; do
         pid=$(lsof -ti :$port 2>/dev/null || true); [ -n "$pid" ] && kill -9 $pid 2>/dev/null || true
     done
     wait 2>/dev/null || true; echo "[cleanup] Done."
 }
 trap cleanup EXIT INT TERM
+ALLOCATED_PORTS=()
 
 # ---- Interactive or CLI ----
 if [ -z "$1" ]; then
@@ -233,9 +294,17 @@ run_domain() {
     local log_dir="logs/${domain}_eval_attacks_${GROUP}${_ablation_tag}"
     local result_dir="results/eval_attacks/group_${GROUP}${_ablation_tag}/${domain}"
 
+    # Per-(group, domain) port slot + ChromaDB path so parallel groups
+    # never collide on tool/MMA ports or seed data.
+    local TOOL_BASE_PORT
+    TOOL_BASE_PORT=$(compute_tool_base "$GROUP" "$domain")
+    local MMA_PORT=$((TOOL_BASE_PORT + 30))
+    local CHROMA_DB_PATH="./data/chromadb/group_${GROUP}"
+
     echo ""
     echo "============================================================"
     echo "  ${domain} / Group ${GROUP}"
+    echo "  tool_base=${TOOL_BASE_PORT}  mma=${MMA_PORT}  chromadb=${CHROMA_DB_PATH}/${domain}"
     echo "============================================================"
 
     # Check for existing data — prompt before overwriting
@@ -250,28 +319,30 @@ run_domain() {
     fi
 
     # Clean previous run data
-    rm -rf "$log_dir" "$result_dir" "data/chromadb/${domain}" 2>/dev/null || true
-    mkdir -p "$result_dir"
+    rm -rf "$log_dir" "$result_dir" "${CHROMA_DB_PATH}/${domain}" 2>/dev/null || true
+    mkdir -p "$result_dir" "$CHROMA_DB_PATH"
 
-    # Kill stale tool/MMA ports
-    for port in $(seq ${TOOL_BASE_PORT} $((TOOL_BASE_PORT + 15))) ${MMA_PORT}; do
+    # Kill only stale processes in *this* group/domain's port slot --
+    # don't touch ports owned by parallel runs from other (group, domain) slots.
+    for port in $(seq ${TOOL_BASE_PORT} $((TOOL_BASE_PORT + 29))) ${MMA_PORT}; do
         pid=$(lsof -ti :$port 2>/dev/null || true); [ -n "$pid" ] && kill -9 $pid 2>/dev/null || true
+        ALLOCATED_PORTS+=("$port")
     done
     sleep 1; PIDS=()
 
     # ChromaDB
     echo "[setup] ChromaDB..."
-    run_py -m memory.chromadb_setup --domain "$domain" --db-path ./data/chromadb 2>&1 | tail -2
-    run_py -m memory.seed_data --domain "$domain" --db-path ./data/chromadb 2>&1 | tail -2
+    run_py -m memory.chromadb_setup --domain "$domain" --db-path "$CHROMA_DB_PATH" 2>&1 | tail -2
+    run_py -m memory.seed_data       --domain "$domain" --db-path "$CHROMA_DB_PATH" 2>&1 | tail -2
 
     # Tools
-    echo "[tools] Starting ${domain} servers..."
-    run_py -m domains.${domain}.tools.start_all &
+    echo "[tools] Starting ${domain} servers on base port ${TOOL_BASE_PORT}..."
+    run_py -m domains.${domain}.tools.start_all --base-port "$TOOL_BASE_PORT" &
     PIDS+=($!); sleep 3
     wait_for_health "http://localhost:${TOOL_BASE_PORT}/health" "${domain} tools" 30
 
     # MMA
-    run_py -m memory.mma_gateway --domain "$domain" --port $MMA_PORT &
+    run_py -m memory.mma_gateway --domain "$domain" --port "$MMA_PORT" --db-path "$CHROMA_DB_PATH" &
     PIDS+=($!); wait_for_health "http://localhost:${MMA_PORT}/health" "MMA" 30 || true
 
     # Determine APs for this domain
@@ -298,14 +369,24 @@ run_domain() {
             _disable_args=(--disable-principles "$DISABLE_PRINCIPLES")
         fi
 
+        # Cloud-API extras (e.g. Group K Nemotron on NVIDIA cloud).
+        local _api_args=()
+        if [ -n "${GP_API_KEY_ENV[$GROUP]:-}" ]; then
+            _api_args+=(--api-key-env "${GP_API_KEY_ENV[$GROUP]}")
+        fi
+        if [ -n "${GP_EXTRA_BODY[$GROUP]:-}" ]; then
+            _api_args+=(--extra-body-json "${GP_EXTRA_BODY[$GROUP]}")
+        fi
+
         for ap in "${domain_aps[@]}"; do
             echo "  $ap ($TRIALS trials/variant)..."
             run_py -m attacks.harness \
                 --domain "$domain" --ap "$ap" --config "$config" \
                 --group "$GROUP" --model-url "$LLM_URL" --llm-provider "$LLM_PROVIDER" \
                 --consensus-config "$CONSENSUS_CFG" \
-                --trials "$TRIALS" --tool-port $TOOL_BASE_PORT \
-                "${_disable_args[@]}" \
+                --trials "$TRIALS" --tool-port "$TOOL_BASE_PORT" \
+                --mma-url "http://localhost:${MMA_PORT}" \
+                "${_disable_args[@]}" "${_api_args[@]}" \
                 --verbose 2>&1 | grep -E "v[0-9]+ t[0-9]+|Error|SUMMARY" || true
         done
 
@@ -318,8 +399,9 @@ run_domain() {
                 --domain "$domain" --benign --config "$config" \
                 --group "$GROUP" --model-url "$LLM_URL" --llm-provider "$LLM_PROVIDER" \
                 --consensus-config "$CONSENSUS_CFG" \
-                --trials "$benign_count" --tool-port $TOOL_BASE_PORT \
-                "${_disable_args[@]}" \
+                --trials "$benign_count" --tool-port "$TOOL_BASE_PORT" \
+                --mma-url "http://localhost:${MMA_PORT}" \
+                "${_disable_args[@]}" "${_api_args[@]}" \
                 2>&1 | grep -E "benign|Error|SUMMARY" || true
         fi
         echo ""
@@ -553,9 +635,9 @@ with PdfPages(str(result_dir / 'attack_report.pdf')) as pdf:
 print(f'Saved: {result_dir}/attack_report.pdf')
 " 2>&1
 
-    # Stop domain services
+    # Stop domain services -- only the ports allocated to *this* slot.
     for pid in "${PIDS[@]}"; do pkill -P "$pid" 2>/dev/null || true; kill "$pid" 2>/dev/null || true; done
-    for port in $(seq ${TOOL_BASE_PORT} $((TOOL_BASE_PORT + 15))) ${MMA_PORT}; do
+    for port in $(seq ${TOOL_BASE_PORT} $((TOOL_BASE_PORT + 29))) ${MMA_PORT}; do
         pid=$(lsof -ti :$port 2>/dev/null || true); [ -n "$pid" ] && kill -9 $pid 2>/dev/null || true
     done
     wait 2>/dev/null || true; PIDS=()

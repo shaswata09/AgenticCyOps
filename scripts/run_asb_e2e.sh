@@ -58,9 +58,10 @@ done
 
 ALL_ATTACKS=("DPI" "IPI" "MP" "POT")
 ALL_CONFIGS=("flat" "acl_hardened" "agenticcyops")
-ALL_GROUPS=("A" "B" "C" "D" "E" "F")
+ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
 
 # ---- Group matrix (matches scripts/run_injecagent_e2e.sh) ----
+# G-J = small/mid-tier primaries with self-vote-free consensus panels.
 declare -A GP_PORTS GP_DESC
 GP_PORTS[A]="8000 8002 8005"; GP_DESC[A]="Qwen3-235B + V1(Qwen) + V2(DeepSeek) + V4(Claude) + V6(GPT-4o)"
 GP_PORTS[B]="8001 8002 8005"; GP_DESC[B]="GLM-4.7-FP8 + V1 + V2 + V4 + V6"
@@ -68,6 +69,11 @@ GP_PORTS[C]="8000 8002";      GP_DESC[C]="Qwen3-235B + V1 x3 (same-family)"
 GP_PORTS[D]="8004 8002 8005"; GP_DESC[D]="Llama-4-Scout + V1 + V2 + V4 + V6"
 GP_PORTS[E]="8000 8002 8003"; GP_DESC[E]="Qwen3-235B + V1 + V5(Mistral) + V4 + V6"
 GP_PORTS[F]="8002 8005 8004"; GP_DESC[F]="Claude (API primary) + V1 + V2 + V3(Llama) + V6"
+GP_PORTS[G]="8002 8003";      GP_DESC[G]="Qwen3-32B (mid) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
+GP_PORTS[H]="8002 8003";      GP_DESC[H]="Mistral-Small-3.2-24B (mid) + V1(Qwen) + V4(Claude) + V6(GPT-4o)"
+GP_PORTS[I]="8002 8003";      GP_DESC[I]="Llama-3.1-8B-Instruct (small, external) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
+GP_PORTS[J]="8006 8002 8003"; GP_DESC[J]="GPT-OSS-120B + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
+GP_PORTS[K]="8002 8003";      GP_DESC[K]="Nemotron-3-Nano-Omni-30B BF16 (self-hosted vLLM @ 10.116.34.125:8003) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 
 run_py() {
     if [ -n "$PY_BIN" ]; then

@@ -70,6 +70,8 @@ class BaseAgent:
         llm_url: str = "http://localhost:8000/v1",
         llm_provider: str = "openai",
         llm_model: Optional[str] = None,
+        api_key_env: Optional[str] = None,
+        extra_body: Optional[dict] = None,
         manifest: Optional[dict] = None,
         tool_schemas: Optional[list[dict]] = None,
         all_tool_schemas: Optional[list[dict]] = None,
@@ -79,6 +81,12 @@ class BaseAgent:
         Args:
             llm_provider: "openai" for vLLM/OpenAI-compatible, "anthropic" for Claude API
             llm_model: Model name override (e.g. "claude-sonnet-4-20250514")
+            api_key_env: Env-var name to read the OpenAI-compatible API key
+                from (e.g. "NVIDIA_API_KEY" for NVIDIA cloud). Absent for
+                self-hosted vLLM which ignores the key.
+            extra_body: Optional dict of model-specific extras passed in
+                every chat.completions.create call (e.g. NVIDIA Nemotron
+                reasoning toggle).
         """
         self.phase = phase
         self.domain = domain
@@ -89,6 +97,8 @@ class BaseAgent:
         self.tool_schemas = tool_schemas or []
         self.all_tool_schemas = all_tool_schemas or []
         self.logger = logger
+        self._api_key_env = api_key_env
+        self._extra_body = extra_body
 
         if llm_provider == "anthropic":
             import os
@@ -99,7 +109,11 @@ class BaseAgent:
             self._model_name = llm_model or "claude-sonnet-4-20250514"
             self._client = None
         else:
-            self._client = OpenAI(base_url=llm_url, api_key="unused")
+            import os
+            from config import load_env
+            load_env()
+            api_key = os.environ.get(api_key_env, "") if api_key_env else "unused"
+            self._client = OpenAI(base_url=llm_url, api_key=api_key)
             self._model_name = llm_model
             self._anthropic_client = None
 
@@ -210,7 +224,7 @@ class BaseAgent:
         return result
 
     def _call_openai(self, user_message: str, tools) -> tuple:
-        """Call OpenAI-compatible API (vLLM, GPT-4o)."""
+        """Call OpenAI-compatible API (vLLM, GPT-4o, NVIDIA cloud, ...)."""
         kwargs = {
             "model": self._model_name,
             "messages": [
@@ -223,8 +237,17 @@ class BaseAgent:
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = "auto"
+        if self._extra_body:
+            kwargs["extra_body"] = self._extra_body
 
-        response = self._client.chat.completions.create(**kwargs)
+        # Throttle + retry on rate-limit-shaped errors (NIM 404 cold-evict,
+        # 429).  Throttle is inside the retry loop so each retry waits for
+        # the next available slot.  No-op for vLLM / Anthropic endpoints.
+        from utils.rate_limiter import throttle_for_url, call_with_retry
+        def _do_call():
+            throttle_for_url(self.llm_url)
+            return self._client.chat.completions.create(**kwargs)
+        response = call_with_retry(_do_call)
 
         tokens_prompt = response.usage.prompt_tokens or 0 if response.usage else 0
         tokens_completion = response.usage.completion_tokens or 0 if response.usage else 0

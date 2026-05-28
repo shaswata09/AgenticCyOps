@@ -127,9 +127,24 @@ huggingface-cli download Qwen/Qwen3-Embedding-8B \
 #    Same API as 8B, lower quality but sufficient for
 #    write-boundary filtering and seed data operations.
 # ============================================================
-echo "[8/8] Downloading Qwen3-Embedding-0.6B (~1.2 GB)..."
+echo "[8/9] Downloading Qwen3-Embedding-0.6B (~1.2 GB)..."
 huggingface-cli download Qwen/Qwen3-Embedding-0.6B \
   --local-dir "$BASE_DIR/Qwen/Qwen3-Embedding-0.6B" \
+  --local-dir-use-symlinks False
+
+# ============================================================
+# 9. MID/LARGE PRIMARY for small-LLM benchmark groups (G/H/I/J)
+#    GPT-OSS-120B — OpenAI's open-weights 120B MoE
+#    GPU assignment: GPUs 0,1,4,5 NVLink group (TP=4)
+#    VRAM: ~240GB BF16 (60GB/GPU)
+#    Used as the primary LLM for benchmark Group J.  Cannot run
+#    simultaneously with Qwen3-235B / GLM-4.7 / Llama-4-Scout
+#    because they share the same NVLink-connected GPUs.
+#    vLLM: --tensor-parallel-size 4 --tool-call-parser openai
+# ============================================================
+echo "[9/9] Downloading GPT-OSS-120B (~240 GB)..."
+huggingface-cli download openai/gpt-oss-120b \
+  --local-dir "$BASE_DIR/openai/gpt-oss-120b" \
   --local-dir-use-symlinks False
 
 echo ""

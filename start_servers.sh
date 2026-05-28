@@ -126,37 +126,41 @@ SERVER_GROUPS=(
     "D: Llama Primary — Llama-4-Scout + V1 + V2"
     "E: With Mistral — Qwen3-235B + V1 + V5"
     "F: Claude Primary — V1 + V2 + V3 + V5 (all local validators)"
-    "G: Custom — pick individual servers"
+    "G: Mid-Tier Parallel — Qwen3-32B + Mistral + GPT-OSS-120B (benchmark groups G/H/I/J)"
+    "H: Custom — pick individual servers"
 )
 
 GROUP_COUNT=${#SERVER_GROUPS[@]}
 
 # ---- Server pool ----
-# idx: 0=Qwen3-235B  1=GLM-4.7  2=V1  3=V2  4=V5  5=V3
+# idx: 0=Qwen3-235B  1=GLM-4.7  2=V1  3=V2  4=V5  5=V3  6=GPT-OSS-120B
 ALL_NAMES=(
     "Qwen3-235B (Primary, TP=4)"
     "GLM-4.7 (Diversity, TP=4 FP8)"
-    "Qwen3-32B (Validator V1)"
+    "Qwen3-32B (Validator V1 / Group G primary)"
     "DeepSeek-R1-Distill-32B (Validator V2)"
-    "Mistral-Small-3.2-24B (Validator V5)"
+    "Mistral-Small-3.2-24B (Validator V5 / Group H primary)"
     "Llama-4-Scout-17B-16E (Validator V3, TP=2)"
+    "GPT-OSS-120B (Group J primary, TP=4)"
 )
-ALL_PORTS=(8000 8001 8002 8005 8003 8004)
+ALL_PORTS=(8000 8001 8002 8005 8003 8004 8006)
 ALL_GPUS=(
     "0,1,4,5"         # Qwen3-235B: TP=4 on NVLink group
     "0,1,4,5"         # GLM-4.7: TP=4 FP8 (swap with Primary)
-    "2"                # V1 Qwen3-32B
+    "2"                # V1 Qwen3-32B (also Group G primary)
     "3"                # V2 DeepSeek-R1
-    "3"                # V5 Mistral (swap with V2 on GPU 3)
+    "3"                # V5 Mistral (swap with V2 on GPU 3; also Group H primary)
     "4,5"              # V3 Llama-4-Scout: TP=2 (conflicts with Primary)
+    "0,1,4,5"          # GPT-OSS-120B: TP=4 NVLink group (swap with Qwen-235B/GLM)
 )
 ALL_CMDS=(
     "vllm serve $MODELS_DIR/Qwen/Qwen3-235B-A22B-Instruct-2507 --tensor-parallel-size 4 --dtype bfloat16 --enable-auto-tool-choice --tool-call-parser hermes --gpu-memory-utilization 0.9 --max-model-len 32768 --enforce-eager --port 8000"
     "vllm serve $MODELS_DIR/zai-org/GLM-4.7-FP8 --tensor-parallel-size 4 --dtype auto --enable-auto-tool-choice --tool-call-parser glm47 --reasoning-parser glm45 --gpu-memory-utilization 0.9 --max-model-len 32768 --enforce-eager --port 8001"
-    "vllm serve $MODELS_DIR/Qwen/Qwen3-32B --dtype bfloat16 --gpu-memory-utilization 0.9 --max-model-len 32768 --port 8002"
+    "vllm serve $MODELS_DIR/Qwen/Qwen3-32B --dtype bfloat16 --enable-auto-tool-choice --tool-call-parser hermes --gpu-memory-utilization 0.9 --max-model-len 32768 --port 8002"
     "vllm serve $MODELS_DIR/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B --dtype bfloat16 --gpu-memory-utilization 0.9 --max-model-len 32768 --port 8005"
-    "vllm serve $MODELS_DIR/mistralai/Mistral-Small-3.2-24B-Instruct-2506 --dtype bfloat16 --tokenizer-mode mistral --gpu-memory-utilization 0.9 --max-model-len 32768 --port 8003"
+    "vllm serve $MODELS_DIR/mistralai/Mistral-Small-3.2-24B-Instruct-2506 --dtype bfloat16 --tokenizer-mode mistral --enable-auto-tool-choice --tool-call-parser mistral --gpu-memory-utilization 0.9 --max-model-len 32768 --port 8003"
     "vllm serve $MODELS_DIR/meta-llama/Llama-4-Scout-17B-16E-Instruct --tensor-parallel-size 2 --dtype bfloat16 --enable-auto-tool-choice --tool-call-parser llama4_pythonic --gpu-memory-utilization 0.9 --max-model-len 32768 --enforce-eager --port 8004"
+    "vllm serve $MODELS_DIR/openai/gpt-oss-120b --tensor-parallel-size 4 --enable-auto-tool-choice --tool-call-parser openai --gpu-memory-utilization 0.9 --max-model-len 32768 --enforce-eager --port 8006"
 )
 POOL_COUNT=${#ALL_NAMES[@]}
 
@@ -181,6 +185,12 @@ GROUP_C_IDX=(0 2)      # Qwen3-235B(0,1,4,5) + V1(2) [same-family: 3x Qwen3-32B]
 GROUP_D_IDX=(5 2 3)    # Llama(4,5) + V1(2) + V2(3) [+V4 Claude +V6 GPT-4o API]
 GROUP_E_IDX=(0 2 4)    # Qwen3-235B(0,1,4,5) + V1(2) + V5 Mistral(3) [+V4 Claude +V6 GPT-4o API]
 GROUP_F_IDX=(2 3 5)    # Claude API primary — V1(2)+V2(3)+V3(4,5) [V5 swaps with V2, not simultaneous]
+# G_SERVER serves benchmark groups G/H/I/J in parallel:
+#   - Qwen3-32B on 8002 = V1 validator AND primary for benchmark Group G
+#   - Mistral on   8003 = V5 validator AND primary for benchmark Group H
+#   - GPT-OSS-120B 8006 = primary for benchmark Group J
+#   - Llama-3.1-8B is hosted externally (10.116.35.188:8008) for Group I
+GROUP_G_IDX=(2 4 6)    # Qwen3-32B(2) + V5 Mistral(3) + GPT-OSS-120B(0,1,4,5)
 
 # ---- Selection menu ----
 cursor=0
@@ -202,6 +212,7 @@ draw_group_menu() {
         "Llama-4-Scout (4,5) + V1 (2) + V2 (3) + V4 Claude + V6 GPT-4o -- Llama as primary"
         "Qwen3-235B (0,1,4,5) + V1 (2) + V5 Mistral (3) + V4 Claude + V6 GPT-4o"
         "Claude API primary + V1 (2) + V2 (3) + V3 Llama (4,5) -- frees GPU for V3"
+        "Qwen3-32B (2) + Mistral (3) + GPT-OSS-120B (0,1,4,5) -- shared by benchmark groups G/H/I/J in parallel; Llama-3.1-8B (Group I) served externally"
         "Pick individual servers manually"
     )
 
@@ -250,7 +261,8 @@ case $group_choice in
     3) SEL_IDX=("${GROUP_D_IDX[@]}") ;;
     4) SEL_IDX=("${GROUP_E_IDX[@]}") ;;
     5) SEL_IDX=("${GROUP_F_IDX[@]}") ;;
-    6)
+    6) SEL_IDX=("${GROUP_G_IDX[@]}") ;;
+    7)
         # Custom: show individual server picker
         sel=()
         for ((i=0; i<POOL_COUNT; i++)); do sel+=(0); done
