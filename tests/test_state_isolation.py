@@ -119,3 +119,23 @@ def test_adaptive_consent_in_memory_mode_never_touches_disk(tmp_path):
 def test_invalid_state_mode_is_rejected(tmp_path):
     with pytest.raises(ValueError):
         SOARHost(domain="cyberops", config="flat", agents={}, state_mode="sticky")
+
+
+def test_symbolic_only_runs_the_stack_without_llm_consensus(tmp_path):
+    from consensus.validator import ConsensusValidator
+    logger = ExperimentLogger(eval_name="t_sym", domain="cyberops", config="symbolic_only",
+                              model="stub", logs_dir=str(tmp_path))
+    host = SOARHost(domain="cyberops", config="symbolic_only", tool_registry=None,
+                    consensus=ConsensusValidator(config_name="div4"),
+                    agents={"admin": StubAdmin()}, logger=logger)
+    assert host.config == "agenticcyops" and host.config_label == "symbolic_only"
+    assert host.consensus is None and host.verified_execution.llm_consensus is None
+    assert host.verified_execution.symbolic_only is True
+    logger.set_trial("ap1", 1, 1)
+    asyncio.run(host.run_incident(dict(INCIDENT)))
+    logger.close()
+    with open(logger.log_file) as f:
+        rows = [json.loads(l) for l in f if l.strip()]
+    assert rows[0]["config"] == "symbolic_only"
+    mechs = {e.get("mechanism") for e in rows}
+    assert "P3_no_consensus" not in mechs

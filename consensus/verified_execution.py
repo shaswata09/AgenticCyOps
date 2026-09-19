@@ -56,9 +56,13 @@ class VerifiedExecution:
         logger: Optional[ExperimentLogger] = None,
         adaptive_consent_path=None,
         adaptive_consent_persist: bool = True,
+        symbolic_only: bool = False,
     ):
         self.domain = domain
         self.logger = logger
+        # H10: with symbolic_only the L6 LLM consensus is deliberately absent
+        # and a proposal that reaches L6 is escalated to a human.
+        self.symbolic_only = symbolic_only
 
         # Layer instances
         self.handoff_validator = HandoffValidator(logger=logger)
@@ -210,7 +214,12 @@ class VerifiedExecution:
                 "L6", {"scores": scores},
             )
 
-        # No LLM consensus available — default deny
+        # No LLM consensus available — escalate (symbolic_only) / default deny
+        if self.symbolic_only:
+            self._log_decision("escalate", "P3_symbolic_escalate",
+                               "L6 disabled: escalated to human review", "L6")
+            return self._result(False, "P3_symbolic_escalate",
+                                "L6 disabled: escalated to human review", "L6")
         self._log_decision("deny", "P3_no_consensus", "No consensus validator", "L6")
         return self._result(False, "P3_no_consensus", "No consensus validator available", "L6")
 

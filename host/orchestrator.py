@@ -51,7 +51,15 @@ class SOARHost:
         adaptive_consent_path=None,
     ):
         self.domain = domain
-        self.config = config
+        # ``symbolic_only`` (H10) is the full agenticcyops stack with the L6
+        # LLM consensus removed: proposals that reach L6 are escalated
+        # instead of judged.  Internally it is the agenticcyops branch with
+        # no consensus validator; the label is kept for logs and results.
+        self.config_label = config
+        self.config = "agenticcyops" if config == "symbolic_only" else config
+        config = self.config
+        if self.config_label == "symbolic_only":
+            consensus = None
         self.llm_url = llm_url
         self.mma_url = mma_url
         self.tool_registry = tool_registry
@@ -102,6 +110,7 @@ class SOARHost:
                 logger=logger,
                 adaptive_consent_path=adaptive_consent_path,
                 adaptive_consent_persist=(state_mode == "persistent"),
+                symbolic_only=(self.config_label == "symbolic_only"),
             )
         else:
             self.param_validator = None
@@ -137,8 +146,8 @@ class SOARHost:
         elif self.verified_execution:
             self.verified_execution.reset_for_incident()
 
-        # P1-L3: Verify config integrity before each incident
-        if self.auth_interface:
+        # P1-L3: Verify config integrity before each incident (skipped under -P1)
+        if self.auth_interface and self._principle_active("P1"):
             self.auth_interface.reset_replay_cache()
             configs_ok, changed_files = self.auth_interface.verify_config_integrity(
                 overlay=self._config_tamper_overlay())
@@ -1122,7 +1131,7 @@ class SOARHost:
             "incident_evidence": context.get("incident", {}).get("description", ""),
             "metadata": {**(mw.get("metadata", {}) or {}),
                          "trial_id": self._trial_id() or "untagged",
-                         "config": self.config},
+                         "config": self.config_label},
             "auth_token": self._mma_token(phase, store_id),
             # Ablation switches -- MMA bypasses the corresponding check when
             # set.  Default (full enforcement) for agenticcyops.

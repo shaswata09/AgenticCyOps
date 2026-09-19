@@ -39,7 +39,9 @@ CYBEROPS_APS = ["ap1", "ap2", "ap3", "ap4", "ap5", "ap6"]
 RESULT_COLUMNS = ["domain", "ap", "variant", "trial", "config", "group",
                   "outcome", "blocked_by", "collateral_denials", "task_completed",
                   "latency_s", "primary_tokens", "validator_tokens", "seed"]
-CONFIGS = ["flat", "acl_hardened", "agenticcyops", "llm_judge"]
+CONFIGS = ["flat", "acl_hardened", "agenticcyops", "llm_judge", "symbolic_only"]
+# configs that share the agenticcyops enforcement stack
+_STACK_CONFIGS = ("agenticcyops", "symbolic_only")
 AGENT_CLASSES = {
     "monitor": MonitorAgent,
     "analyze": AnalyzeAgent,
@@ -240,7 +242,7 @@ class AttackHarness:
         # Load shared embedding model for P2-L2/P2-L3 (agenticcyops only;
         # llm_judge ablation skips P2 so doesn't need embeddings)
         embedding_model = None
-        if config == "agenticcyops":
+        if config in _STACK_CONFIGS:
             try:
                 from sentence_transformers import SentenceTransformer
                 model_path = str(MODELS_DIR / "Qwen" / "Qwen3-Embedding-0.6B")
@@ -615,7 +617,9 @@ async def main():
     parser.add_argument("--domain", required=True, choices=["cyberops", "healthcare", "finance", "legal"])
     parser.add_argument("--ap", help="Specific attack path (ap1-ap6)")
     parser.add_argument("--eval", help="Evaluation suite (A=all CyberOps APs, F=domain-specific)")
-    parser.add_argument("--config", default="agenticcyops", help="flat, acl_hardened, agenticcyops, or all")
+    parser.add_argument("--config", default="agenticcyops",
+                        help="flat, acl_hardened, agenticcyops, llm_judge, symbolic_only, "
+                              "or all (= flat, acl_hardened, agenticcyops)")
     parser.add_argument("--trials", type=int, default=3, help="Trials per variant (default 3)")
     parser.add_argument("--benign", action="store_true", help="Run benign scenarios only")
     parser.add_argument("--verbose", action="store_true")
@@ -659,7 +663,7 @@ async def main():
     disabled = {p.strip().upper() for p in args.disable_principles.split(",")
                 if p.strip()}
     extra_body = json.loads(args.extra_body_json) if args.extra_body_json.strip() else None
-    configs = CONFIGS if args.config == "all" else [args.config]
+    configs = CONFIGS[:3] if args.config == "all" else [args.config]
     all_results = []
 
     for config in configs:

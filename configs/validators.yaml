@@ -27,6 +27,48 @@ validators:
     model: "gpt-4o"
     type: "openai_api"
 
+  # H9: Qwen3-14B, same family as V1 -- only for the `lin3` (low-diversity)
+  # panel evaluated through the E6 paired replay.
+  V7_qwen14b:
+    url: "${VALIDATOR_URL_V7:-http://localhost:8007/v1}"
+    model: "Qwen3-14B"
+    type: "openai"
+
+# ---- Revision-v2 panels (H9) -------------------------------------------
+# Group -> panel: q235_div4 / scout_div4 / llama8b_div4 / glm_div4 -> div4;
+# mistral_div3p -> mistral_div3p; claude_loc -> claude_loc.  div3 / lin3 /
+# single are compared through the E6 paired replay only.
+
+# Four families (Qwen, Mistral, Anthropic, OpenAI), 3 of 4 must approve.
+div4:
+  validators: ["V1_qwen", "V5_mistral", "V4_claude", "V6_gpt4o"]
+  threshold: 3
+
+# Three families, 2 of 3 (same size as lin3, different diversity).
+div3:
+  validators: ["V1_qwen", "V5_mistral", "V6_gpt4o"]
+  threshold: 2
+
+# Three Qwen-lineage models, 2 of 3 (low diversity at matched size).
+lin3:
+  validators: ["V1_qwen", "V2_deepseek", "V7_qwen14b"]
+  threshold: 2
+
+# One validator.
+single:
+  validators: ["V1_qwen"]
+  threshold: 1
+
+# Mistral primary: its panel excludes the Mistral validator, 2 of 3.
+mistral_div3p:
+  validators: ["V1_qwen", "V4_claude", "V6_gpt4o"]
+  threshold: 2
+
+# Claude primary: its panel excludes Claude, 3 of 4.
+claude_loc:
+  validators: ["V1_qwen", "V5_mistral", "V3_llama", "V6_gpt4o"]
+  threshold: 3
+
 # ---- Default consensus configs ----
 
 # Default: 2 local + 2 API = 4 validators, threshold 3/4
@@ -48,6 +90,8 @@ local_only:
 # ---- Validator diversity experiment configs ----
 
 # Same family: all Qwen (tests correlated failure)
+# DEPRECATED (H9): three copies of one validator at temperature 0 are one
+# vote; kept only so legacy results.csv rows can be interpreted.
 same_family:
   validators: ["V1_qwen", "V1_qwen", "V1_qwen"]
   threshold: 2

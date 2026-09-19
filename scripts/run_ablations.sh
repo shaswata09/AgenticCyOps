@@ -131,6 +131,7 @@ if [ -z "$1" ]; then
         echo "    P1, P2, P3, P4, P5                       (leave-one-out)"
         echo "    single_P1, single_P2, ..., single_P5     (single-principle isolation)"
         echo "    llm_judge                                (P1 + consensus only)"
+        echo "    symbolic_only                            (P1-P5 with L6 consensus removed)"
         echo "    Use space-separated list, e.g. 'P3 P5 llm_judge'"
         read -p "  Ablations (default 'P1 P2 P3 P4 P5'): " ABLATIONS
         [ -z "$ABLATIONS" ] && ABLATIONS="P1 P2 P3 P4 P5"
@@ -207,6 +208,9 @@ resolve_ablation() {
         llm_judge)
             echo "llm_judge "
             ;;
+        symbolic_only)
+            echo "symbolic_only "
+            ;;
         *)
             return 1
             ;;
@@ -217,7 +221,7 @@ resolve_ablation() {
 for tok in $ABLATIONS; do
     if ! resolve_ablation "$tok" > /dev/null 2>&1; then
         echo "[FAIL] unknown ablation token: $tok"
-        echo "       valid: P1 P2 P3 P4 P5  single_P1..P5  llm_judge"
+        echo "       valid: P1 P2 P3 P4 P5  single_P1..P5  llm_judge  symbolic_only"
         exit 2
     fi
 done
