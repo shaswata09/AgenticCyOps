@@ -551,13 +551,24 @@ class SOARHost:
             return {}
 
     def _args_for_log(self, tc) -> dict:
-        """``{"arguments": <compact>, "call_id": ...}`` for a tool_call event."""
+        """``{"arguments": <compact>, "call_id": ..., "layer_latency_ms": {...}}``
+        for a tool_call event.  Layer timings (H8) are accumulated per call
+        in ``self._layer_lat`` by :meth:`_enforce_tool_call`."""
         arguments = tc.arguments if hasattr(tc, "arguments") else tc
         out = {"arguments": self._compact_args(arguments)}
         call_id = getattr(tc, "call_id", "")
         if call_id:
             out["call_id"] = call_id
+        lat = getattr(self, "_layer_lat", None)
+        if lat:
+            out["layer_latency_ms"] = {k: round(v, 2) for k, v in lat.items()}
         return out
+
+    def _lap(self, layer: str, t0: float) -> float:
+        """Record elapsed ms since ``t0`` under ``layer``; return a new t0."""
+        now = _time.perf_counter()
+        self._layer_lat[layer] = self._layer_lat.get(layer, 0.0) + (now - t0) * 1000
+        return now
 
     def _next_call_id(self, phase: str, kind: str, key: str) -> str:
         """Stable per-incident identifier: ``<phase>:<kind>:<seq>:<hash8>``.
@@ -598,6 +609,11 @@ class SOARHost:
     async def _enforce_tool_call(self, phase: str, tc, context: dict) -> dict:
         """Process a tool call with config-appropriate enforcement.
 
+        Per-layer wall-clock is accumulated in ``self._layer_lat`` and
+        written on the call's final ``tool_call`` event as
+        ``layer_latency_ms`` (keys P1_L1, P2_L1, P2_L2, P3, P3_L7, exec,
+        P1_L2, P2_L3, acl, judge).
+
         Enforcement pipeline (agenticcyops):
           1. P1-L1: Component identity verification
           2. P2-L1: Manifest enforcement (tool allowed for this phase?)
@@ -609,11 +625,14 @@ class SOARHost:
           7. P2-L3: Output classification (sensitive data detection)
         """
         tool_id = tc.tool_id
+        self._layer_lat = {}
+        _t = _time.perf_counter()
 
         # Config-specific enforcement
         if self.config == "acl_hardened":
             # ACL: Enforce at "network layer" — agent was still manipulated into trying
             allowed, reason = self.enforcer.validate_tool_call(phase, tool_id)
+            _t = self._lap("acl", _t)
             if not allowed:
                 if self.logger:
                     self.logger.log_tool_call(
@@ -639,6 +658,7 @@ class SOARHost:
             #                                  through to executor below)
             if self.auth_interface:
                 verified, reason = self.auth_interface.verify_component(tool_id, "tools")
+                _t = self._lap("P1_L1", _t)
                 if not verified:
                     if self.logger:
                         self.logger.log_tool_call(
@@ -668,7 +688,9 @@ class SOARHost:
                 try:
                     result = await self.consensus.validate_with_details(
                         proposal, p3_context)
+                    _t = self._lap("judge", _t)
                 except Exception as exc:
+                    _t = self._lap("judge", _t)
                     if self.logger:
                         self.logger.log_tool_call(
                             agent=f"{phase}_agent",
@@ -683,7 +705,7 @@ class SOARHost:
                 else:
                     votes = list(result.votes)
                     all_error = bool(votes) and all(
-                        v.validator_id == "error" for v in votes)
+                        v.decision == "error" or v.validator_id == "error" for v in votes)
                     if not votes or all_error:
                         if self.logger:
                             self.logger.log_tool_call(
@@ -723,6 +745,7 @@ class SOARHost:
             # ── Step 1: P1-L1 — Component identity ──
             if self.auth_interface and self._principle_active("P1"):
                 verified, reason = self.auth_interface.verify_component(tool_id, "tools")
+                _t = self._lap("P1_L1", _t)
                 if not verified:
                     if self.logger:
                         self.logger.log_tool_call(
@@ -738,6 +761,7 @@ class SOARHost:
             # ── Step 2: P2-L1 — Manifest enforcement ──
             if self._principle_active("P2"):
                 allowed, reason = self.enforcer.validate_tool_call(phase, tool_id)
+                _t = self._lap("P2_L1", _t)
                 if not allowed:
                     if self.logger:
                         self.logger.log_tool_call(
@@ -758,6 +782,7 @@ class SOARHost:
                 params_ok, p_reason, p_details = self.param_validator.validate(
                     tool_id, tc.arguments, incident_evidence
                 )
+                _t = self._lap("P2_L2", _t)
                 if not params_ok:
                     if self.logger:
                         self.logger.log(
@@ -798,6 +823,7 @@ class SOARHost:
                 approved = await self.verified_execution.validate(
                     proposal, p3_context
                 )
+                _t = self._lap("P3", _t)
                 if not approved:
                     if self.logger:
                         self.logger.log_tool_call(
@@ -848,6 +874,7 @@ class SOARHost:
             l7_ok, l7_reason = self.verified_execution.verify_execution(
                 proposal, _to_execute, _p3_approved_at
             )
+            _t = self._lap("P3_L7", _t)
             if not l7_ok:
                 if self.logger:
                     self.logger.log(
@@ -873,6 +900,8 @@ class SOARHost:
         else:
             response = {"status": "no_registry", "tool_id": tool_id}
         _latency = (_time.perf_counter() - _t0) * 1000
+        self._layer_lat["exec"] = _latency
+        _t = _time.perf_counter()
 
         if isinstance(response, dict) and response.pop("_harness_injected", None):
             if self.logger:
@@ -892,6 +921,7 @@ class SOARHost:
                 resp_ok, resp_reason = self.auth_interface.validate_response(
                     tool_id, response, _latency
                 )
+                _t = self._lap("P1_L2", _t)
                 if not resp_ok:
                     if self.logger:
                         self.logger.log(
@@ -910,6 +940,7 @@ class SOARHost:
                 safe, class_reason, class_details = self.output_classifier.classify(
                     tool_id, response, agent_phase=phase
                 )
+                _t = self._lap("P2_L3", _t)
                 if not safe:
                     if self.logger:
                         self.logger.log(

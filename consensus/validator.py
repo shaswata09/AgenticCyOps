@@ -68,6 +68,32 @@ class ConsensusResult:
     total_latency_ms: float = 0.0
 
 
+def _usage(response) -> dict:
+    """Prompt / completion token counts from an OpenAI-style response."""
+    u = getattr(response, "usage", None)
+    return {"prompt": int(getattr(u, "prompt_tokens", 0) or 0),
+            "completion": int(getattr(u, "completion_tokens", 0) or 0)}
+
+
+def _parse_vote(content: str) -> dict:
+    """Parse the validator's JSON vote; malformed output is a rejection."""
+    import re
+    try:
+        data = json.loads(content)
+        return data if isinstance(data, dict) else {"decision": "reject", "confidence": 0.0,
+                                                    "reason": "non-object JSON"}
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", content, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group())
+                if isinstance(data, dict):
+                    return data
+            except json.JSONDecodeError:
+                pass
+        return {"decision": "reject", "confidence": 0.0, "reason": f"Invalid JSON: {content[:100]}"}
+
+
 class ConsensusValidator:
     """Multi-model consensus validation."""
 
@@ -139,13 +165,9 @@ class ConsensusValidator:
         )
 
         for vote in votes:
-            if isinstance(vote, Exception):
+            if isinstance(vote, Exception):        # should not happen: _call_validator catches
                 result.votes.append(ValidatorVote(
-                    validator_id="error",
-                    decision="reject",
-                    confidence=0.0,
-                    reason=str(vote),
-                ))
+                    validator_id="error", decision="error", confidence=0.0, reason=str(vote)))
                 result.rejections += 1
                 continue
 
@@ -153,7 +175,7 @@ class ConsensusValidator:
             if vote.decision == "approve":
                 result.approvals += 1
             else:
-                result.rejections += 1
+                result.rejections += 1          # "reject" and "error" both count against
 
         result.approved = result.approvals >= self._threshold
 
@@ -171,17 +193,33 @@ class ConsensusValidator:
     async def _call_validator(
         self, vid: str, config: dict, proposal_msg: str
     ) -> ValidatorVote:
+        """One validator's vote.  A transport / API error is a vote with
+        ``decision="error"`` (it still counts as a rejection for the quorum)
+        and is logged as such, so error rates are visible per validator."""
         start = time.perf_counter()
 
         vtype = config.get("type", "openai")
-        if vtype == "anthropic":
-            vote_data = await self._call_anthropic(config, proposal_msg)
-        elif vtype == "openai_api":
-            vote_data = await self._call_openai_api(config, proposal_msg)
-        else:
-            vote_data = await self._call_openai(config, proposal_msg)
+        try:
+            if vtype == "anthropic":
+                vote_data = await self._call_anthropic(config, proposal_msg)
+            elif vtype == "openai_api":
+                vote_data = await self._call_openai_api(config, proposal_msg)
+            else:
+                vote_data = await self._call_openai(config, proposal_msg)
+        except Exception as exc:
+            latency = (time.perf_counter() - start) * 1000
+            vote = ValidatorVote(validator_id=vid, decision="error", confidence=0.0,
+                                 reason=f"{exc.__class__.__name__}: {str(exc)[:160]}",
+                                 latency_ms=latency)
+            if self.logger:
+                self.logger.log_consensus_vote(
+                    validator=vid, proposal_source="agent", vote="error",
+                    confidence=0.0, latency_ms=latency, reasoning=vote.reason,
+                )
+            return vote
 
         latency = (time.perf_counter() - start) * 1000
+        usage = vote_data.get("_usage") or {}
 
         vote = ValidatorVote(
             validator_id=vid,
@@ -190,6 +228,7 @@ class ConsensusValidator:
             reason=vote_data.get("reason", "no reason"),
             concerns=vote_data.get("concerns", []),
             latency_ms=latency,
+            tokens_used=int(usage.get("prompt", 0)) + int(usage.get("completion", 0)),
         )
 
         if self.logger:
@@ -199,6 +238,8 @@ class ConsensusValidator:
                 vote=vote.decision,
                 confidence=vote.confidence,
                 latency_ms=latency,
+                tokens_prompt=int(usage.get("prompt", 0)),
+                tokens_completion=int(usage.get("completion", 0)),
             )
 
         return vote
@@ -227,24 +268,13 @@ class ConsensusValidator:
                 temperature=0.0,
                 max_tokens=2048,
             )
-            return response.choices[0].message.content or "{}"
+            return response.choices[0].message.content or "{}", _usage(response)
 
-        content = await asyncio.to_thread(_blocking)
+        content, usage = await asyncio.to_thread(_blocking)
         # Strip thinking tags from reasoning models (Qwen3, DeepSeek-R1)
         import re
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-        # Try to extract JSON from the response
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            # Try to find JSON object in the text
-            match = re.search(r"\{.*\}", content, re.DOTALL)
-            if match:
-                try:
-                    return json.loads(match.group())
-                except json.JSONDecodeError:
-                    pass
-            return {"decision": "reject", "confidence": 0.0, "reason": f"Invalid JSON: {content[:100]}"}
+        return {**_parse_vote(content), "_usage": usage}
 
     async def _call_openai_api(self, config: dict, proposal_msg: str) -> dict:
         """Call OpenAI API directly (GPT-4o etc.) — not a local vLLM server."""
@@ -261,20 +291,10 @@ class ConsensusValidator:
                 temperature=0.0,
                 max_tokens=300,
             )
-            return response.choices[0].message.content or "{}"
+            return response.choices[0].message.content or "{}", _usage(response)
 
-        content = await asyncio.to_thread(_blocking)
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            import re
-            match = re.search(r"\{.*\}", content, re.DOTALL)
-            if match:
-                try:
-                    return json.loads(match.group())
-                except json.JSONDecodeError:
-                    pass
-            return {"decision": "reject", "confidence": 0.0, "reason": f"Invalid JSON: {content[:100]}"}
+        content, usage = await asyncio.to_thread(_blocking)
+        return {**_parse_vote(content), "_usage": usage}
 
     async def _call_anthropic(self, config: dict, proposal_msg: str) -> dict:
         import anthropic
@@ -285,13 +305,14 @@ class ConsensusValidator:
             response = client.messages.create(
                 model=config.get("model", "claude-sonnet-4-20250514"),
                 max_tokens=300,
+                temperature=0.0,
                 system=VALIDATOR_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": proposal_msg}],
             )
-            return response.content[0].text
+            u = getattr(response, "usage", None)
+            usage = {"prompt": int(getattr(u, "input_tokens", 0) or 0),
+                     "completion": int(getattr(u, "output_tokens", 0) or 0)}
+            return response.content[0].text, usage
 
-        content = await asyncio.to_thread(_blocking)
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            return {"decision": "reject", "confidence": 0.0, "reason": "Invalid JSON response"}
+        content, usage = await asyncio.to_thread(_blocking)
+        return {**_parse_vote(content), "_usage": usage}

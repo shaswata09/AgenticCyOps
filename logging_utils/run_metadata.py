@@ -20,6 +20,7 @@ Model identifiers are always passed through
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from typing import Any, Optional
@@ -145,6 +146,20 @@ def validator_panel_for(consensus_config: Optional[str]) -> tuple[Optional[dict]
         return models, panel.get("threshold")
     except Exception:
         return None, None
+
+
+def assert_frozen(header: dict) -> None:
+    """Abort unless HEAD is exactly a defense-freeze tag with a clean tree.
+
+    ``git describe --exact-match`` yields the bare tag (``defense-freeze-v2``);
+    a commit after the tag yields ``defense-freeze-v2-3-gabc1234`` and fails.
+    """
+    tag = header.get("freeze_tag") or ""
+    if not re.fullmatch(rf"{FREEZE_TAG_PREFIX}[A-Za-z0-9.]+", tag):
+        raise SystemExit(f"--require-freeze: HEAD is not a defense-freeze tag (freeze_tag={tag!r}). "
+                         "Run scripts/check_freeze.sh.")
+    if header.get("git_dirty"):
+        raise SystemExit("--require-freeze: working tree has uncommitted changes in tracked files.")
 
 
 def build_run_header(

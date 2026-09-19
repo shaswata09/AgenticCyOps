@@ -7,6 +7,7 @@ structured output for handoff.
 """
 
 import json
+import os
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Optional
@@ -104,6 +105,11 @@ class BaseAgent:
         self.logger = logger
         self._api_key_env = api_key_env
         self._extra_body = extra_body
+        # Sampling (H7): the primary samples at PRIMARY_TEMPERATURE (default
+        # 0.7); the harness sets a per-trial seed which is passed to the
+        # server (vLLM / OpenAI honour it; Anthropic has no seed) and logged.
+        self.temperature: float = float(os.environ.get("PRIMARY_TEMPERATURE", "0.7"))
+        self.seed: Optional[int] = None
 
         if llm_provider == "anthropic":
             import os
@@ -123,6 +129,13 @@ class BaseAgent:
             self._anthropic_client = None
 
         self._system_prompt = self._load_prompt()
+
+    def set_seed(self, seed: Optional[int]) -> None:
+        """Per-trial sampling seed (H7)."""
+        self.seed = None if seed is None else int(seed)
+
+    def set_temperature(self, temperature: float) -> None:
+        self.temperature = float(temperature)
 
     def _load_prompt(self) -> str:
         path = BASE_DIR / "domains" / self.domain / "prompts" / f"{self.phase}.txt"
@@ -231,6 +244,8 @@ class BaseAgent:
                 extra={
                     "model": model_display_name(self._model_name),
                     "provider": self.llm_provider,
+                    "temperature": self.temperature,
+                    "seed": self.seed,
                     "tools_visible": len(tools) if tools else 0,
                     "config": self.config,
                 },
@@ -249,9 +264,11 @@ class BaseAgent:
                 {"role": "system", "content": self._system_prompt},
                 {"role": "user", "content": user_message},
             ],
-            "temperature": 0.0,
+            "temperature": self.temperature,
             "max_tokens": 4096,
         }
+        if self.seed is not None:
+            kwargs["seed"] = int(self.seed)
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = "auto"
@@ -289,7 +306,7 @@ class BaseAgent:
             "model": self._model_name,
             "system": self._system_prompt,
             "messages": [{"role": "user", "content": user_message}],
-            "temperature": 0.0,
+            "temperature": self.temperature,
             "max_tokens": 4096,
         }
         if anthropic_tools:

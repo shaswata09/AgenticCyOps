@@ -143,11 +143,17 @@ class AttackHarness:
         api_key_env: Optional[str] = None,
         extra_body: Optional[dict] = None,
         state_mode: str = "isolated",
+        temperature: float = 0.7,
+        base_seed: Optional[int] = None,
+        require_freeze: bool = False,
     ):
         self.domain = domain
         self.config = config
         self.group = group
         self.state_mode = state_mode
+        self.temperature = float(temperature)
+        self.base_seed = base_seed
+        self.require_freeze = require_freeze
         self.llm_url = llm_url
         self.llm_provider = llm_provider
         self.mma_url = mma_url
@@ -172,7 +178,12 @@ class AttackHarness:
             consensus_config=consensus_config if config in ("agenticcyops", "llm_judge") else None,
             disabled_principles=self.disabled_principles,
             state_mode=state_mode,
+            primary_temperature=self.temperature,
+            seed=base_seed,
         )
+        if require_freeze:
+            from logging_utils.run_metadata import assert_frozen
+            assert_frozen(header)
         self.logger = ExperimentLogger(
             eval_name=eval_name,
             domain=domain,
@@ -215,6 +226,7 @@ class AttackHarness:
                 if extra_body:
                     agent_kwargs["extra_body"] = extra_body
             self.agents[phase] = AgentCls(**agent_kwargs)
+            self.agents[phase].set_temperature(self.temperature)
 
         # Build consensus (agenticcyops + llm_judge ablation)
         consensus = None
@@ -632,6 +644,12 @@ async def main():
                               "Rows are appended per trial; pass 'none' to disable.")
     parser.add_argument("--seed", type=int, default=None,
                         help="Base seed; trial t uses seed+t (recorded per trial).")
+    parser.add_argument("--temperature", type=float, default=0.7,
+                        help="Primary model sampling temperature (default 0.7; "
+                              "validators always sample at 0).")
+    parser.add_argument("--require-freeze", action="store_true",
+                        help="Abort unless HEAD is exactly the defense-freeze tag "
+                              "and the frozen directories are clean.")
     parser.add_argument("--state-mode", default="isolated", choices=["isolated", "persistent"],
                         help="isolated (default): reset every cross-incident defense "
                               "state and the MMA's trial documents before each trial; "
@@ -662,8 +680,10 @@ async def main():
             api_key_env=(args.api_key_env or None),
             extra_body=extra_body,
             state_mode=args.state_mode,
+            temperature=args.temperature,
+            base_seed=args.seed,
+            require_freeze=args.require_freeze,
         )
-        harness.base_seed = args.seed
         if args.results_dir != "none":
             suffix = ("_disabled_" + "".join(sorted(disabled))) if disabled else ""
             rdir = Path(args.results_dir) if args.results_dir else (
