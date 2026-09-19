@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 from openai import AsyncOpenAI
 
-from config import MODELS_DIR, env_url
+from config import env_url
 try:
     from anthropic import AsyncAnthropic
     HAS_ANTHROPIC = True
@@ -36,25 +36,47 @@ except ImportError:
 #  Group -> (primary model endpoint, consensus config) wiring
 # --------------------------------------------------------------------- #
 
+# Model ids are the names the servers announce (--served-model-name in
+# scripts/vllm_profiles.sh / scripts/a51_vllm.sh), never local paths.
 GROUP_CONFIGS: dict[str, dict] = {
+    # ---- Revision-v2 groups (docs/REVISION_TASKS.md G1) ----
+    "q235_div4": {"primary_url": env_url("PRIMARY_URL_Q235", "http://localhost:8000/v1"),
+                  "primary_model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+                  "primary_type": "openai", "consensus": "div4"},
+    "scout_div4": {"primary_url": env_url("PRIMARY_URL_SCOUT", "http://localhost:8004/v1"),
+                   "primary_model": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+                   "primary_type": "openai", "consensus": "div4"},
+    "mistral_div3p": {"primary_url": env_url("PRIMARY_URL_MISTRAL", "http://localhost:8003/v1"),
+                      "primary_model": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+                      "primary_type": "openai", "consensus": "mistral_div3p"},
+    "llama8b_div4": {"primary_url": env_url("REMOTE_5090_URL", ""),
+                     "primary_model": "meta-llama/Llama-3.1-8B-Instruct",
+                     "primary_type": "openai", "api_key_env": "REMOTE_5090_API_KEY",
+                     "consensus": "div4"},
+    "claude_loc": {"primary_url": None, "primary_model": "claude-sonnet-4-20250514",
+                   "primary_type": "anthropic", "consensus": "claude_loc"},
+    "glm_div4": {"primary_url": env_url("PRIMARY_URL_GLM", "http://localhost:8001/v1"),
+                 "primary_model": "zai-org/GLM-4.7-FP8",
+                 "primary_type": "openai", "consensus": "div4"},
+    # ---- Legacy v1 groups (results_legacy_v1) ----
     "A": {"primary_url": env_url("PRIMARY_URL_Q235", "http://localhost:8000/v1"),
-          "primary_model": str(MODELS_DIR / "Qwen/Qwen3-235B-A22B-Instruct-2507"),
+          "primary_model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
           "primary_type":  "openai",  # vLLM OpenAI-compatible
           "consensus":     "default_consensus"},
     "B": {"primary_url": env_url("PRIMARY_URL_GLM", "http://localhost:8001/v1"),
-          "primary_model": str(MODELS_DIR / "zai-org/GLM-4.7-FP8"),
+          "primary_model": "zai-org/GLM-4.7-FP8",
           "primary_type":  "openai",
           "consensus":     "default_consensus"},
     "C": {"primary_url": env_url("PRIMARY_URL_Q235", "http://localhost:8000/v1"),
-          "primary_model": str(MODELS_DIR / "Qwen/Qwen3-235B-A22B-Instruct-2507"),
+          "primary_model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
           "primary_type":  "openai",
           "consensus":     "same_family"},
     "D": {"primary_url": env_url("PRIMARY_URL_SCOUT", "http://localhost:8004/v1"),
-          "primary_model": str(MODELS_DIR / "meta-llama/Llama-4-Scout-17B-16E-Instruct"),
+          "primary_model": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
           "primary_type":  "openai",
           "consensus":     "default_consensus"},
     "E": {"primary_url": env_url("PRIMARY_URL_Q235", "http://localhost:8000/v1"),
-          "primary_model": str(MODELS_DIR / "Qwen/Qwen3-235B-A22B-Instruct-2507"),
+          "primary_model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
           "primary_type":  "openai",
           "consensus":     "with_mistral"},
     "F": {"primary_url": None,
@@ -65,11 +87,11 @@ GROUP_CONFIGS: dict[str, dict] = {
     # Each panel excludes the validator that would duplicate the primary
     # model family, avoiding self-voting in the consensus quorum.
     "G": {"primary_url": env_url("VALIDATOR_URL_V1", "http://localhost:8002/v1"),
-          "primary_model": str(MODELS_DIR / "Qwen/Qwen3-32B"),
+          "primary_model": "Qwen/Qwen3-32B",
           "primary_type":  "openai",
           "consensus":     "no_qwen_panel"},
     "H": {"primary_url": env_url("PRIMARY_URL_MISTRAL", "http://localhost:8003/v1"),
-          "primary_model": str(MODELS_DIR / "mistralai/Mistral-Small-3.2-24B-Instruct-2506"),
+          "primary_model": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
           "primary_type":  "openai",
           "consensus":     "no_mistral_panel"},
     # Served from the RTX 5090 node; address and key come from .env only.
@@ -79,7 +101,7 @@ GROUP_CONFIGS: dict[str, dict] = {
           "api_key_env":   "REMOTE_5090_API_KEY",
           "consensus":     "with_mistral"},
     "J": {"primary_url": env_url("PRIMARY_URL_GPTOSS", "http://localhost:8006/v1"),
-          "primary_model": str(MODELS_DIR / "openai/gpt-oss-120b"),
+          "primary_model": "openai/gpt-oss-120b",
           "primary_type":  "openai",
           "consensus":     "with_mistral"},
 }

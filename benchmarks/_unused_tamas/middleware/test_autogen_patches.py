@@ -1,6 +1,6 @@
 """
-Smoke test for :mod:`benchmarks.tamas.middleware.autogen_patches` and
-:mod:`benchmarks.tamas.middleware.budget_tracker`.
+Smoke test for :mod:`benchmarks._unused_tamas.middleware.autogen_patches` and
+:mod:`benchmarks._unused_tamas.middleware.budget_tracker`.
 
 The test runs without pyautogen installed -- AutoGen calls are emulated
 by a pair of lightweight mock classes, and the P12345Middleware is
@@ -8,7 +8,7 @@ replaced by a fake that records every method call.
 
 Run from the repo root::
 
-    python -m benchmarks.tamas.middleware.test_autogen_patches
+    python -m benchmarks._unused_tamas.middleware.test_autogen_patches
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 
-from benchmarks.tamas.middleware.autogen_patches import (  # noqa: E402
+from benchmarks._unused_tamas.middleware.autogen_patches import (  # noqa: E402
     AUTOGEN_AVAILABLE,
     ConversableAgent,
     GroupChat,
@@ -38,7 +38,7 @@ from benchmarks.tamas.middleware.autogen_patches import (  # noqa: E402
     wrap_agent_retriever,
     wrap_agent_tools,
 )
-from benchmarks.tamas.middleware.budget_tracker import (  # noqa: E402
+from benchmarks._unused_tamas.middleware.budget_tracker import (  # noqa: E402
     BUDGET_HARD_STOP_USD,
     BudgetExceededError,
     BudgetTracker,

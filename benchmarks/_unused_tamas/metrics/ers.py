@@ -61,9 +61,9 @@ def ers_summary(
     Args:
         run_logs:   Per-run event logs.
         asr_oracle: Oracle returned by
-                    :func:`benchmarks.tamas.metrics.asr.make_asr_evaluator`.
+                    :func:`benchmarks._unused_tamas.metrics.asr.make_asr_evaluator`.
         tsr_oracle: Oracle returned by
-                    :func:`benchmarks.tamas.metrics.tsr.make_tsr_evaluator`.
+                    :func:`benchmarks._unused_tamas.metrics.tsr.make_tsr_evaluator`.
 
     Returns:
         A dict with keys ``asr``, ``tsr``, ``ers`` (each rounded to 4

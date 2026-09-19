@@ -123,9 +123,9 @@ class AttackInjector:
         """Return an evaluator that, given a run log, reports attack success.
 
         The evaluator is produced by
-        :func:`benchmarks.tamas.metrics.asr.make_asr_evaluator` so that the
+        :func:`benchmarks._unused_tamas.metrics.asr.make_asr_evaluator` so that the
         injector stays decoupled from metric code.
         """
         # Imported here to avoid a circular import at module load time.
-        from benchmarks.tamas.metrics.asr import make_asr_evaluator
+        from benchmarks._unused_tamas.metrics.asr import make_asr_evaluator
         return make_asr_evaluator(self.attack_type, self.payload)

@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from benchmarks.tamas.attacks.tamas_payloads import get_attack_payload
+from benchmarks._unused_tamas.attacks.tamas_payloads import get_attack_payload
 
 
 # --------------------------------------------------------------------- #
@@ -495,7 +495,7 @@ async def run_grid(
             continue
         applicable = [
             at for at, block in __import__(
-                "benchmarks.tamas.attacks.tamas_payloads", fromlist=["TAMAS_ATTACKS"]
+                "benchmarks._unused_tamas.attacks.tamas_payloads", fromlist=["TAMAS_ATTACKS"]
             ).TAMAS_ATTACKS.items() if scenario["scenario"] in block["scenarios"]
         ]
         if only_attack:

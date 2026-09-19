@@ -9,7 +9,7 @@ Exports:
                             capability enforcer used by the middleware.
 """
 
-from benchmarks.tamas.middleware.agent_wrapper import P12345Middleware
-from benchmarks.tamas.middleware.role_manifest import DynamicManifestEnforcer
+from benchmarks._unused_tamas.middleware.agent_wrapper import P12345Middleware
+from benchmarks._unused_tamas.middleware.role_manifest import DynamicManifestEnforcer
 
 __all__ = ["P12345Middleware", "DynamicManifestEnforcer"]

@@ -35,9 +35,18 @@ if [ -t 1 ] && [ "${TERM:-dumb}" != "dumb" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODELS_DIR="$SCRIPT_DIR/models"
+MODELS_DIR="${MODELS_DIR:-$SCRIPT_DIR/models}"
 LOG_DIR="$SCRIPT_DIR/logs/vllm"
 mkdir -p "$LOG_DIR"
+
+# Non-interactive named profiles (revision v2, docs/REVISION_TASKS.md G2):
+#   ./start_servers.sh --profile q235 | mid | glm      (start + wait)
+#   ./start_servers.sh --status | --stop
+case "${1:-}" in
+    --profile) exec "$SCRIPT_DIR/scripts/vllm_profiles.sh" start "${2:?profile name}" ;;
+    --status)  exec "$SCRIPT_DIR/scripts/vllm_profiles.sh" status ;;
+    --stop)    exec "$SCRIPT_DIR/scripts/vllm_profiles.sh" stop ;;
+esac
 
 # ---- Auto-detect NVLink topology ----
 detect_nvlink_pairs() {

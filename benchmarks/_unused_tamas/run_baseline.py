@@ -10,7 +10,7 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from benchmarks.tamas.eval_runner import run_grid, save_results
+from benchmarks._unused_tamas.eval_runner import run_grid, save_results
 
 HERE = Path(__file__).resolve().parent
 SCENARIOS_DIR = HERE / "scenarios"

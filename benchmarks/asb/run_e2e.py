@@ -33,7 +33,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
-from config import BASE_DIR, MODELS_DIR
+from config import BASE_DIR, MODELS_DIR, model_display_name
 
 from benchmarks.asb.harness.live_llm_driver import (
     GROUP_CONFIGS, run_live_trial, case_attacker_ids,
@@ -168,16 +168,52 @@ async def apply_defense_async(case: dict, llm_action: Optional[str],
 #  Orchestration
 # --------------------------------------------------------------------- #
 
+def load_replay(path: Path) -> dict[tuple, dict]:
+    """Primary outputs of a finished run, keyed by (case id, config, trial).
+
+    Used by ``--replay-from`` (E6): the defense step is re-run on the
+    recorded ``emitted_action`` / ``emitted_args`` so that panels can be
+    compared on identical primary outputs without any primary GPU time.
+    """
+    out: dict[tuple, dict] = {}
+    with open(path, newline="") as f:
+        for r in csv.DictReader(f):
+            key = (r.get("asb_case_id"), r.get("config"), str(r.get("trial_id")))
+            try:
+                args = json.loads(r.get("emitted_args") or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            out[key] = {
+                "emitted_action": r.get("emitted_action") or None,
+                "emitted_args": args,
+                "user_tool": r.get("user_tool"),
+                "refused_with_final_answer": str(r.get("refused_with_final_answer")).lower() == "true",
+                "attack_succeeded_llm": str(r.get("attack_succeeded_llm")).lower() == "true",
+                "prompt_tokens": int(r.get("prompt_tokens") or 0),
+                "completion_tokens": int(r.get("completion_tokens") or 0),
+                "model": model_display_name(r.get("model")),
+                "temperature": r.get("temperature"),
+                "raw_generation": "",
+                "error": r.get("error") or None,
+                "replayed_from": str(path),
+            }
+    return out
+
+
 async def run_sweep(group_id: str,
                     cases: list[dict],
                     configs: list[str],
                     trials: int,
                     temperature: float,
                     concurrency: int,
-                    embedding_model=None) -> list[dict]:
+                    embedding_model=None,
+                    consensus_override: Optional[str] = None,
+                    replay: Optional[dict] = None) -> list[dict]:
     print(f"Building pipelines for group {group_id}  domain={DOMAIN}")
-    consensus_profile = GROUP_CONFIGS[group_id].get("consensus")
-    print(f"  P3-L6 consensus profile: {consensus_profile}")
+    consensus_profile = consensus_override or GROUP_CONFIGS[group_id].get("consensus")
+    print(f"  P3-L6 consensus profile: {consensus_profile}"
+          + ("  (override)" if consensus_override else "")
+          + (f"  replaying {len(replay)} recorded primary outputs" if replay else ""))
     pipelines: dict[str, DefensePipeline] = {}
     for cfg in configs:
         pipelines[cfg] = DefensePipeline(
@@ -197,18 +233,30 @@ async def run_sweep(group_id: str,
                 primary_provider=GROUP_CONFIGS[group_id].get("primary_type", "openai"),
                 primary_model=primary_model,
                 api_key_env=GROUP_CONFIGS[group_id].get("api_key_env"),
-                consensus_config=GROUP_CONFIGS[group_id].get("consensus")))
+                consensus_config=consensus_profile,
+                replay_from=(next(iter(replay.values()))["replayed_from"] if replay else None),
+                probe=not replay))
 
     sem = asyncio.Semaphore(concurrency)
+    missing_replay = 0
     all_rows: list[dict] = []
     t_start = time.time()
 
     async def one_cell(case: dict, cfg: str, trial_id: int):
+        nonlocal missing_replay
         async with sem:
             t_llm = time.perf_counter()
-            trial = await run_live_trial(
-                group_id=group_id, case=case, temperature=temperature,
-                config_name=cfg)
+            if replay is not None:
+                key = (case.get("asb_case_id"), cfg, str(trial_id))
+                if key not in replay:
+                    missing_replay += 1
+                    return
+                trial = dict(replay[key])
+                trial["group"] = group_id
+            else:
+                trial = await run_live_trial(
+                    group_id=group_id, case=case, temperature=temperature,
+                    config_name=cfg)
             llm_latency_ms = (time.perf_counter() - t_llm) * 1000
             trial["trial_id"] = trial_id
             llm_action = trial["emitted_action"]
@@ -281,6 +329,8 @@ async def run_sweep(group_id: str,
     await schedule()
     for L in loggers.values():
         L.close()
+    if missing_replay:
+        print(f"   {missing_replay} (case, config, trial) cells had no recorded primary output; skipped")
     return all_rows
 
 
@@ -288,11 +338,11 @@ async def run_sweep(group_id: str,
 #  CSV output
 # --------------------------------------------------------------------- #
 
-def write_results(rows: list[dict], group_id: str, out_root: Path) -> None:
+def write_results(rows: list[dict], group_id: str, out_root: Path, tag: str = "") -> None:
     # Write into a 'general/' subdir to mirror InjecAgent's
     # <group>/<domain>/results.csv layout, so the shared analytics tool
     # picks it up via its directory walk.
-    base = out_root / f"e2e_validator_group_{group_id}"
+    base = out_root / f"e2e_validator_group_{group_id}{('_' + tag) if tag else ''}"
     dom_dir = base / "general"
     dom_dir.mkdir(parents=True, exist_ok=True)
     # Stamp every row with domain="general" so analytics pivots align
@@ -355,6 +405,17 @@ def main() -> None:
     ap.add_argument("--out-root", type=Path, default=RESULTS_DIR)
     ap.add_argument("--embedding-model", type=str,
                     default=str(MODELS_DIR / "Qwen" / "Qwen3-Embedding-0.6B"))
+    ap.add_argument("--replay-from", type=Path, default=None,
+                    help="results.csv of a finished run: reuse its emitted_action / "
+                         "emitted_args per (case, config, trial) and re-run only the "
+                         "defense step (E6 paired replay; no primary calls).")
+    ap.add_argument("--consensus-config", default=None,
+                    help="Validator panel to use instead of the group's (div4, div3, lin3, single).")
+    ap.add_argument("--cases-file", type=Path, default=None,
+                    help="JSON list of asb_case_id to restrict the run to "
+                         "(e.g. benchmarks/asb/representative_cases.json).")
+    ap.add_argument("--tag", default="",
+                    help="Suffix for the output directory (e2e_validator_group_<G>_<tag>).")
     args = ap.parse_args()
 
     attacks = [a.strip().upper() for a in args.attacks.split(",") if a.strip()]
@@ -364,8 +425,15 @@ def main() -> None:
     configs = [c.strip() for c in args.configs.split(",") if c.strip()]
 
     cases = load_cases(attacks)
+    if args.cases_file:
+        with open(args.cases_file) as f:
+            wanted = json.load(f)
+        wanted = {c["asb_case_id"] if isinstance(c, dict) else c for c in wanted}
+        cases = [c for c in cases if c.get("asb_case_id") in wanted]
+        print(f"Restricted to {len(cases)} cases from {args.cases_file}")
     if args.case_limit:
         cases = cases[:args.case_limit]
+    replay = load_replay(args.replay_from) if args.replay_from else None
 
     print(f"Group: {args.group}  primary={GROUP_CONFIGS[args.group]['primary_model']}")
     print(f"Attacks: {attacks}  Configs: {configs}  Trials: {args.trials}")
@@ -380,8 +448,12 @@ def main() -> None:
         group_id=args.group, cases=cases, configs=configs,
         trials=args.trials, temperature=args.temperature,
         concurrency=args.concurrency, embedding_model=emb,
+        consensus_override=args.consensus_config, replay=replay,
     ))
-    write_results(rows, args.group, args.out_root)
+    tag = args.tag or (args.consensus_config if args.consensus_config else "")
+    if replay and not tag:
+        tag = "replay"
+    write_results(rows, args.group, args.out_root, tag=tag)
 
     print(f"\n=== ASB DPI ASR (group {args.group}) ===")
     print(f"{'subtype':<22}{'config':<16}{'n':>5}{'LLM ASR%':>10}{'Defended ASR%':>14}")

@@ -17,14 +17,14 @@ model; no remote calls are made.
 
 Run from repo root with::
 
-    python -m benchmarks.tamas.middleware.test_middleware
+    python -m benchmarks._unused_tamas.middleware.test_middleware
 """
 
 import asyncio
 import sys
 import traceback
 
-from benchmarks.tamas.middleware import P12345Middleware
+from benchmarks._unused_tamas.middleware import P12345Middleware
 
 
 # ---------------------------------------------------------------------- #

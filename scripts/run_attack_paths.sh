@@ -76,7 +76,23 @@ GP_PRIMARY[J]="http://localhost:8006/v1"; GP_PROVIDER[J]="openai"; GP_PORTS[J]="
 GP_DESC[J]="GPT-OSS-120B (mid-large) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 
 
-ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J")
+# ---- Revision-v2 groups (docs/REVISION_TASKS.md G1) ----------------------
+# Served-model names come from --served-model-name in scripts/vllm_profiles.sh;
+# the harness discovers them through /v1/models.
+GP_PRIMARY[q235_div4]="http://localhost:8000/v1"; GP_PROVIDER[q235_div4]="openai"; GP_PORTS[q235_div4]="8000 8002 8003"; GP_CONSENSUS[q235_div4]="div4"
+GP_DESC[q235_div4]="Qwen3-235B-A22B BF16 TP=4 + div4 [V1 Qwen, V5 Mistral, V4 Claude, V6 GPT-4o] 3/4"
+GP_PRIMARY[scout_div4]="http://localhost:8004/v1"; GP_PROVIDER[scout_div4]="openai"; GP_PORTS[scout_div4]="8004 8002 8003"; GP_CONSENSUS[scout_div4]="div4"
+GP_DESC[scout_div4]="Llama-4-Scout BF16 TP=2 + div4"
+GP_PRIMARY[mistral_div3p]="http://localhost:8003/v1"; GP_PROVIDER[mistral_div3p]="openai"; GP_PORTS[mistral_div3p]="8003 8002"; GP_CONSENSUS[mistral_div3p]="mistral_div3p"
+GP_DESC[mistral_div3p]="Mistral-Small-3.2-24B + [V1 Qwen, V4 Claude, V6 GPT-4o] 2/3"
+GP_PRIMARY[llama8b_div4]="${REMOTE_5090_URL:-}"; GP_PROVIDER[llama8b_div4]="openai"; GP_PORTS[llama8b_div4]="8002 8003"; GP_CONSENSUS[llama8b_div4]="div4"; GP_API_KEY_ENV[llama8b_div4]="REMOTE_5090_API_KEY"
+GP_DESC[llama8b_div4]="Llama-3.1-8B-Instruct BF16 on the RTX 5090 node (REMOTE_5090_URL) + div4"
+GP_PRIMARY[claude_loc]="anthropic"; GP_PROVIDER[claude_loc]="anthropic"; GP_PORTS[claude_loc]="8002 8003 8004"; GP_CONSENSUS[claude_loc]="claude_loc"
+GP_DESC[claude_loc]="claude-sonnet-4 (API) + [V1 Qwen, V5 Mistral, V3 Llama-4-Scout, V6 GPT-4o] 3/4"
+GP_PRIMARY[glm_div4]="http://localhost:8001/v1"; GP_PROVIDER[glm_div4]="openai"; GP_PORTS[glm_div4]="8001 8002 8003"; GP_CONSENSUS[glm_div4]="div4"
+GP_DESC[glm_div4]="GLM-4.7-FP8 TP=4 + div4 (optional, lowest priority)"
+
+ALL_GROUPS=("q235_div4" "scout_div4" "mistral_div3p" "llama8b_div4" "claude_loc" "glm_div4" "A" "B" "C" "D" "E" "F" "G" "H" "I" "J")
 
 # ---- Per-(group, domain) port + ChromaDB allocator -----------------------
 # Multiple groups can now run in parallel without their tool/MMA servers
@@ -98,6 +114,8 @@ declare -A GROUP_OFFSET DOMAIN_OFFSET
 GROUP_OFFSET[A]=0;  GROUP_OFFSET[B]=1; GROUP_OFFSET[C]=2; GROUP_OFFSET[D]=3
 GROUP_OFFSET[E]=4;  GROUP_OFFSET[F]=5; GROUP_OFFSET[G]=6; GROUP_OFFSET[H]=7
 GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9
+GROUP_OFFSET[q235_div4]=10; GROUP_OFFSET[scout_div4]=11; GROUP_OFFSET[mistral_div3p]=12
+GROUP_OFFSET[llama8b_div4]=13; GROUP_OFFSET[claude_loc]=14; GROUP_OFFSET[glm_div4]=15
 DOMAIN_OFFSET[cyberops]=0; DOMAIN_OFFSET[healthcare]=1
 DOMAIN_OFFSET[finance]=2;  DOMAIN_OFFSET[legal]=3
 
@@ -203,16 +221,19 @@ if [ -z "$1" ]; then
 
     # Trials
     echo ""
-    read -p "  Trials per variant [6]: " input_trials
-    TRIALS="${input_trials:-6}"
+    read -p "  Trials per variant [3]: " input_trials
+    TRIALS="${input_trials:-3}"
 
 else
     # CLI: GROUP DOMAIN AP_FILTER CONFIG_FILTER TRIALS
-    GROUP="${1^^}"
+    #   env: STATE_MODE=isolated|persistent  SEED=<int>  TEMPERATURE=<float>
+    #        RESUME=1  REQUIRE_FREEZE=1  DISABLE_PRINCIPLES=P3,P5
+    GROUP="$1"
+    [ ${#GROUP} -eq 1 ] && GROUP="${GROUP^^}"     # legacy single-letter ids
     DOM_ARG="${2:-cyberops}"
     AP_ARG="${3:-all}"
     CFG_ARG="${4:-all}"
-    TRIALS="${5:-6}"
+    TRIALS="${5:-3}"
 
     # Parse domains
     if [ "$DOM_ARG" = "all" ]; then
@@ -359,6 +380,13 @@ run_domain() {
             _disable_args=(--disable-principles "$DISABLE_PRINCIPLES")
         fi
 
+        # Revision-v2 run settings (H3 / H7 / G3 / H11), all optional.
+        local _run_args=(--state-mode "${STATE_MODE:-isolated}")
+        [ -n "${SEED:-}" ] && _run_args+=(--seed "$SEED")
+        [ -n "${TEMPERATURE:-}" ] && _run_args+=(--temperature "$TEMPERATURE")
+        [ "${RESUME:-0}" = "1" ] && _run_args+=(--resume)
+        [ "${REQUIRE_FREEZE:-0}" = "1" ] && _run_args+=(--require-freeze)
+
         # Remote-endpoint extras (API key env var, model-specific extra_body).
         local _api_args=()
         if [ -n "${GP_API_KEY_ENV[$GROUP]:-}" ]; then
@@ -376,23 +404,22 @@ run_domain() {
                 --consensus-config "$CONSENSUS_CFG" \
                 --trials "$TRIALS" --tool-port "$TOOL_BASE_PORT" \
                 --mma-url "http://localhost:${MMA_PORT}" \
-                "${_disable_args[@]}" "${_api_args[@]}" \
-                --verbose 2>&1 | grep -E "v[0-9]+ t[0-9]+|Error|SUMMARY" || true
+                "${_disable_args[@]}" "${_api_args[@]}" "${_run_args[@]}" \
+                --verbose 2>&1 | grep -E "v[0-9]+ t[0-9]+|Error|SUMMARY|resumed" || true
         done
 
-        # Benign (only if explicitly requested via "benign" AP mode)
+        # Benign (only if explicitly requested via "benign" AP mode):
+        # every scenario of the domain x TRIALS repetitions.
         if [ "$AP_MODE" = "benign" ]; then
-            local benign_count=20
-            [ "$domain" != "cyberops" ] && benign_count=5
-            echo "  benign ($benign_count scenarios)..."
+            echo "  benign (all scenarios x $TRIALS trials)..."
             run_py -m attacks.harness \
                 --domain "$domain" --benign --config "$config" \
                 --group "$GROUP" --model-url "$LLM_URL" --llm-provider "$LLM_PROVIDER" \
                 --consensus-config "$CONSENSUS_CFG" \
-                --trials "$benign_count" --tool-port "$TOOL_BASE_PORT" \
+                --trials "$TRIALS" --tool-port "$TOOL_BASE_PORT" \
                 --mma-url "http://localhost:${MMA_PORT}" \
-                "${_disable_args[@]}" "${_api_args[@]}" \
-                2>&1 | grep -E "benign|Error|SUMMARY" || true
+                "${_disable_args[@]}" "${_api_args[@]}" "${_run_args[@]}" \
+                --verbose 2>&1 | grep -E "benign|Error|SUMMARY" || true
         fi
         echo ""
     done

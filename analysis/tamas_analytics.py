@@ -38,7 +38,7 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 
-from benchmarks.tamas.attacks.tamas_payloads import TAMAS_ATTACKS
+from benchmarks._unused_tamas.attacks.tamas_payloads import TAMAS_ATTACKS
 
 
 # --------------------------------------------------------------------- #

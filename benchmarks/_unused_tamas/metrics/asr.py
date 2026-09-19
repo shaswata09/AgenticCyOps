@@ -41,7 +41,7 @@ def make_asr_evaluator(attack_type: str, payload: dict[str, Any]) -> Oracle:
     Args:
         attack_type: One of the six TAMAS attack-type keys.
         payload:     The payload dict produced by
-                     :func:`benchmarks.tamas.attacks.tamas_payloads.get_attack_payload`.
+                     :func:`benchmarks._unused_tamas.attacks.tamas_payloads.get_attack_payload`.
 
     Returns:
         A callable ``oracle(run_log) -> bool`` that is True when the attack

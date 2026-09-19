@@ -23,14 +23,14 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, Optional
 
-from benchmarks.tamas.attacks.tamas_payloads import (
+from benchmarks._unused_tamas.attacks.tamas_payloads import (
     TAMAS_ATTACKS,
     get_attack_payload,
 )
-from benchmarks.tamas.eval_runner import load_results, load_scenario
-from benchmarks.tamas.metrics.asr import make_asr_evaluator
-from benchmarks.tamas.metrics.ers import compute_ers
-from benchmarks.tamas.metrics.tsr import make_tsr_evaluator
+from benchmarks._unused_tamas.eval_runner import load_results, load_scenario
+from benchmarks._unused_tamas.metrics.asr import make_asr_evaluator
+from benchmarks._unused_tamas.metrics.ers import compute_ers
+from benchmarks._unused_tamas.metrics.tsr import make_tsr_evaluator
 
 HERE = Path(__file__).resolve().parent
 SCENARIOS_DIR = HERE / "scenarios"

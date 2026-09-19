@@ -11,12 +11,12 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from benchmarks.tamas.eval_runner import (
+from benchmarks._unused_tamas.eval_runner import (
     run_grid,
     save_results,
     _ByzantineAwareConsensus,
 )
-from benchmarks.tamas.middleware.agent_wrapper import P12345Middleware
+from benchmarks._unused_tamas.middleware.agent_wrapper import P12345Middleware
 
 HERE = Path(__file__).resolve().parent
 SCENARIOS_DIR = HERE / "scenarios"

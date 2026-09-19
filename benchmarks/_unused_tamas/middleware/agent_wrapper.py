@@ -9,7 +9,7 @@ defenses on a per-call basis.
 
 Usage::
 
-    from benchmarks.tamas.middleware import P12345Middleware
+    from benchmarks._unused_tamas.middleware import P12345Middleware
 
     role_manifests = {
         "DiagnosisAgent": {
@@ -54,7 +54,7 @@ from consensus.validator import ConsensusValidator
 from memory.memory_integrity import MemoryIntegrity
 from memory.access_isolation import AccessIsolation
 
-from benchmarks.tamas.middleware.role_manifest import DynamicManifestEnforcer
+from benchmarks._unused_tamas.middleware.role_manifest import DynamicManifestEnforcer
 
 
 class _RoleAccessController:

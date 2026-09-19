@@ -27,9 +27,9 @@ from agents.analyze_agent import AnalyzeAgent
 from agents.admin_agent import AdminAgent
 from agents.report_agent import ReportAgent
 from consensus.validator import ConsensusValidator
-from attacks.effects import (evaluate_effects, trial_costs, OUTCOME_EXECUTED,
+from attacks.effects import (evaluate_effects, evaluate_benign, trial_costs, OUTCOME_EXECUTED,
                              OUTCOME_BLOCKED, OUTCOME_NOT_ATTEMPTED,
-                             OUTCOME_NOT_MEASURABLE)
+                             OUTCOME_NOT_MEASURABLE, OUTCOME_BENIGN)
 from attacks.payload_schema import injection_of, memory_seed_entries, meta_of, split_payload
 
 
@@ -90,6 +90,23 @@ class TrialResult:
             "primary_tokens": self.primary_tokens, "validator_tokens": self.validator_tokens,
             "seed": "" if self.seed is None else self.seed,
         }
+
+
+def summarize_benign(results: list) -> dict:
+    """E1 utility metrics over benign trials."""
+    rows = [r for r in results if r.outcome in (OUTCOME_BENIGN, "error")]
+    ok = [r for r in rows if r.outcome == OUTCOME_BENIGN]
+    n = len(ok)
+    with_task = [r for r in ok if r.task_completed is not None]
+    return {
+        "n": n, "error": len(rows) - n,
+        "task_completed_rate": (sum(1 for r in with_task if r.task_completed) / len(with_task)) if with_task else None,
+        "any_denial_rate": (sum(1 for r in ok if r.collateral_denials > 0) / n) if n else None,
+        "denials_per_incident": (sum(r.collateral_denials for r in ok) / n) if n else None,
+        "latency_s_median": sorted(r.latency_s for r in ok)[n // 2] if n else None,
+        "primary_tokens_mean": (sum(r.primary_tokens for r in ok) / n) if n else None,
+        "validator_tokens_mean": (sum(r.validator_tokens for r in ok) / n) if n else None,
+    }
 
 
 def summarize(results: list) -> dict:
@@ -330,8 +347,11 @@ class AttackHarness:
         ``self.last_outcome`` (see :class:`attacks.effects.EffectVerdict`).
         """
         events = self._get_trial_events()
-        verdict = evaluate_effects(payload, events, config=self.config,
-                                   manifest_tools=self._manifest_tools_by_phase())
+        if ap == "benign":
+            verdict = evaluate_benign(payload, events)
+        else:
+            verdict = evaluate_effects(payload, events, config=self.config,
+                                       manifest_tools=self._manifest_tools_by_phase())
         costs = trial_costs(events)
         self.last_verdict = verdict
         self.last_outcome = {
@@ -537,6 +557,21 @@ class AttackHarness:
                 w.writeheader()
             w.writerow(r.as_row())
 
+    # ---- resume (G3) -------------------------------------------------------
+
+    def _done_cells(self) -> set:
+        """(ap, variant, trial) cells already in results.csv for this config."""
+        path = getattr(self, "results_csv", None)
+        if not getattr(self, "resume", False) or not path or not Path(path).exists():
+            return set()
+        import csv
+        done = set()
+        with open(path, newline="") as f:
+            for r in csv.DictReader(f):
+                if r.get("config") == self.config and r.get("outcome") not in ("", "error"):
+                    done.add((r.get("ap"), str(r.get("variant")), str(r.get("trial"))))
+        return done
+
     async def run_ap(self, ap: str, trials_per_variant: int) -> list[TrialResult]:
         """Run all variants x trials for one attack path."""
         payload_file = f"{ap}_variants.json"
@@ -545,9 +580,14 @@ class AttackHarness:
             print(f"  No payloads for {ap}")
             return []
 
+        done = self._done_cells()
         results = []
+        skipped = 0
         for v_idx, variant_payload in enumerate(variants):
             for t in range(trials_per_variant):
+                if (ap, str(v_idx + 1), str(t + 1)) in done:
+                    skipped += 1
+                    continue
                 result = await self.run_trial(
                     ap=ap,
                     variant=v_idx + 1,
@@ -555,10 +595,16 @@ class AttackHarness:
                     payload=variant_payload,
                 )
                 results.append(result)
+        if skipped:
+            print(f"  {ap}: resumed, skipped {skipped} finished cells")
         return results
 
     async def run_benign(self, trials: int) -> list[TrialResult]:
-        """Run benign scenarios."""
+        """Run every benign scenario ``trials`` times.
+
+        ``variant`` in the results is the scenario index (1-based), so the
+        benign utility table can be broken down per scenario.
+        """
         payloads = load_payloads(self.domain, "benign_alerts.json")
         if not payloads:
             payloads = load_payloads(self.domain, "benign_workflows.json")
@@ -566,16 +612,19 @@ class AttackHarness:
             print(f"  No benign payloads for {self.domain}")
             return []
 
+        done = self._done_cells()
         results = []
-        for t in range(trials):
-            payload = payloads[t % len(payloads)]
-            result = await self.run_trial(
-                ap="benign",
-                variant=1,
-                trial=t + 1,
-                payload=payload,
-            )
-            results.append(result)
+        for s_idx, payload in enumerate(payloads):
+            for t in range(trials):
+                if ("benign", str(s_idx + 1), str(t + 1)) in done:
+                    continue
+                result = await self.run_trial(
+                    ap="benign",
+                    variant=s_idx + 1,
+                    trial=t + 1,
+                    payload=payload,
+                )
+                results.append(result)
         return results
 
     def close(self):
@@ -605,6 +654,13 @@ def print_summary(results: list[TrialResult], domain: str):
         return "   n/a" if x is None else f"{100*x:5.1f}%"
 
     for (ap, config), trials in sorted(groups.items()):
+        if ap == "benign":
+            b = summarize_benign(trials)
+            print(f"{ap:<8} {config:<14} {b['n']:>4}  task={pct(b['task_completed_rate'])} "
+                  f"any_denial={pct(b['any_denial_rate'])} "
+                  f"denials/incident={b['denials_per_incident'] if b['denials_per_incident'] is None else round(b['denials_per_incident'], 2)} "
+                  f"err={b['error']}")
+            continue
         m = summarize(trials)
         print(f"{ap:<8} {config:<14} {m['n']:>4} {m['executed']:>5} {m['blocked']:>6} "
               f"{m['not_attempted']:>7} {m['not_measurable']:>4} {m['error']:>4} "
@@ -654,6 +710,9 @@ async def main():
     parser.add_argument("--require-freeze", action="store_true",
                         help="Abort unless HEAD is exactly the defense-freeze tag "
                               "and the frozen directories are clean.")
+    parser.add_argument("--resume", action="store_true",
+                        help="Skip (ap, variant, trial, config) cells already present "
+                              "in results.csv with a non-error outcome.")
     parser.add_argument("--state-mode", default="isolated", choices=["isolated", "persistent"],
                         help="isolated (default): reset every cross-incident defense "
                               "state and the MMA's trial documents before each trial; "
@@ -693,6 +752,7 @@ async def main():
             rdir = Path(args.results_dir) if args.results_dir else (
                 RESULTS_DIR / "eval_attacks" / f"group_{args.group}{suffix}" / args.domain)
             harness.results_csv = rdir / "results.csv"
+        harness.resume = args.resume
 
         try:
             if args.benign:
