@@ -380,7 +380,9 @@ def main() -> None:
     emb = None
     if args.embedding_model:
         from sentence_transformers import SentenceTransformer
-        emb = SentenceTransformer(args.embedding_model)
+        # CPU on purpose: the GPUs are owned by vLLM (>90% full), and the attack
+        # harness / MMA embed on CPU too, so every evaluation uses the same path.
+        emb = SentenceTransformer(args.embedding_model, device="cpu")
 
     rows = asyncio.run(run_sweep(
         group_id=args.group, cases=cases, domains=domains, configs=configs,
