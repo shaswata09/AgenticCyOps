@@ -87,6 +87,10 @@ class ReadPatternTracker:
 
     # ----- helpers ------------------------------------------------- #
 
+    def reset(self) -> None:
+        """Forget every recorded read (per-trial isolation, H3)."""
+        self._history.clear()
+
     def _prune(self, phase: str) -> None:
         """Remove entries outside the rolling window."""
         cutoff = time.time() - self._window_seconds
@@ -274,6 +278,10 @@ class AccessIsolation:
         self._pattern_tracker = ReadPatternTracker(
             embedding_model=self._model,
         )
+
+    def reset(self) -> None:
+        """Clear P5-L4 read history (per-trial isolation, H3)."""
+        self._pattern_tracker.reset()
 
         # L5 -- compile injection regexes once
         self._injection_patterns: list[re.Pattern] = [

@@ -54,6 +54,8 @@ class VerifiedExecution:
         consensus_validator: Optional[ConsensusValidator] = None,
         embedding_model=None,
         logger: Optional[ExperimentLogger] = None,
+        adaptive_consent_path=None,
+        adaptive_consent_persist: bool = True,
     ):
         self.domain = domain
         self.logger = logger
@@ -69,7 +71,8 @@ class VerifiedExecution:
         self.cross_incident_ledger = CrossIncidentLedger(logger=logger)
         self.versioned_ledger = VersionedLedger(logger=logger)
         self.adaptive_consent = AdaptiveConsentModel(
-            domain=domain, logger=logger
+            domain=domain, logger=logger,
+            persist_path=adaptive_consent_path, persist=adaptive_consent_persist,
         )
         self.scorer = ProposalScorer(
             domain=domain, embedding_model=embedding_model, logger=logger
@@ -266,6 +269,21 @@ class VerifiedExecution:
         """Reset per-incident state (call before each incident)."""
         self.intent_chain.reset()
         self.cross_incident_ledger.prune()
+
+    def reset_for_trial(self):
+        """Forget every cross-incident memory (isolated state mode, H3).
+
+        L4 / L4b / L5 / adaptive consent / global monitor / operational
+        context keep state across incidents by design; in isolated mode each
+        trial starts from the configured baseline so that a replayed payload
+        is never judged against its own earlier replays.
+        """
+        self.intent_chain.reset()
+        self.cross_incident_ledger.reset()
+        self.versioned_ledger.reset()
+        self.global_monitor.reset()
+        self.adaptive_consent.reset()
+        self.operational_context.reset()
 
     # ------------------------------------------------------------------
     # Helpers

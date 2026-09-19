@@ -51,6 +51,8 @@ class AdaptiveConsentModel:
         decay_interval_hours: float = 1.0,
         min_decisions: int = 5,
         logger: Optional[ExperimentLogger] = None,
+        persist_path: Optional[Path] = None,
+        persist: bool = True,
     ):
         self.domain = domain
         self.logger = logger
@@ -67,9 +69,23 @@ class AdaptiveConsentModel:
         self._criticality_lookup: dict[str, str] = {}
         self._load_criticality()
 
-        # Attempt to load persisted state
-        self._persist_path = BASE_DIR / "data" / "adaptive_consent.json"
-        self._load()
+        # Reward profiles persist across incidents by design.  ``persist=False``
+        # keeps them in memory only (isolated state mode, H3); ``persist_path``
+        # relocates the file (persistent mode uses one file per group/domain).
+        self._persist_enabled = bool(persist)
+        self._persist_path = Path(persist_path) if persist_path else (
+            BASE_DIR / "data" / "adaptive_consent.json")
+        if self._persist_enabled:
+            self._load()
+
+    def reset(self):
+        """Forget every reward profile (per-trial isolation, H3).
+
+        In persistent mode the on-disk file is left alone: reset only
+        affects the in-memory profiles of this process.
+        """
+        self._rewards = {}
+        self._never_auto = set()
 
     # ------------------------------------------------------------------
     # Config loading
@@ -298,6 +314,8 @@ class AdaptiveConsentModel:
 
     def _persist(self):
         """Save reward profiles and never_auto set to disk with HMAC."""
+        if not self._persist_enabled:
+            return
         self._persist_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "rewards": self._rewards,

@@ -47,6 +47,8 @@ class SOARHost:
         logger: Optional[ExperimentLogger] = None,
         embedding_model=None,
         disabled_principles: Optional[set] = None,
+        state_mode: str = "isolated",
+        adaptive_consent_path=None,
     ):
         self.domain = domain
         self.config = config
@@ -56,6 +58,14 @@ class SOARHost:
         self.consensus = consensus
         self.agents = agents or {}
         self.logger = logger
+
+        # State mode (H3).  "isolated": every incident starts from the
+        # configured baseline (all cross-incident defense state and the
+        # MMA's per-trial documents are reset before it runs).
+        # "persistent": state accumulates across incidents as in production.
+        if state_mode not in ("isolated", "persistent"):
+            raise ValueError(f"state_mode must be isolated or persistent, got {state_mode!r}")
+        self.state_mode = state_mode
 
         # Ablation switch -- only meaningful for the agenticcyops config.
         # Layer call sites consult ``self._principle_active("Px")`` and
@@ -90,6 +100,8 @@ class SOARHost:
                 consensus_validator=consensus,
                 embedding_model=embedding_model,
                 logger=logger,
+                adaptive_consent_path=adaptive_consent_path,
+                adaptive_consent_persist=(state_mode == "persistent"),
             )
         else:
             self.param_validator = None
@@ -111,8 +123,11 @@ class SOARHost:
         self.enforcer.reset_counts()
         self._call_seq = 0
 
-        # P3: Reset per-incident state
-        if self.verified_execution:
+        # P3: Reset per-incident state; in isolated mode every
+        # cross-incident state as well (H3).
+        if self.state_mode == "isolated":
+            await self.reset_trial_state()
+        elif self.verified_execution:
             self.verified_execution.reset_for_incident()
 
         # P1-L3: Verify config integrity before each incident
@@ -198,6 +213,56 @@ class SOARHost:
                 context[f"{phase}_handoff"] = handoff_ctx
 
         return context
+
+    def _trial_id(self) -> str:
+        return (getattr(self.logger, "_trial_id", None) or "") if self.logger else ""
+
+    async def reset_trial_state(self) -> dict:
+        """Return every stateful component to its baseline (H3).
+
+        In-process: P2 action counts, P1 replay cache, the whole P3 stack
+        (intent chain, cross-incident ledger, versioned ledger, global
+        monitor, adaptive consent, operational context).  Out of process:
+        ``POST /admin/reset`` on the MMA gateway clears P4 hashes /
+        centroids, P5 read history and every document tagged with a
+        ``trial_id``.  Returns a summary that is also logged as a
+        ``trial_reset`` event.
+        """
+        self.enforcer.reset_counts()
+        if self.auth_interface:
+            self.auth_interface.reset_replay_cache()
+        if self.verified_execution:
+            self.verified_execution.reset_for_trial()
+        summary = {"state_mode": self.state_mode, "in_process": True, "mma": None}
+        if self.config == "agenticcyops" and self.mma_url:
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.post(f"{self.mma_url}/admin/reset",
+                                             json={"auth_token": self._mma_token("admin", "reset")},
+                                             timeout=30)
+                    summary["mma"] = resp.json() if resp.status_code == 200 else {
+                        "status": resp.status_code}
+            except Exception as exc:
+                summary["mma"] = {"error": str(exc)[:120]}
+        if self.logger:
+            self.logger.log(source="host", destination="state", action="trial_reset",
+                            extra=summary)
+        return summary
+
+    @staticmethod
+    def _mma_token(phase: str, store_id: str) -> str:
+        """Request signature the MMA gateway verifies (shared HMAC key)."""
+        import hashlib as _hl
+        import hmac as _hm
+        import os as _os
+        key = _os.environ.get("MMA_SHARED_SECRET", "")
+        if not key:
+            key_path = BASE_DIR / "configs" / "hmac_key.txt"
+            if key_path.exists():
+                key = key_path.read_text().strip()
+        if not key:
+            return ""
+        return _hm.new(key.encode(), f"{phase}:{store_id}".encode(), _hl.sha256).hexdigest()[:16]
 
     async def run_phase(self, phase: str, context: dict) -> dict:
         """Execute a single phase with enforcement based on config."""
@@ -826,7 +891,8 @@ class SOARHost:
                             "document": content,
                             "doc_id": doc_id,
                             "incident_evidence": context.get("incident", {}).get("description", ""),
-                            "metadata": mw.get("metadata", {}),
+                            "metadata": {**(mw.get("metadata", {}) or {}),
+                                         "trial_id": self._trial_id() or "untagged"},
                             "auth_token": auth_token,
                             # Ablation switches -- MMA bypasses the
                             # corresponding check when set.  Default

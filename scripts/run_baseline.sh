@@ -12,6 +12,7 @@
 #   ./scripts/run_baseline.sh A 5        # Group A, all domains
 #   ./scripts/run_baseline.sh A 1        # Group A, cyberops only
 #   ./scripts/run_baseline.sh B 2 3      # Group B, healthcare + finance
+#   STATE_MODE=persistent ./scripts/run_baseline.sh A 1   # E1b: state accumulates
 # ============================================================
 
 set -eE
@@ -339,6 +340,7 @@ run_domain_baseline() {
         export BASELINE_MMA_URL="http://localhost:${MMA_PORT}"
         export BASELINE_API_KEY_ENV="$GROUP_API_KEY_ENV_VAL"
         export BASELINE_EXTRA_BODY="$GROUP_EXTRA_BODY_VAL"
+        export BASELINE_STATE_MODE="${STATE_MODE:-isolated}"   # H3: isolated | persistent
         run_py -c "
 import asyncio, json, os, sys
 sys.path.insert(0, '.')
@@ -363,6 +365,7 @@ async def run():
     tool_base_port = int(os.environ['BASELINE_TOOL_PORT'])
     mma_url = os.environ['BASELINE_MMA_URL']
     api_key_env = os.environ.get('BASELINE_API_KEY_ENV') or None
+    state_mode = os.environ.get('BASELINE_STATE_MODE') or 'isolated'
     extra_body_json = os.environ.get('BASELINE_EXTRA_BODY') or ''
     extra_body = json.loads(extra_body_json) if extra_body_json.strip() else None
 
@@ -370,6 +373,7 @@ async def run():
         group=group, config=config, domain=domain, primary_url=llm_url,
         primary_provider=llm_provider, api_key_env=api_key_env,
         consensus_config=consensus_config if config in ('agenticcyops', 'llm_judge') else None,
+        state_mode=state_mode,
     )
     logger = ExperimentLogger(
         eval_name=f'{domain}_baseline_{group}',
@@ -432,6 +436,9 @@ async def run():
         consensus=consensus,
         agents=agents,
         logger=logger,
+        state_mode=state_mode,
+        adaptive_consent_path=(Path('data') / 'adaptive_consent' / group / f'{domain}.json'
+                               if state_mode == 'persistent' else None),
     )
 
     # Load domain-appropriate benign incident

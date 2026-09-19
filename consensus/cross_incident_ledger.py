@@ -165,6 +165,10 @@ class CrossIncidentLedger:
                 self.record(proposal, context)
             return ok, reason, details
 
+    def reset(self):
+        """Forget every recorded action (per-trial isolation, H3)."""
+        self._ledger = []
+
     def prune(self):
         """Remove entries older than the window."""
         now = datetime.now(timezone.utc)

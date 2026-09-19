@@ -141,10 +141,12 @@ class AttackHarness:
         disabled_principles: Optional[set] = None,
         api_key_env: Optional[str] = None,
         extra_body: Optional[dict] = None,
+        state_mode: str = "isolated",
     ):
         self.domain = domain
         self.config = config
         self.group = group
+        self.state_mode = state_mode
         self.llm_url = llm_url
         self.llm_provider = llm_provider
         self.mma_url = mma_url
@@ -168,6 +170,7 @@ class AttackHarness:
             api_key_env=api_key_env,
             consensus_config=consensus_config if config in ("agenticcyops", "llm_judge") else None,
             disabled_principles=self.disabled_principles,
+            state_mode=state_mode,
         )
         self.logger = ExperimentLogger(
             eval_name=eval_name,
@@ -245,7 +248,17 @@ class AttackHarness:
             logger=self.logger,
             embedding_model=embedding_model,
             disabled_principles=self.disabled_principles,
+            state_mode=state_mode,
+            adaptive_consent_path=self.adaptive_consent_path(group, domain, state_mode),
         )
+
+    @staticmethod
+    def adaptive_consent_path(group: str, domain: str, state_mode: str):
+        """Reward-profile file for persistent mode, one per (group, domain);
+        ``None`` in isolated mode (profiles stay in memory and are reset)."""
+        if state_mode != "persistent":
+            return None
+        return BASE_DIR / "data" / "adaptive_consent" / str(group) / f"{domain}.json"
 
     async def reset_tools(self):
         """Reset all tool server states between trials."""
@@ -574,6 +587,10 @@ async def main():
                               "Rows are appended per trial; pass 'none' to disable.")
     parser.add_argument("--seed", type=int, default=None,
                         help="Base seed; trial t uses seed+t (recorded per trial).")
+    parser.add_argument("--state-mode", default="isolated", choices=["isolated", "persistent"],
+                        help="isolated (default): reset every cross-incident defense "
+                              "state and the MMA's trial documents before each trial; "
+                              "persistent: let state accumulate as in production.")
     args = parser.parse_args()
 
     disabled = {p.strip().upper() for p in args.disable_principles.split(",")
@@ -599,6 +616,7 @@ async def main():
             disabled_principles=disabled,
             api_key_env=(args.api_key_env or None),
             extra_body=extra_body,
+            state_mode=args.state_mode,
         )
         harness.base_seed = args.seed
         if args.results_dir != "none":

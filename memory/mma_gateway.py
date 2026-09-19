@@ -23,7 +23,7 @@ import chromadb
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from config import BASE_DIR
+from config import BASE_DIR, MODELS_DIR
 from logging_utils import ExperimentLogger
 from memory.access_control import AccessController, _normalize_store_id
 from memory.write_filter import WriteFilter
@@ -59,6 +59,19 @@ class MemoryWriteRequest(BaseModel):
     # or P5.  No-op for the production code path.
     skip_p4: bool = False
     skip_p5: bool = False
+
+
+class AdminResetRequest(BaseModel):
+    """Per-trial reset (H3): clears P4/P5 state and trial-tagged documents."""
+    auth_token: str = ""
+    trial_id: Optional[str] = None   # only this trial's documents; default: every tagged one
+
+
+class AdminResetResponse(BaseModel):
+    deleted_documents: int
+    collections_touched: int
+    integrity_reset: bool
+    read_history_reset: bool
 
 
 class MemoryListRequest(BaseModel):
@@ -108,9 +121,7 @@ def create_app(
         Configured FastAPI app.
     """
     if embedding_model_path is None:
-        embedding_model_path = str(
-            BASE_DIR / "models" / "Qwen" / "Qwen3-Embedding-8B"
-        )
+        embedding_model_path = str(MODELS_DIR / "Qwen" / "Qwen3-Embedding-8B")
 
     app = FastAPI(
         title="MMA Gateway",
@@ -360,6 +371,9 @@ def create_app(
         collection = _get_collection(req.store_id)
         metadata["phase"] = req.phase
         metadata["store_id"] = req.store_id
+        # Every harness write is tagged with its trial so /admin/reset can
+        # remove it; untagged (seed) documents are never touched.
+        metadata.setdefault("trial_id", "")
 
         collection.upsert(
             ids=[req.doc_id],
@@ -390,6 +404,41 @@ def create_app(
             accepted=True,
             similarity_score=round(score, 4),
         )
+
+    @app.post("/admin/reset", response_model=AdminResetResponse)
+    def admin_reset(req: AdminResetRequest):
+        """Return the gateway to its baseline between trials (H3).
+
+        Deletes every document whose metadata carries a ``trial_id`` (or
+        only ``req.trial_id`` when given), so seed documents written
+        without a tag survive; clears P4 write hashes / centroids and the
+        P5-L4 read history.
+        """
+        if _mma_secret and not _verify_auth_token("admin", "reset", req.auth_token):
+            raise HTTPException(status_code=403, detail="Invalid auth token.")
+        deleted = 0
+        touched = 0
+        where = ({"trial_id": req.trial_id} if req.trial_id
+                 else {"trial_id": {"$ne": ""}})
+        for coll_name in set(store_id_to_name.values()):
+            try:
+                collection = chroma_client.get_or_create_collection(name=coll_name)
+                got = collection.get(where=where, include=[])
+                ids = got.get("ids") or []
+                if ids:
+                    collection.delete(ids=ids)
+                    deleted += len(ids)
+                    touched += 1
+            except Exception:
+                # a collection with no metadata index yet raises on `where`
+                continue
+        memory_integrity.reset()
+        access_isolation.reset()
+        logger.log(source="host", destination="mma_gateway", action="admin_reset",
+                   extra={"deleted_documents": deleted, "collections_touched": touched,
+                          "trial_id": req.trial_id})
+        return AdminResetResponse(deleted_documents=deleted, collections_touched=touched,
+                                  integrity_reset=True, read_history_reset=True)
 
     @app.get("/memory/list", response_model=MemoryListResponse)
     def memory_list(phase: str, mode: str = "read", auth_token: str = ""):

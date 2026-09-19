@@ -36,6 +36,15 @@ class OperationalContextChecker:
 
         self._load_configs()
 
+    def reset(self):
+        """Drop payload-seeded changes, windows and incident statuses and
+        reload the configured baseline (per-trial isolation, H3)."""
+        self._change_log = []
+        self._maintenance_windows = []
+        self._time_policies = {}
+        self._incident_registry = {}
+        self._load_configs()
+
     # ------------------------------------------------------------------
     # Config loading
     # ------------------------------------------------------------------
