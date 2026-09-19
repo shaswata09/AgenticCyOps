@@ -24,6 +24,8 @@
 # {"image":0}).  This also sidesteps the transformers-5 / mistral_common
 # image-processor incompatibility that aborts vLLM 0.19 at startup.
 #
+# All weights are served in BF16 (the v1 precision); no quantization anywhere.
+#
 # Every server is bound to 127.0.0.1 (the harness runs on this box) and
 # announces its model as <org>/<name> (--served-model-name), so clients
 # never depend on the local weights path.  Co-located servers on one GPU
@@ -43,7 +45,12 @@ CONDA_ENV="${CONDA_ENV:-agenticcyops}"
 VLLM_BIN="${VLLM_BIN:-vllm}"
 # --enable-auto-tool-choice is added per server, only where a --tool-call-parser
 # is given (vLLM refuses the flag without a parser; DeepSeek-R1 is validator-only).
-COMMON="--enforce-eager --host 127.0.0.1"
+# CUDA graphs are on (no --enforce-eager): on this box eager mode gave only
+# 17 tok/s per stream for the BF16 235B primary.  Precision is unchanged --
+# every server is --dtype bfloat16, nothing is quantized.  VLLM_EAGER=1
+# restores eager mode (slower, less start-up time and memory).
+COMMON="--host 127.0.0.1"
+[ "${VLLM_EAGER:-0}" = "1" ] && COMMON="--enforce-eager $COMMON"
 
 # name | gpus | port | served name | extra args
 declare -A SPEC
@@ -139,7 +146,13 @@ case "$cmd" in
             port=$(_field "${SPEC[$name]}" 2)
             for pid in $(lsof -ti :"$port" 2>/dev/null); do kill -9 "$pid" 2>/dev/null || true; done
         done
+        # ... and the engine cores / TP workers (process title "VLLM::*"),
+        # which hold the GPU memory and do not listen on any port.
+        for pid in $(pgrep -u "$USER" -f "^VLLM::" 2>/dev/null); do kill "$pid" 2>/dev/null || true; done
+        sleep 5
+        for pid in $(pgrep -u "$USER" -f "^VLLM::" 2>/dev/null); do kill -9 "$pid" 2>/dev/null || true; done
         echo "[done] stopped"
+        nvidia-smi --query-gpu=index,memory.used --format=csv,noheader 2>/dev/null | tr '\n' ' '; echo
         ;;
     *)
         echo "usage: $0 {start|wait} <q235|mid|glm> | status | stop"; exit 2 ;;
