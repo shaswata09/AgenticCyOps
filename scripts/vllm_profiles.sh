@@ -19,6 +19,11 @@
 #         GPU4   Qwen3-14B (V7) 0.30               :8007
 #   glm   like q235 with GLM-4.7-FP8 on GPU0-3   :8001  (optional)
 #
+# Mistral-Small-3.2 and Llama-4-Scout are multimodal checkpoints; the testbed
+# is text-only, so the image modality is disabled (--limit-mm-per-prompt
+# {"image":0}).  This also sidesteps the transformers-5 / mistral_common
+# image-processor incompatibility that aborts vLLM 0.19 at startup.
+#
 # Every server is bound to 127.0.0.1 (the harness runs on this box) and
 # announces its model as <org>/<name> (--served-model-name), so clients
 # never depend on the local weights path.  Co-located servers on one GPU
@@ -45,10 +50,10 @@ declare -A SPEC
 SPEC[q235_primary]="0,1,2,3|8000|Qwen/Qwen3-235B-A22B-Instruct-2507|$MODELS_DIR/Qwen/Qwen3-235B-A22B-Instruct-2507 --tensor-parallel-size 4 --dtype bfloat16 --tool-call-parser hermes --gpu-memory-utilization 0.90 --max-model-len 32768"
 SPEC[glm_primary]="0,1,2,3|8001|zai-org/GLM-4.7-FP8|$MODELS_DIR/zai-org/GLM-4.7-FP8 --tensor-parallel-size 4 --dtype auto --tool-call-parser glm47 --reasoning-parser glm45 --gpu-memory-utilization 0.90 --max-model-len 32768"
 SPEC[v1_shared]="4|8002|Qwen/Qwen3-32B|$MODELS_DIR/Qwen/Qwen3-32B --dtype bfloat16 --tool-call-parser hermes --gpu-memory-utilization 0.50 --max-model-len 16384"
-SPEC[v5_shared]="4|8003|mistralai/Mistral-Small-3.2-24B-Instruct-2506|$MODELS_DIR/mistralai/Mistral-Small-3.2-24B-Instruct-2506 --dtype bfloat16 --tokenizer-mode mistral --tool-call-parser mistral --gpu-memory-utilization 0.40 --max-model-len 16384"
-SPEC[scout_primary]="0,1|8004|meta-llama/Llama-4-Scout-17B-16E-Instruct|$MODELS_DIR/meta-llama/Llama-4-Scout-17B-16E-Instruct --tensor-parallel-size 2 --dtype bfloat16 --tool-call-parser llama4_pythonic --gpu-memory-utilization 0.90 --max-model-len 32768"
+SPEC[v5_shared]="4|8003|mistralai/Mistral-Small-3.2-24B-Instruct-2506|$MODELS_DIR/mistralai/Mistral-Small-3.2-24B-Instruct-2506 --dtype bfloat16 --tokenizer-mode mistral --tool-call-parser mistral --limit-mm-per-prompt {\"image\":0} --gpu-memory-utilization 0.40 --max-model-len 16384"
+SPEC[scout_primary]="0,1|8004|meta-llama/Llama-4-Scout-17B-16E-Instruct|$MODELS_DIR/meta-llama/Llama-4-Scout-17B-16E-Instruct --tensor-parallel-size 2 --dtype bfloat16 --tool-call-parser llama4_pythonic --limit-mm-per-prompt {\"image\":0} --gpu-memory-utilization 0.90 --max-model-len 32768"
 SPEC[v1_full]="2|8002|Qwen/Qwen3-32B|$MODELS_DIR/Qwen/Qwen3-32B --dtype bfloat16 --tool-call-parser hermes --gpu-memory-utilization 0.90 --max-model-len 32768"
-SPEC[v5_full]="3|8003|mistralai/Mistral-Small-3.2-24B-Instruct-2506|$MODELS_DIR/mistralai/Mistral-Small-3.2-24B-Instruct-2506 --dtype bfloat16 --tokenizer-mode mistral --tool-call-parser mistral --gpu-memory-utilization 0.90 --max-model-len 32768"
+SPEC[v5_full]="3|8003|mistralai/Mistral-Small-3.2-24B-Instruct-2506|$MODELS_DIR/mistralai/Mistral-Small-3.2-24B-Instruct-2506 --dtype bfloat16 --tokenizer-mode mistral --tool-call-parser mistral --limit-mm-per-prompt {\"image\":0} --gpu-memory-utilization 0.90 --max-model-len 32768"
 SPEC[v2_shared]="4|8005|deepseek-ai/DeepSeek-R1-Distill-Qwen-32B|$MODELS_DIR/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B --dtype bfloat16 --gpu-memory-utilization 0.52 --max-model-len 16384"
 SPEC[v7_shared]="4|8007|Qwen/Qwen3-14B|$MODELS_DIR/Qwen/Qwen3-14B --dtype bfloat16 --tool-call-parser hermes --gpu-memory-utilization 0.30 --max-model-len 16384"
 
