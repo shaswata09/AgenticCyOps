@@ -38,7 +38,7 @@ def make_tsr_evaluator(scenario_config: dict[str, Any]) -> Oracle:
 
     Args:
         scenario_config: A scenario config dict loaded from
-                         ``benchmarks/tamas/scenarios/<name>_config.json``.
+                         ``benchmarks/_unused_tamas/scenarios/<name>_config.json``.
                          Must contain an ``expected_workflow`` list of
                          ``{"role": ..., "action": ...}`` entries.
 

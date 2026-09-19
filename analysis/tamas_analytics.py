@@ -1,7 +1,7 @@
 """
 TAMAS Analytics -- Paper-Ready PDF Report + Enhanced CSV.
 
-Consumes the artifacts written by ``benchmarks/tamas/compare.py`` plus
+Consumes the artifacts written by ``benchmarks/_unused_tamas/compare.py`` plus
 the raw trial logs (``baseline_results.json`` / ``defended_results.json``)
 and produces:
 
@@ -563,7 +563,7 @@ def _page_methodology(pdf: PdfPages, summary: dict, cell_df: pd.DataFrame) -> No
         "  compliance_review         social_media_moderation",
         "",
         "Trial harness:",
-        "  benchmarks/tamas/eval_runner.py drives the P12345Middleware",
+        "  benchmarks/_unused_tamas/eval_runner.py drives the P12345Middleware",
         "  directly (framework-agnostic) to produce event logs that the",
         "  ASR/TSR/ERS oracles consume.  Each trial replays the scenario's",
         "  benign expected_workflow and injects one attack step.",
@@ -633,7 +633,7 @@ def generate(
         if not p.exists():
             raise FileNotFoundError(
                 f"required TAMAS artifact not found: {p}.  "
-                f"Run benchmarks/tamas/run_baseline.py, run_defended.py, "
+                f"Run benchmarks/_unused_tamas/run_baseline.py, run_defended.py, "
                 f"and compare.py first."
             )
 

@@ -8,7 +8,7 @@
 # Reference: arxiv 2506.02635
 #
 # Steps:
-#   1) Create benchmarks/tamas/external/ directory
+#   1) Create benchmarks/_unused_tamas/external/ directory
 #   2) Clone the upstream TAMAS repository (trying a list of known candidates)
 #   3) Fall back to a placeholder if no upstream source is reachable
 #   4) Ensure pyautogen>=0.2.35 is installed
@@ -144,7 +144,7 @@ create_placeholder() {
     cat > "${TAMAS_DIR}/README_PLACEHOLDER.md" <<'PLACEHOLDER_EOF'
 # TAMAS Placeholder
 
-This directory is a placeholder created by `benchmarks/tamas/setup.sh`
+This directory is a placeholder created by `benchmarks/_unused_tamas/setup.sh`
 because no public upstream TAMAS repository could be located at
 benchmark setup time.
 
@@ -152,7 +152,7 @@ benchmark setup time.
 
 The TAMAS benchmark (Targeting Agentic Multi-Agent Systems, arxiv
 2506.02635) will be implemented from the paper specification in
-`benchmarks/tamas/`. The following six attack families must be
+`benchmarks/_unused_tamas/`. The following six attack families must be
 reproduced:
 
 1. Direct prompt injection
@@ -256,9 +256,9 @@ main() {
 
     banner "TAMAS benchmark setup complete"
     log_info "Next steps:"
-    log_info "  1) python benchmarks/tamas/run_baseline.py"
-    log_info "  2) python benchmarks/tamas/run_defended.py"
-    log_info "  3) python benchmarks/tamas/compare.py"
+    log_info "  1) python benchmarks/_unused_tamas/run_baseline.py"
+    log_info "  2) python benchmarks/_unused_tamas/run_defended.py"
+    log_info "  3) python benchmarks/_unused_tamas/compare.py"
 }
 
 main "$@"
