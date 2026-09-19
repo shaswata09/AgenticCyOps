@@ -22,6 +22,11 @@ class ToolCallProposal:
     tool_id: str
     arguments: dict
     justification: str = ""
+    # Assigned by the host when the proposal is first seen; links the
+    # ``tool_proposed`` audit event to every later event for this call.
+    # Deliberately not part of ``to_proposal()``: P3 hashes proposals for
+    # replay detection and the id must not make every call look unique.
+    call_id: str = ""
 
     def to_proposal(self) -> dict:
         return {

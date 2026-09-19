@@ -109,6 +109,7 @@ class SOARHost:
         }
 
         self.enforcer.reset_counts()
+        self._call_seq = 0
 
         # P3: Reset per-incident state
         if self.verified_execution:
@@ -240,6 +241,15 @@ class SOARHost:
             # Scripted reads for this phase
             for mr in memory_ops.get("reads", []):
                 if mr.get("phase") == phase and self.config == "agenticcyops":
+                    read_call_id = self._next_call_id(
+                        phase, "mem_read", f"{mr['store']}|{mr.get('query', '')}")
+                    if self.logger:
+                        self.logger.log(
+                            source=f"{phase}_agent", destination=mr["store"],
+                            action="memory_read_proposed",
+                            extra={"call_id": read_call_id, "query": mr.get("query", ""),
+                                   "scripted": True},
+                        )
                     try:
                         async with httpx.AsyncClient() as client:
                             import hashlib as _hl
@@ -291,6 +301,7 @@ class SOARHost:
                                     action="memory_read",
                                     auth_decision=auth_decision,
                                     mechanism=p5_mechanism,
+                                    extra={"call_id": read_call_id},
                                 )
                             # AP-14 fix: Log sanitization events from read results
                             if resp.status_code == 200 and self.logger:
@@ -315,6 +326,7 @@ class SOARHost:
                                                 "sanitized_entries": sanitized_count,
                                                 "store": mr["store"],
                                                 "phase": phase,
+                                                "call_id": read_call_id,
                                             },
                                         )
                                 except Exception:
@@ -330,6 +342,7 @@ class SOARHost:
                         "content": mw.get("content", ""),
                         "metadata": mw.get("metadata", {}),
                         "doc_id": f"{phase}_{mw['store']}_{context.get('incident_id', 'unknown')}",
+                        "scripted": True,
                     }, context)
 
         return result.to_dict()
@@ -373,11 +386,13 @@ class SOARHost:
     # Compact, size-bounded snapshot of tool-call arguments for the audit log.
     # Attack evaluation (attacks/harness.py) matches scripted adversarial
     # actions on tool + operation + parameters when this field is present;
-    # logs written before 2026-09 carry tool names only.
+    # logs written before 2026-09 carry tool names only.  The unbounded
+    # arguments are on the ``tool_proposed`` event that precedes every
+    # ``tool_call`` event with the same ``call_id``.
     _ARG_LOG_MAX_CHARS = 600
 
     @classmethod
-    def _args_for_log(cls, arguments) -> dict:
+    def _compact_args(cls, arguments) -> dict:
         try:
             if not isinstance(arguments, dict):
                 return {}
@@ -389,11 +404,56 @@ class SOARHost:
                     out[k] = json.dumps(v, default=str)
                 if len(json.dumps(out, default=str)) > cls._ARG_LOG_MAX_CHARS:
                     out[k] = str(out[k])[:120] + "..."
-            return {"arguments": out}
+            return out
         except Exception:
             return {}
 
+    def _args_for_log(self, tc) -> dict:
+        """``{"arguments": <compact>, "call_id": ...}`` for a tool_call event."""
+        arguments = tc.arguments if hasattr(tc, "arguments") else tc
+        out = {"arguments": self._compact_args(arguments)}
+        call_id = getattr(tc, "call_id", "")
+        if call_id:
+            out["call_id"] = call_id
+        return out
+
+    def _next_call_id(self, phase: str, kind: str, key: str) -> str:
+        """Stable per-incident identifier: ``<phase>:<kind>:<seq>:<hash8>``.
+
+        ``seq`` orders proposals within the incident; the hash of the
+        proposal content lets two logs of the same scenario be aligned.
+        """
+        import hashlib as _hl
+        self._call_seq = getattr(self, "_call_seq", 0) + 1
+        digest = _hl.sha256(key.encode()).hexdigest()[:8]
+        return f"{phase}:{kind}:{self._call_seq:03d}:{digest}"
+
     async def _process_tool_call(self, phase: str, tc, context: dict) -> dict:
+        """Record the proposal, then run config-appropriate enforcement.
+
+        The ``tool_proposed`` event is written before any check in every
+        config, with the full arguments and a ``call_id`` that every later
+        event for this call (denial, execution, redaction) carries.
+        """
+        if not getattr(tc, "call_id", ""):
+            key = f"{tc.tool_id}|{json.dumps(tc.arguments, sort_keys=True, default=str)}"
+            try:
+                tc.call_id = self._next_call_id(phase, "tool", key)
+            except Exception:
+                pass
+        if self.logger:
+            self.logger.log(
+                source=f"{phase}_agent", destination=tc.tool_id,
+                action="tool_proposed",
+                extra={
+                    "call_id": getattr(tc, "call_id", ""),
+                    "arguments": tc.arguments if isinstance(tc.arguments, dict) else {},
+                    "justification": (tc.justification or "")[:300],
+                },
+            )
+        return await self._enforce_tool_call(phase, tc, context)
+
+    async def _enforce_tool_call(self, phase: str, tc, context: dict) -> dict:
         """Process a tool call with config-appropriate enforcement.
 
         Enforcement pipeline (agenticcyops):
@@ -419,7 +479,7 @@ class SOARHost:
                         auth_decision="deny",
                         mechanism="acl_network_layer",
                         interception_step=2,
-                    extra=self._args_for_log(tc.arguments))
+                    extra=self._args_for_log(tc))
                 return {"status": "denied", "tool_id": tool_id, "reason": f"403: {reason}"}
 
         elif self.config == "llm_judge":
@@ -444,7 +504,7 @@ class SOARHost:
                             auth_decision="deny",
                             mechanism="P1_authenticated_interface",
                             interception_step=1,
-                        extra=self._args_for_log(tc.arguments))
+                        extra=self._args_for_log(tc))
                     return {"status": "denied", "tool_id": tool_id,
                             "reason": self._sanitize_reason(reason)}
 
@@ -473,7 +533,7 @@ class SOARHost:
                             auth_decision="allow",
                             mechanism="P3_consensus_error",
                             interception_step=6,
-                        extra=self._args_for_log(tc.arguments))
+                        extra=self._args_for_log(tc))
                     # Fall through to execution -- benchmark records this
                     # as an "allow" but with the error-mechanism marker
                     # so analytics can filter these trials out.
@@ -489,7 +549,7 @@ class SOARHost:
                                 auth_decision="allow",
                                 mechanism="P3_consensus_unavailable",
                                 interception_step=6,
-                        extra=self._args_for_log(tc.arguments))
+                        extra=self._args_for_log(tc))
                         # Same fall-through semantics as InjecAgent's
                         # evaluate_with_consensus: don't silently mask
                         # results when validators are down.
@@ -501,7 +561,7 @@ class SOARHost:
                                 auth_decision="deny",
                                 mechanism="P3_consensus_reject",
                                 interception_step=6,
-                        extra=self._args_for_log(tc.arguments))
+                        extra=self._args_for_log(tc))
                         return {"status": "denied", "tool_id": tool_id,
                                 "reason": (f"consensus rejected "
                                             f"({result.rejections}/{len(votes)} "
@@ -514,7 +574,7 @@ class SOARHost:
                                 auth_decision="allow",
                                 mechanism="llm_judge_approved",
                                 interception_step=6,
-                        extra=self._args_for_log(tc.arguments))
+                        extra=self._args_for_log(tc))
 
         elif self.config == "agenticcyops":
             # ── Step 1: P1-L1 — Component identity ──
@@ -528,7 +588,7 @@ class SOARHost:
                             auth_decision="deny",
                             mechanism="P1_authenticated_interface",
                             interception_step=1,
-                        extra=self._args_for_log(tc.arguments))
+                        extra=self._args_for_log(tc))
                     return {"status": "denied", "tool_id": tool_id,
                             "reason": self._sanitize_reason(reason)}
 
@@ -543,7 +603,7 @@ class SOARHost:
                             auth_decision="deny",
                             mechanism="P2_capability_scoping",
                             interception_step=2,
-                        extra=self._args_for_log(tc.arguments))
+                        extra=self._args_for_log(tc))
                     return {"status": "denied", "tool_id": tool_id,
                             "reason": self._sanitize_reason(reason)}
 
@@ -563,7 +623,7 @@ class SOARHost:
                             mechanism="P2_capability_scoping",
                             interception_step=2,
                             extra={"p2l2_reason": p_reason, **p_details,
-                                   **self._args_for_log(tc.arguments)},
+                                   **self._args_for_log(tc)},
                         )
                     return {"status": "denied", "tool_id": tool_id,
                             "reason": self._sanitize_reason(p_reason)}
@@ -603,7 +663,7 @@ class SOARHost:
                             auth_decision="deny",
                             mechanism="P3_verified_execution",
                             interception_step=3,
-                        extra=self._args_for_log(tc.arguments))
+                        extra=self._args_for_log(tc))
                     return {"status": "denied", "tool_id": tool_id, "reason": "Action not approved."}
 
             # Bulk action check (count + 1 to include current action — off-by-one fix)
@@ -615,6 +675,13 @@ class SOARHost:
                         reason=f"Bulk action threshold exceeded ({count} actions)",
                         severity="high",
                     )
+                    self.logger.log_tool_call(
+                        agent=f"{phase}_agent",
+                        tool=tool_id,
+                        auth_decision="escalate",
+                        mechanism="P3_bulk_action",
+                        interception_step=3,
+                        extra=self._args_for_log(tc))
                 return {"status": "escalated", "tool_id": tool_id, "reason": "Action limit reached."}
 
         # ── Step 5: Execute tool with latency tracking ──
@@ -646,7 +713,7 @@ class SOARHost:
                             action="tool_call", auth_decision="deny",
                             mechanism="P1_authenticated_interface",
                             interception_step=6,
-                            extra={"p1l2_reason": resp_reason},
+                            extra={"p1l2_reason": resp_reason, **self._args_for_log(tc)},
                         )
                     return {"status": "response_rejected", "tool_id": tool_id,
                             "reason": "Response validation failed."}
@@ -673,7 +740,7 @@ class SOARHost:
                             action="tool_call", auth_decision="deny",
                             mechanism="P3_execution_verification",
                             interception_step=7,
-                            extra={"l7_reason": l7_reason},
+                            extra={"l7_reason": l7_reason, **self._args_for_log(tc)},
                         )
                     return {"status": "execution_mismatch", "tool_id": tool_id,
                             "reason": "Execution verification failed."}
@@ -691,7 +758,8 @@ class SOARHost:
                             action="tool_call", auth_decision="redact",
                             mechanism="P2_capability_scoping",
                             interception_step=7,
-                            extra={"p2l3_reason": class_reason, **class_details},
+                            extra={"p2l3_reason": class_reason, **class_details,
+                                   **self._args_for_log(tc)},
                         )
                     # Fix #8: Actually redact sensitive content
                     response = {
@@ -708,14 +776,32 @@ class SOARHost:
                 auth_decision="allow",
                 mechanism="P2_capability_scoping" if self.config != "flat" else "none",
                 latency_ms=_latency,
-            extra=self._args_for_log(tc.arguments))
+            extra=self._args_for_log(tc))
 
         return response
 
     async def _process_memory_write(self, phase: str, mw: dict, context: dict):
-        """Process a memory write with config-appropriate enforcement."""
+        """Process a memory write with config-appropriate enforcement.
+
+        A ``memory_write_proposed`` event precedes every check in every
+        config; its ``call_id`` is carried by the resulting ``memory_write``
+        event.
+        """
         store_id = mw.get("store_id", "")
         content = mw.get("content", "")
+        doc_id = mw.get("doc_id", f"{phase}_{store_id}_{context.get('incident_id', 'unknown')}")
+        call_id = self._next_call_id(phase, "mem_write", f"{store_id}|{doc_id}|{content}")
+        mem_meta = {"call_id": call_id, "doc_id": doc_id}
+        if self.logger:
+            import hashlib as _h
+            self.logger.log(
+                source=f"{phase}_agent", destination=store_id,
+                action="memory_write_proposed",
+                extra={**mem_meta,
+                       "content_sha256": _h.sha256(str(content).encode()).hexdigest()[:16],
+                       "content_len": len(str(content)),
+                       "scripted": bool(mw.get("scripted", False))},
+            )
 
         if self.config == "agenticcyops":
             # Route through MMA gateway with auth token (Fix #7)
@@ -737,7 +823,7 @@ class SOARHost:
                             "phase": phase,
                             "store_id": store_id,
                             "document": content,
-                            "doc_id": mw.get("doc_id", f"{phase}_{store_id}_{context.get('incident_id', 'unknown')}"),
+                            "doc_id": doc_id,
                             "incident_evidence": context.get("incident", {}).get("description", ""),
                             "metadata": mw.get("metadata", {}),
                             "auth_token": auth_token,
@@ -789,6 +875,7 @@ class SOARHost:
                             mechanism=mechanism,
                             cosine_similarity=sim,
                             payload=content,
+                            extra=mem_meta,
                         )
                     return body
             except Exception:
@@ -804,6 +891,7 @@ class SOARHost:
                         store=store_id,
                         auth_decision="deny",
                         mechanism="acl_network_layer",
+                        extra=mem_meta,
                     )
                 return {"status": "denied", "reason": f"403: {reason}"}
 
@@ -815,5 +903,6 @@ class SOARHost:
                 auth_decision="allow",
                 mechanism="none" if self.config == "flat" else "acl_network_layer",
                 payload=content,
+                extra=mem_meta,
             )
         return {"status": "written"}

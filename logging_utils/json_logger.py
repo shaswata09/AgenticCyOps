@@ -404,8 +404,12 @@ class ExperimentLogger:
         mechanism: Optional[str] = None,
         latency_ms: Optional[float] = None,
         num_results: Optional[int] = None,
+        extra: Optional[dict] = None,
     ):
         """Log an agent -> memory store read."""
+        fields = dict(extra or {})
+        if num_results is not None:
+            fields["num_results"] = num_results
         self.log(
             source=agent,
             destination=store,
@@ -413,7 +417,7 @@ class ExperimentLogger:
             auth_decision=auth_decision,
             mechanism=mechanism,
             latency_ms=latency_ms,
-            extra={"num_results": num_results} if num_results is not None else None,
+            extra=fields or None,
         )
 
     def log_memory_write(
@@ -425,6 +429,7 @@ class ExperimentLogger:
         latency_ms: Optional[float] = None,
         payload: Optional[Any] = None,
         cosine_similarity: Optional[float] = None,
+        extra: Optional[dict] = None,
     ):
         """Log an agent -> memory store write (goes through P4 write-boundary filtering)."""
         payload_hash = None
@@ -432,7 +437,7 @@ class ExperimentLogger:
             raw = json.dumps(payload, default=str) if not isinstance(payload, str) else payload
             payload_hash = hashlib.sha256(raw.encode()).hexdigest()[:8]
 
-        extra = {}
+        extra = dict(extra or {})
         if cosine_similarity is not None:
             extra["cosine_similarity"] = round(cosine_similarity, 4)
 
