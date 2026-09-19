@@ -144,6 +144,8 @@ CPUSET=""
 set_cpuset() { # set_cpuset <domain>
     CPUSET=""
     [ "${PIN_CPUS:-1}" = "1" ] && command -v taskset > /dev/null || return 0
+    # explicit block from the driver (extra streams placed on free cores)
+    if [ -n "${CPUSET_OVERRIDE:-}" ]; then CPUSET="$CPUSET_OVERRIDE"; return 0; fi
     local width="${CPU_WIDTH:-6}" ncpu; ncpu=$(nproc --all)
     local idx=$(( ${PIN_DOMAIN_IDX[$1]:-0} * 3 + ${SLOT:-0} ))
     local start=$(( ( ${CPU_BASE[$GROUP]:-0} + idx * width ) % (ncpu - width + 1) ))

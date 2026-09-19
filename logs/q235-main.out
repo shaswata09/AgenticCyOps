@@ -11,3 +11,17 @@
 2026-09-19 18:59:44    start q235_div4 legal benign flat (slot 0)
 2026-09-19 19:00:04    start q235_div4 legal benign acl_hardened (slot 1)
 2026-09-19 19:00:24    start q235_div4 legal benign agenticcyops (slot 2)
+2026-09-19 20:56:52  E1 q235_div4 done
+2026-09-19 20:56:52  E2 attacks q235_div4: cyberops healthcare finance legal
+2026-09-19 20:56:52    start q235_div4 cyberops all flat (slot 0)
+2026-09-19 20:57:12    start q235_div4 cyberops all acl_hardened (slot 1)
+2026-09-19 20:57:32    start q235_div4 cyberops all agenticcyops (slot 2)
+2026-09-19 20:57:52    start q235_div4 healthcare all flat (slot 0)
+2026-09-19 20:58:12    start q235_div4 healthcare all acl_hardened (slot 1)
+2026-09-19 20:58:32    start q235_div4 healthcare all agenticcyops (slot 2)
+2026-09-19 20:58:52    start q235_div4 finance all flat (slot 0)
+2026-09-19 20:59:12    start q235_div4 finance all acl_hardened (slot 1)
+2026-09-19 20:59:32    start q235_div4 finance all agenticcyops (slot 2)
+2026-09-19 20:59:52    start q235_div4 legal all flat (slot 0)
+2026-09-19 21:00:12    start q235_div4 legal all acl_hardened (slot 1)
+2026-09-19 21:00:32    start q235_div4 legal all agenticcyops (slot 2)

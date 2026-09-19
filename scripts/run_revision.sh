@@ -235,18 +235,25 @@ case "$cmd" in
         # can run next to the group's normal E2 (slots 0-2, forward order).
         # The two meet in the middle; RESUME skips whatever the other side
         # has already finished.   scripts/run_revision.sh e2-rev <group> [domains]
+        #   CFGS="agenticcyops"            only these configs (default: all three)
+        #   REV_CPUSETS="72-77 78-83 ..."  core blocks for the extra streams, in
+        #                                  launch order (default: the normal mapping)
         g="${1:?group}"; shift || true
         doms="${*:-${DOMAINS:-$ALL_DOMAINS}}"
-        stamp "E2 (reverse order, slots 3-5) ${g}: ${doms}"
-        pids=()
+        cfgs="${CFGS:-$SYSTEM_CONFIGS}"
+        read -r -a rev_cpus <<< "${REV_CPUSETS:-}"
+        stamp "E2 (reverse order, slots 3-5) ${g}: ${doms} [${cfgs}]"
+        pids=(); stream=0
         for dom in $doms; do
             slot=3
-            for cfg in $SYSTEM_CONFIGS; do
+            for cfg in $cfgs; do
                 mma_model=""; case "$cfg" in flat|acl_hardened) mma_model="$SMALL_EMB" ;; esac
+                cpu="${rev_cpus[$stream]:-}"
+                stamp "  start ${g} ${dom} reverse ${cfg} (slot ${slot}${cpu:+, cpus ${cpu}})"
                 ( for n in 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1; do
-                      SLOT="$slot" MMA_MODEL_PATH="$mma_model" attack "$g" "$dom" "ap${n}" "$cfg"
+                      SLOT="$slot" MMA_MODEL_PATH="$mma_model" CPUSET_OVERRIDE="$cpu" attack "$g" "$dom" "ap${n}" "$cfg"
                   done ) > "logs/stage_${g}_${dom}_rev_${cfg}.log" 2>&1 &
-                pids+=($!); slot=$((slot + 1)); sleep 20
+                pids+=($!); slot=$((slot + 1)); stream=$((stream + 1)); sleep 20
             done
         done
         rc=0; for p in "${pids[@]}"; do wait "$p" || rc=1; done
