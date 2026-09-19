@@ -437,19 +437,20 @@ for f in sorted(log_dir.rglob('*.jsonl')) if log_dir.exists() else []:
 if not trials:
     print('No trial results'); sys.exit(0)
 
-# ---- CSV ----
+# ---- CSV (scoring v3 columns; the harness appends the same rows per trial) ----
+from attacks.harness import RESULT_COLUMNS
 csv_path = result_dir / 'results.csv'
 with open(csv_path, 'w', newline='') as f:
-    w = csv.writer(f)
-    w.writerow(['Domain','AP','Variant','Trial','Config','Group','Succeeded','Step','Mechanism','Outcome','Measurable'])
+    w = csv.DictWriter(f, fieldnames=RESULT_COLUMNS, extrasaction='ignore')
+    w.writeheader()
     for t in trials:
-        w.writerow([domain, t.get('ap',''), t.get('variant',''), t.get('trial',''),
-                     t.get('config',''), group, t.get('attack_succeeded',''),
-                     t.get('interception_step',''), t.get('blocking_mechanism',''),
-                     t.get('outcome',''), t.get('measurable','')])
+        w.writerow({**{c: t.get(c, '') for c in RESULT_COLUMNS}, 'domain': domain, 'group': group})
 print(f'Saved: {csv_path} ({len(trials)} trials)')
+for t in trials:
+    t['attack_succeeded'] = (t.get('outcome') == 'executed')
+    t['blocking_mechanism'] = t.get('blocked_by') or 'none'
 
-# ---- Compute ASR (scoring v2: not-measurable trials are excluded) ----
+# ---- Compute ASR (scoring v3: not-measurable trials are excluded) ----
 attack_trials = [t for t in trials if t.get('ap','').startswith('ap')
                  and t.get('outcome','') not in ('not_measurable', 'error')]
 aps = sorted(set(t.get('ap','') for t in attack_trials), key=lambda x: int(x.replace('ap','')) if x.startswith('ap') else 0)
@@ -512,7 +513,7 @@ for i, ap in enumerate(aps):
     for j, config in enumerate(CONFIGS):
         mt = [t for t in attack_trials if t.get('ap')==ap and t.get('config')==config]
         if mt:
-            blocked = sum(1 for t in mt if not t.get('attack_succeeded'))
+            blocked = sum(1 for t in mt if t.get('outcome') == 'blocked')
             matrix[i,j] = blocked/len(mt)*100
 fig, ax = plt.subplots(figsize=(8, max(4, len(aps)*0.8)))
 sns.heatmap(matrix, annot=True, fmt='.0f', cmap='RdYlGn',
@@ -531,8 +532,8 @@ aco_trials = [t for t in attack_trials if t.get('config')=='agenticcyops']
 if aco_trials:
     mechs = defaultdict(int)
     for t in aco_trials:
-        if not t.get('attack_succeeded'):
-            m = t.get('blocking_mechanism','unknown')
+        if t.get('outcome') == 'blocked':
+            m = t.get('blocked_by') or 'unknown'
             mechs[m] += 1
     if mechs:
         fig, ax = plt.subplots(figsize=(8, 5))

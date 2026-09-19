@@ -801,6 +801,7 @@ class SOARHost:
                        "content_sha256": _h.sha256(str(content).encode()).hexdigest()[:16],
                        "content_len": len(str(content)),
                        "scripted": bool(mw.get("scripted", False))},
+                scan_text=content,
             )
 
         if self.config == "agenticcyops":

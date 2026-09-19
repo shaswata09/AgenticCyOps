@@ -1,7 +1,8 @@
 # Attack-Path Scoring v2
 
-Status: adopted 2026-09-19. Applies to every `results/eval_attacks/group_<G>/<domain>/results.csv`
-on disk. All runs were re-scored offline from their JSONL logs; no LLM was re-run.
+Status: adopted 2026-09-19 for the v1-harness runs now archived under `results_legacy_v1/`.
+Runs made with the v2 harness use the effects oracle described in [scoring_v3.md](scoring_v3.md).
+on disk at that time. All runs were re-scored offline from their JSONL logs; no LLM was re-run.
 
 This document defines how a trial is scored, why the rules changed, and what the
 numbers can and cannot support. The headline tables live in

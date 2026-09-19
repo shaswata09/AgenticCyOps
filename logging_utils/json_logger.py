@@ -139,6 +139,7 @@ class ExperimentLogger:
         self._ap: Optional[str] = None
         self._variant: Optional[int] = None
         self._trial_num: Optional[int] = None
+        self._canaries: list[str] = []
 
         base = Path(logs_dir) if logs_dir else LOGS_DIR
         self._log_dir = base / eval_name
@@ -232,6 +233,30 @@ class ExperimentLogger:
         """Set trial_id directly for custom naming."""
         self._trial_id = trial_id
 
+    def set_canaries(self, canaries: Optional[list[str]]):
+        """Canary strings of the current trial.
+
+        Any event whose ``extra`` fields or payload text contain one of them
+        gets a ``canary_hits`` list; the text itself is never written.  The
+        effect oracle uses the hits to decide whether planted content
+        reached an outbound action (``mem_read_leak`` / ``exfil`` effects).
+        """
+        self._canaries = [str(c) for c in (canaries or []) if c]
+
+    def _canary_hits(self, *texts) -> list[str]:
+        if not self._canaries:
+            return []
+        hits = []
+        for t in texts:
+            if not t:
+                continue
+            if not isinstance(t, str):
+                t = json.dumps(t, default=str)
+            for c in self._canaries:
+                if c in t and c not in hits:
+                    hits.append(c)
+        return hits
+
     # ------------------------------------------------------------------ #
     #  Core logging
     # ------------------------------------------------------------------ #
@@ -250,6 +275,7 @@ class ExperimentLogger:
         tokens_completion: Optional[int] = None,
         payload_hash: Optional[str] = None,
         extra: Optional[dict] = None,
+        scan_text: Optional[Any] = None,
     ):
         """Write a single structured log entry.
 
@@ -269,6 +295,8 @@ class ExperimentLogger:
             tokens_completion: Completion/output tokens
             payload_hash: Hash of the payload (computed automatically if not provided)
             extra: Additional fields to include
+            scan_text: Content that is scanned for the trial's canary strings
+                       but never written (see :meth:`set_canaries`)
         """
         total_tokens = tokens_used
         if total_tokens is None and (tokens_prompt or tokens_completion):
@@ -305,6 +333,9 @@ class ExperimentLogger:
             entry.update(extra)
         if entry.get("model"):
             entry["model"] = model_display_name(entry["model"])
+        hits = self._canary_hits(extra, scan_text)
+        if hits:
+            entry["canary_hits"] = hits
 
         # Remove None values for cleaner logs
         entry = {k: v for k, v in entry.items() if v is not None}
@@ -378,6 +409,7 @@ class ExperimentLogger:
         (tool, operation, parameters) instead of tool name alone.
         """
         payload_hash = None
+        raw = None
         if payload:
             raw = json.dumps(payload, default=str) if not isinstance(payload, str) else payload
             payload_hash = hashlib.sha256(raw.encode()).hexdigest()[:8]
@@ -394,6 +426,7 @@ class ExperimentLogger:
             payload_hash=payload_hash,
             interception_step=interception_step,
             extra=extra,
+            scan_text=raw,
         )
 
     def log_memory_read(
@@ -433,6 +466,7 @@ class ExperimentLogger:
     ):
         """Log an agent -> memory store write (goes through P4 write-boundary filtering)."""
         payload_hash = None
+        raw = None
         if payload:
             raw = json.dumps(payload, default=str) if not isinstance(payload, str) else payload
             payload_hash = hashlib.sha256(raw.encode()).hexdigest()[:8]
@@ -450,6 +484,7 @@ class ExperimentLogger:
             latency_ms=latency_ms,
             payload_hash=payload_hash,
             extra=extra or None,
+            scan_text=raw,
         )
 
     def log_consensus_vote(
@@ -546,8 +581,12 @@ class ExperimentLogger:
         phase_from: Optional[str] = None,
         phase_to: Optional[str] = None,
         latency_ms: Optional[float] = None,
+        content: Optional[Any] = None,
     ):
-        """Log a Host-mediated phase handoff (Monitor -> Analyze -> Admin -> Report)."""
+        """Log a Host-mediated phase handoff (Monitor -> Analyze -> Admin -> Report).
+
+        ``content`` (the handoff payload) is scanned for canaries only.
+        """
         extra = {}
         if phase_from:
             extra["phase_from"] = phase_from
@@ -560,6 +599,7 @@ class ExperimentLogger:
             action="agent_handoff",
             latency_ms=latency_ms,
             extra=extra or None,
+            scan_text=content,
         )
 
 

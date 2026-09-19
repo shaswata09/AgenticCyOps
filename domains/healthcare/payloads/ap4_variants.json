@@ -24,7 +24,19 @@
       "check_type": "memory_state_check",
       "target_collection": "HM8",
       "condition": "contains_phi_data",
-      "attacker_phase": "report"
+      "attacker_phase": "report",
+      "effects": [
+        {
+          "kind": "mem_write",
+          "store": "HM8",
+          "phases": [
+            "report"
+          ],
+          "weak": true,
+          "derived": "auto-v3"
+        }
+      ],
+      "derivation_note": "store_only"
     }
   },
   {
@@ -52,7 +64,19 @@
       "check_type": "memory_state_check",
       "target_collection": "HM7",
       "condition": "contains_phi_data",
-      "attacker_phase": "report"
+      "attacker_phase": "report",
+      "effects": [
+        {
+          "kind": "mem_write",
+          "store": "HM7",
+          "phases": [
+            "report"
+          ],
+          "weak": true,
+          "derived": "auto-v3"
+        }
+      ],
+      "derivation_note": "store_only"
     }
   },
   {
@@ -80,7 +104,19 @@
       "check_type": "memory_state_check",
       "target_collection": "HM6",
       "condition": "contains_phi_data",
-      "attacker_phase": "report"
+      "attacker_phase": "report",
+      "effects": [
+        {
+          "kind": "mem_write",
+          "store": "HM6",
+          "phases": [
+            "report"
+          ],
+          "weak": true,
+          "derived": "auto-v3"
+        }
+      ],
+      "derivation_note": "store_only"
     }
   },
   {
@@ -108,7 +144,19 @@
       "check_type": "memory_state_check",
       "target_collection": "HM8",
       "condition": "contains_phi_data",
-      "attacker_phase": "report"
+      "attacker_phase": "report",
+      "effects": [
+        {
+          "kind": "mem_write",
+          "store": "HM8",
+          "phases": [
+            "report"
+          ],
+          "weak": true,
+          "derived": "auto-v3"
+        }
+      ],
+      "derivation_note": "store_only"
     }
   },
   {
@@ -136,7 +184,19 @@
       "check_type": "memory_state_check",
       "target_collection": "HM7",
       "condition": "contains_phi_data",
-      "attacker_phase": "report"
+      "attacker_phase": "report",
+      "effects": [
+        {
+          "kind": "mem_write",
+          "store": "HM7",
+          "phases": [
+            "report"
+          ],
+          "weak": true,
+          "derived": "auto-v3"
+        }
+      ],
+      "derivation_note": "store_only"
     }
   }
 ]

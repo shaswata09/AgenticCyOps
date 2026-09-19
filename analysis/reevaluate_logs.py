@@ -1,4 +1,4 @@
-"""Offline re-scorer for attack-path logs (scoring v2).
+"""Offline re-scorer for attack-path logs (scoring v3, effects oracle).
 
 Re-runs the LIVE evaluator (:meth:`AttackHarness.evaluate_success`) over the
 JSONL audit logs of finished runs so ``results.csv`` can be regenerated
@@ -16,8 +16,9 @@ Usage::
 Outputs (per group x domain):
 
     results/eval_attacks/group_<G><suffix>/<domain>/results.csv
-        Domain, AP, Variant, Trial, Config, Group, Succeeded, Step,
-        Mechanism, Outcome, Measurable
+        domain, ap, variant, trial, config, group, outcome, blocked_by,
+        collateral_denials, task_completed, latency_s, primary_tokens,
+        validator_tokens, seed
 
     results/eval_attacks/rescoring_changelog.csv  (appended; one row per
         group x domain x config with the verdict flips relative to the
@@ -34,8 +35,8 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config import BASE_DIR
-from attacks.harness import AttackHarness, RESULT_COLUMNS
+from config import BASE_DIR, LOGS_DIR, RESULTS_DIR
+from attacks.harness import AttackHarness, RESULT_COLUMNS, TrialResult, summarize
 from host.manifest_enforcer import ManifestEnforcer
 
 DOMAINS = ("cyberops", "healthcare", "finance", "legal")
@@ -108,7 +109,7 @@ def _parse_trial_id(tid: str) -> tuple[str, str, int, str] | None:
 def discover_runs() -> list[tuple[str, str, str]]:
     """Return every (group, domain, suffix) that has an attack log dir on disk."""
     runs = []
-    for d in sorted((BASE_DIR / "logs").iterdir()):
+    for d in sorted(LOGS_DIR.iterdir()):
         if not d.is_dir():
             continue
         m = _LOG_DIR_RE.match(d.name)
@@ -158,15 +159,16 @@ def _read_existing(csv_path: Path) -> dict[tuple, dict]:
     out = {}
     with open(csv_path, newline="") as f:
         for r in csv.DictReader(f):
-            key = (r.get("AP"), str(r.get("Variant")), str(r.get("Trial")), r.get("Config"))
+            key = (r.get("ap") or r.get("AP"), str(r.get("variant") or r.get("Variant")),
+                   str(r.get("trial") or r.get("Trial")), r.get("config") or r.get("Config"))
             out[key] = r
     return out
 
 
 def reevaluate(group: str, domain: str, suffix: str = "",
                dry_run: bool = False, changelog: list[dict] | None = None) -> list[dict]:
-    log_dir = BASE_DIR / "logs" / f"{domain}_eval_attacks_{group}{suffix}"
-    out_dir = BASE_DIR / "results" / "eval_attacks" / f"group_{group}{suffix}" / domain
+    log_dir = LOGS_DIR / f"{domain}_eval_attacks_{group}{suffix}"
+    out_dir = RESULTS_DIR / "eval_attacks" / f"group_{group}{suffix}" / domain
     out_csv = out_dir / "results.csv"
 
     print(f"[{group}/{domain}{suffix}] loading {log_dir}")
@@ -176,7 +178,8 @@ def reevaluate(group: str, domain: str, suffix: str = "",
 
     before = _read_existing(out_csv)
 
-    rows = []
+    rows: list[dict] = []
+    results: list[TrialResult] = []
     harnesses: dict[str, OfflineHarness] = {}
     for tid, events in sorted(trials.items()):
         parsed = _parse_trial_id(tid)
@@ -195,55 +198,57 @@ def reevaluate(group: str, domain: str, suffix: str = "",
         h = harnesses.setdefault(
             config, OfflineHarness(config=config, group=group, domain=domain))
         h.set_trial_events(events)
+        header = next((e for e in events if e.get("action") == "run_header"), {})
         try:
-            succeeded, step, mechanism = h.evaluate_success(ap, payload, {})
-            outcome = h.last_outcome.get("outcome", "")
-            measurable = h.last_outcome.get("measurable", True)
+            h.evaluate_success(ap, payload, {})
+            lo = h.last_outcome
         except Exception as exc:
-            succeeded, step = False, 0
-            mechanism = f"evaluator_error:{exc.__class__.__name__}"
-            outcome, measurable = "evaluator_error", False
-
-        rows.append({
-            "Domain": domain, "AP": ap, "Variant": variant_num,
-            "Trial": trial_num, "Config": config, "Group": group,
-            "Succeeded": succeeded, "Step": step, "Mechanism": mechanism,
-            "Outcome": outcome, "Measurable": measurable,
-        })
+            lo = {"outcome": "error", "blocked_by": f"evaluator_error:{exc.__class__.__name__}",
+                  "measurable": False}
+        span = lo.get("span_s")
+        tr = TrialResult(
+            ap=ap, variant=variant_num, trial=trial_num, config=config, domain=domain,
+            group=group, outcome=lo.get("outcome", ""), blocked_by=lo.get("blocked_by", ""),
+            collateral_denials=int(lo.get("collateral_denials") or 0),
+            task_completed=lo.get("task_completed"),
+            latency_s=float(span) if span is not None else 0.0,
+            primary_tokens=int(lo.get("primary_tokens") or 0),
+            validator_tokens=int(lo.get("validator_tokens") or 0),
+            seed=header.get("seed"), measurable=lo.get("measurable", True))
+        results.append(tr)
+        rows.append(tr.as_row())
 
     # ---- changelog vs. what was on disk --------------------------------
     per_cfg: dict[str, dict] = defaultdict(lambda: {
-        "n": 0, "legacy_succeeded": 0, "new_succeeded": 0,
-        "flip_success_to_blocked": 0, "flip_blocked_to_success": 0,
-        "not_measurable": 0, "error": 0, "agent_refused": 0, "blocked": 0,
+        "n": 0, "prev_executed": 0, "executed": 0, "blocked": 0, "not_attempted": 0,
+        "not_measurable": 0, "error": 0, "flip_exec_to_other": 0, "flip_other_to_exec": 0,
     })
     for r in rows:
-        c = per_cfg[r["Config"]]
+        c = per_cfg[r["config"]]
         c["n"] += 1
-        c["new_succeeded"] += int(r["Succeeded"])
-        c["not_measurable"] += int(r["Outcome"] == "not_measurable")
-        c["error"] += int(r["Outcome"] == "error")
-        c["agent_refused"] += int(r["Outcome"] == "agent_refused")
-        c["blocked"] += int(r["Outcome"] == "blocked")
-        old = before.get((r["AP"], str(r["Variant"]), str(r["Trial"]), r["Config"]))
+        for k in ("executed", "blocked", "not_attempted", "not_measurable", "error"):
+            c[k] += int(r["outcome"] == k)
+        old = before.get((r["ap"], str(r["variant"]), str(r["trial"]), r["config"]))
         if old is not None:
-            old_s = str(old.get("Succeeded", "")).strip() == "True"
-            c["legacy_succeeded"] += int(old_s)
-            if old_s and not r["Succeeded"]:
-                c["flip_success_to_blocked"] += 1
-            if (not old_s) and r["Succeeded"]:
-                c["flip_blocked_to_success"] += 1
+            old_exec = (str(old.get("Succeeded", "")).strip() == "True"
+                        or old.get("outcome") == "executed")
+            c["prev_executed"] += int(old_exec)
+            if old_exec and r["outcome"] != "executed":
+                c["flip_exec_to_other"] += 1
+            if (not old_exec) and r["outcome"] == "executed":
+                c["flip_other_to_exec"] += 1
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     for cfg, c in sorted(per_cfg.items()):
         entry = {"timestamp": stamp, "group": group, "domain": domain,
                  "suffix": suffix, "config": cfg, **c}
         if changelog is not None:
             changelog.append(entry)
-        print(f"  {cfg:<13} n={c['n']:<4} legacy_succ={c['legacy_succeeded']:<4} "
-              f"new_succ={c['new_succeeded']:<4} s->b={c['flip_success_to_blocked']:<3} "
-              f"b->s={c['flip_blocked_to_success']:<3} blocked={c['blocked']:<4} "
-              f"refused={c['agent_refused']:<4} not_measurable={c['not_measurable']:<4} "
-              f"error={c['error']}")
+        m = summarize([t for t in results if t.config == cfg])
+        asr = "n/a" if m["asr"] is None else f"{100*m['asr']:.1f}%"
+        print(f"  {cfg:<13} n={c['n']:<4} executed={c['executed']:<4} blocked={c['blocked']:<4} "
+              f"not_attempted={c['not_attempted']:<4} not_measurable={c['not_measurable']:<4} "
+              f"error={c['error']:<3} ASR={asr}  (prev executed={c['prev_executed']}, "
+              f"flips e->o={c['flip_exec_to_other']} o->e={c['flip_other_to_exec']})")
 
     if dry_run:
         print("  (dry-run: nothing written)")
@@ -257,26 +262,18 @@ def reevaluate(group: str, domain: str, suffix: str = "",
     print(f"  wrote {out_csv} ({len(rows)} rows)")
 
     # Per-AP summary (agenticcyops only, measurable trials only)
-    agg = defaultdict(lambda: {"total": 0, "succ": 0, "nm": 0})
-    for r in rows:
-        if r["Config"] != "agenticcyops":
-            continue
-        a = agg[r["AP"]]
-        if r["Outcome"] in ("not_measurable", "error"):
-            a["nm"] += 1
-            continue
-        a["total"] += 1
-        a["succ"] += int(r["Succeeded"])
-    print("  Per-AP AgenticCyOps ASR (measurable trials):")
+    print("  Per-AP AgenticCyOps (measurable trials):")
     for ap in [f"ap{i}" for i in range(1, 16)]:
-        a = agg.get(ap)
-        if not a:
+        sub = [t for t in results if t.config == "agenticcyops" and t.ap == ap]
+        if not sub:
             continue
-        if a["total"] == 0:
-            print(f"    {ap:<5} N/A (not measurable, {a['nm']} trials)")
+        m = summarize(sub)
+        if m["n"] == 0:
+            print(f"    {ap:<5} N/A (not measurable, {len(sub)} trials)")
         else:
-            print(f"    {ap:<5} {a['succ']:>3}/{a['total']:<3} ASR={100*a['succ']/a['total']:5.1f}%"
-                  + (f"  (+{a['nm']} not measurable)" if a["nm"] else ""))
+            print(f"    {ap:<5} exec={m['executed']:>3}/{m['n']:<3} ASR={100*m['asr']:5.1f}%  "
+                  f"attempt={100*m['attempt_rate']:5.1f}%"
+                  + (f"  (+{m['not_measurable']} not measurable)" if m["not_measurable"] else ""))
     return rows
 
 
@@ -305,7 +302,7 @@ def main() -> None:
         reevaluate(group, domain, suffix, dry_run=args.dry_run, changelog=changelog)
 
     if changelog and not args.dry_run:
-        path = BASE_DIR / "results" / "eval_attacks" / "rescoring_changelog.csv"
+        path = RESULTS_DIR / "eval_attacks" / "rescoring_changelog.csv"
         path.parent.mkdir(parents=True, exist_ok=True)
         new_file = not path.exists()
         with open(path, "a", newline="") as f:

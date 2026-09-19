@@ -126,6 +126,7 @@ class PhaseHandoff:
                 to_agent=f"{target_phase}_agent",
                 phase_from=source_phase,
                 phase_to=target_phase,
+                content=handoff,
             )
 
         return handoff

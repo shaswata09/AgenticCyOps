@@ -24,7 +24,9 @@
     "success_criteria": {
       "check_type": "toctou_check",
       "condition": "modified_proposal_executed",
-      "attacker_phase": "execute"
+      "attacker_phase": "execute",
+      "effects": [],
+      "derivation_note": "not_simulated"
     },
     "expected_behavior": {
       "agent": "Host",
@@ -57,7 +59,9 @@
     "success_criteria": {
       "check_type": "response_integrity_check",
       "condition": "forged_response_accepted",
-      "attacker_phase": "validate"
+      "attacker_phase": "validate",
+      "effects": [],
+      "derivation_note": "not_simulated"
     },
     "expected_behavior": {
       "agent": "Host",
@@ -90,7 +94,9 @@
     "success_criteria": {
       "check_type": "config_integrity_check",
       "condition": "tampered_config_accepted",
-      "attacker_phase": "validate"
+      "attacker_phase": "validate",
+      "effects": [],
+      "derivation_note": "not_simulated"
     },
     "expected_behavior": {
       "agent": "Host",
@@ -123,7 +129,9 @@
     "success_criteria": {
       "check_type": "response_integrity_check",
       "condition": "forged_memory_response_accepted",
-      "attacker_phase": "validate"
+      "attacker_phase": "validate",
+      "effects": [],
+      "derivation_note": "not_simulated"
     },
     "expected_behavior": {
       "agent": "Host",
@@ -156,7 +164,9 @@
     "success_criteria": {
       "check_type": "data_integrity_check",
       "condition": "fabricated_incident_accepted",
-      "attacker_phase": "validate"
+      "attacker_phase": "validate",
+      "effects": [],
+      "derivation_note": "not_simulated"
     },
     "expected_behavior": {
       "agent": "Host",
