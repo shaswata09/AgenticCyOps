@@ -13,6 +13,7 @@
 #   scripts/run_revision.sh q235-main             # E1 + E2 + E3 + E1b on q235_div4, then ASB div4 replay
 #   scripts/run_revision.sh mid-main              # E1 + E2 on scout_div4, mistral_div3p, llama8b_div4 in parallel;
 #                                                 # ASB replay for div3 / lin3 / single
+#   scripts/run_revision.sh llama8b-main          # E1 + E2 on llama8b_div4 (RTX 5090 node); can run next to q235-main
 #   scripts/run_revision.sh e1|e2|e3|e1b <group> [domains]   # single stage
 #   scripts/run_revision.sh asb-replay <panel>    # div4 | div3 | lin3 | single
 #   scripts/run_revision.sh tables                # make paper-tables
@@ -48,6 +49,10 @@ mkdir -p logs
 
 run_py() { conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"; }
 stamp()  { echo "$(date '+%F %T')  $*" | tee -a "$STAGE_LOG"; }
+a51_status() { # HTTP status of the RTX 5090 endpoint with our key (000 = unreachable)
+    curl -s -o /dev/null --max-time 5 -w "%{http_code}" \
+        -H "Authorization: Bearer ${REMOTE_5090_API_KEY:-}" "${REMOTE_5090_URL:-http://127.0.0.1:1}/models" 2>/dev/null || echo 000
+}
 attack() { # attack <group> <domain> <ap|all|benign> <config|all> [trials]
     scripts/run_attack_paths.sh "$1" "$2" "$3" "$4" "${5:-$TRIALS}"
 }
@@ -101,11 +106,11 @@ preflight() {
     done
     [ -d "$md/Qwen/Qwen3-14B" ] && echo "[  ok] weights Qwen/Qwen3-14B (lin3 panel)" || echo "[warn] Qwen/Qwen3-14B missing: lin3 replay unavailable (huggingface-cli download Qwen/Qwen3-14B --local-dir $md/Qwen/Qwen3-14B)"
     if [ -n "${REMOTE_5090_URL:-}" ]; then
-        if curl -s --max-time 5 -H "Authorization: Bearer ${REMOTE_5090_API_KEY:-}" "${REMOTE_5090_URL%/}/models" > /dev/null; then
-            echo "[  ok] RTX 5090 node answers at REMOTE_5090_URL"
-        else
-            echo "[warn] RTX 5090 node not reachable at REMOTE_5090_URL (llama8b_div4 will be skipped until it is)"
-        fi
+        case "$(a51_status)" in
+            200) echo "[  ok] RTX 5090 node answers at REMOTE_5090_URL and accepts REMOTE_5090_API_KEY" ;;
+            401|403) echo "[FAIL] RTX 5090 node rejects REMOTE_5090_API_KEY (HTTP 401): the key in this .env differs from the one vLLM was started with on that node"; ok=0 ;;
+            *)   echo "[warn] RTX 5090 node not reachable at REMOTE_5090_URL (llama8b_div4 will be skipped until it is)" ;;
+        esac
     else
         echo "[warn] REMOTE_5090_URL not set: llama8b_div4 unavailable"
     fi
@@ -216,12 +221,18 @@ case "$cmd" in
         e1b "$MAIN_GROUP"
         asb_replay div4          # V1 + V5 are up in this profile
         tables ;;
+    llama8b-main)
+        # needs only V1 + V5 on this box (up in both profiles) and the RTX 5090 node
+        [ "$(a51_status)" = "200" ] || { stamp "llama8b-main: RTX 5090 node not usable (HTTP $(a51_status))"; exit 1; }
+        doms="${DOMAINS:-cyberops finance}"
+        e1 llama8b_div4 $doms
+        e2 llama8b_div4 $doms ;;
     mid-main)
         # profile mid must be up; A51 serving llama8b (optional)
         doms="${DOMAINS:-cyberops finance}"
         groups="scout_div4 mistral_div3p"
-        curl -s --max-time 5 -H "Authorization: Bearer ${REMOTE_5090_API_KEY:-}" "${REMOTE_5090_URL:-http://127.0.0.1:1}/models" > /dev/null && groups="$groups llama8b_div4" \
-            || stamp "llama8b_div4 skipped: RTX 5090 node not reachable"
+        [ "$(a51_status)" = "200" ] && groups="$groups llama8b_div4" \
+            || stamp "llama8b_div4 skipped: RTX 5090 node not reachable or key rejected (HTTP $(a51_status))"
         pids=()
         for g in $groups; do
             ( e1 "$g" $doms; e2 "$g" $doms ) > "logs/stage_${g}_mid-main.log" 2>&1 &
