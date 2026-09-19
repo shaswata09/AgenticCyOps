@@ -70,6 +70,10 @@ start_server() {
     if curl -s --max-time 1 "http://127.0.0.1:${port}/health" > /dev/null 2>&1; then
         echo "[skip] $name already answering on :$port"; return 0
     fi
+    # still loading from an earlier start: never launch a second copy on the same GPUs
+    if [ -f "$PID_DIR/${name}.pid" ] && kill -0 "$(cat "$PID_DIR/${name}.pid")" 2>/dev/null; then
+        echo "[skip] $name is already starting (pid $(cat "$PID_DIR/${name}.pid")); waiting for it"; return 0
+    fi
     echo "[start] $name  gpus=$gpus  port=$port  served=$served"
     local tool_flag=""
     [[ "$args" == *"--tool-call-parser"* ]] && tool_flag="--enable-auto-tool-choice"
