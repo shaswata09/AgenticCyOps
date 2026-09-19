@@ -370,6 +370,29 @@ class SOARHost:
         """
         return principle.upper() not in self.disabled_principles
 
+    # Compact, size-bounded snapshot of tool-call arguments for the audit log.
+    # Attack evaluation (attacks/harness.py) matches scripted adversarial
+    # actions on tool + operation + parameters when this field is present;
+    # logs written before 2026-09 carry tool names only.
+    _ARG_LOG_MAX_CHARS = 600
+
+    @classmethod
+    def _args_for_log(cls, arguments) -> dict:
+        try:
+            if not isinstance(arguments, dict):
+                return {}
+            out = {}
+            for k, v in arguments.items():
+                if isinstance(v, (str, int, float, bool)) or v is None:
+                    out[k] = v
+                else:
+                    out[k] = json.dumps(v, default=str)
+                if len(json.dumps(out, default=str)) > cls._ARG_LOG_MAX_CHARS:
+                    out[k] = str(out[k])[:120] + "..."
+            return {"arguments": out}
+        except Exception:
+            return {}
+
     async def _process_tool_call(self, phase: str, tc, context: dict) -> dict:
         """Process a tool call with config-appropriate enforcement.
 
@@ -396,7 +419,7 @@ class SOARHost:
                         auth_decision="deny",
                         mechanism="acl_network_layer",
                         interception_step=2,
-                    )
+                    extra=self._args_for_log(tc.arguments))
                 return {"status": "denied", "tool_id": tool_id, "reason": f"403: {reason}"}
 
         elif self.config == "llm_judge":
@@ -420,7 +443,8 @@ class SOARHost:
                             tool=tool_id,
                             auth_decision="deny",
                             mechanism="P1_authenticated_interface",
-                            interception_step=1)
+                            interception_step=1,
+                        extra=self._args_for_log(tc.arguments))
                     return {"status": "denied", "tool_id": tool_id,
                             "reason": self._sanitize_reason(reason)}
 
@@ -448,7 +472,8 @@ class SOARHost:
                             tool=tool_id,
                             auth_decision="allow",
                             mechanism="P3_consensus_error",
-                            interception_step=6)
+                            interception_step=6,
+                        extra=self._args_for_log(tc.arguments))
                     # Fall through to execution -- benchmark records this
                     # as an "allow" but with the error-mechanism marker
                     # so analytics can filter these trials out.
@@ -463,7 +488,8 @@ class SOARHost:
                                 tool=tool_id,
                                 auth_decision="allow",
                                 mechanism="P3_consensus_unavailable",
-                                interception_step=6)
+                                interception_step=6,
+                        extra=self._args_for_log(tc.arguments))
                         # Same fall-through semantics as InjecAgent's
                         # evaluate_with_consensus: don't silently mask
                         # results when validators are down.
@@ -474,7 +500,8 @@ class SOARHost:
                                 tool=tool_id,
                                 auth_decision="deny",
                                 mechanism="P3_consensus_reject",
-                                interception_step=6)
+                                interception_step=6,
+                        extra=self._args_for_log(tc.arguments))
                         return {"status": "denied", "tool_id": tool_id,
                                 "reason": (f"consensus rejected "
                                             f"({result.rejections}/{len(votes)} "
@@ -486,7 +513,8 @@ class SOARHost:
                                 tool=tool_id,
                                 auth_decision="allow",
                                 mechanism="llm_judge_approved",
-                                interception_step=6)
+                                interception_step=6,
+                        extra=self._args_for_log(tc.arguments))
 
         elif self.config == "agenticcyops":
             # ── Step 1: P1-L1 — Component identity ──
@@ -499,7 +527,8 @@ class SOARHost:
                             tool=tool_id,
                             auth_decision="deny",
                             mechanism="P1_authenticated_interface",
-                            interception_step=1)
+                            interception_step=1,
+                        extra=self._args_for_log(tc.arguments))
                     return {"status": "denied", "tool_id": tool_id,
                             "reason": self._sanitize_reason(reason)}
 
@@ -514,7 +543,7 @@ class SOARHost:
                             auth_decision="deny",
                             mechanism="P2_capability_scoping",
                             interception_step=2,
-                        )
+                        extra=self._args_for_log(tc.arguments))
                     return {"status": "denied", "tool_id": tool_id,
                             "reason": self._sanitize_reason(reason)}
 
@@ -533,7 +562,8 @@ class SOARHost:
                             action="tool_call", auth_decision="deny",
                             mechanism="P2_capability_scoping",
                             interception_step=2,
-                            extra={"p2l2_reason": p_reason, **p_details},
+                            extra={"p2l2_reason": p_reason, **p_details,
+                                   **self._args_for_log(tc.arguments)},
                         )
                     return {"status": "denied", "tool_id": tool_id,
                             "reason": self._sanitize_reason(p_reason)}
@@ -573,7 +603,7 @@ class SOARHost:
                             auth_decision="deny",
                             mechanism="P3_verified_execution",
                             interception_step=3,
-                        )
+                        extra=self._args_for_log(tc.arguments))
                     return {"status": "denied", "tool_id": tool_id, "reason": "Action not approved."}
 
             # Bulk action check (count + 1 to include current action — off-by-one fix)
@@ -678,7 +708,7 @@ class SOARHost:
                 auth_decision="allow",
                 mechanism="P2_capability_scoping" if self.config != "flat" else "none",
                 latency_ms=_latency,
-            )
+            extra=self._args_for_log(tc.arguments))
 
         return response
 
@@ -758,6 +788,7 @@ class SOARHost:
                             auth_decision="allow" if accepted else "deny",
                             mechanism=mechanism,
                             cosine_similarity=sim,
+                            payload=content,
                         )
                     return body
             except Exception:
@@ -783,5 +814,6 @@ class SOARHost:
                 store=store_id,
                 auth_decision="allow",
                 mechanism="none" if self.config == "flat" else "acl_network_layer",
+                payload=content,
             )
         return {"status": "written"}

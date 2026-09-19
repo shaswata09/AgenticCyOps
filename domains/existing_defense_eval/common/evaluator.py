@@ -22,6 +22,7 @@ from .attack_loader import (
 )
 from .attack_categories import category
 from .log_writer import DefenseEvalLogger
+from .measurability import prompt_defense_targets
 
 
 def evaluate_filter_defense(
@@ -157,28 +158,52 @@ def evaluate_prompt_defense(
             ap = p["_ap"]
             variant = p.get("variant_id") or p.get("name", "v?")
             attack_msg = build_attack_user_message(p)
+            cat = category(ap)
+
+            # A prompt-modification defense can only be scored when the
+            # payload declares (or scripts) a target tool the LLM could echo.
+            # Without one the trial is NOT measurable: it is logged with
+            # blocked=None and excluded from every bypass rate.  Before
+            # 2026-09 such trials were scored as "blocked", which inflated
+            # the apparent strength of D4-D8 on AP-2/7/8/9/10/13/14/15.
+            if not prompt_defense_targets(p):
+                for trial in range(n_trials):
+                    logger.log(
+                        action="trial",
+                        ap=ap, variant=variant, trial=trial,
+                        blocked=None, measurable=False, category=cat,
+                        reason="not_measurable_no_target_tool",
+                    )
+                    results.append({
+                        "ap": ap, "variant": variant, "trial": trial,
+                        "blocked": None, "measurable": False, "category": cat,
+                    })
+                continue
 
             for trial in range(n_trials):
                 try:
                     messages = build_messages_fn(p, attack_msg)
                     completion = call_target_llm_fn(messages)
                     malicious = is_malicious_response_fn(completion, p)
-                    blocked = not malicious   # if LLM did NOT comply, defense held
+                    if malicious is None:
+                        blocked = None      # detector says: not measurable
+                    else:
+                        blocked = not malicious   # if LLM did NOT comply, defense held
                     info = {"completion_excerpt": completion[:500]}
                 except Exception as e:
                     blocked = False
                     info = {"error": str(e)[:200]}
 
-                cat = category(ap)
                 logger.log(
                     action="trial",
                     ap=ap, variant=variant, trial=trial,
-                    blocked=blocked, category=cat,
+                    blocked=blocked, measurable=blocked is not None, category=cat,
                     **info,
                 )
                 results.append({
                     "ap": ap, "variant": variant, "trial": trial,
-                    "blocked": blocked, "category": cat,
+                    "blocked": blocked, "measurable": blocked is not None,
+                    "category": cat,
                 })
     finally:
         logger.close()

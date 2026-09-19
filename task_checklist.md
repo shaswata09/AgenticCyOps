@@ -9,6 +9,38 @@
 
 ---
 
+## 2026-09 Corrections (scoring v2)
+
+Audit of the evaluation code on 2026-09-19. Everything below was done offline from the logs.
+Sections further down describe the April and May runs under the legacy evaluator.
+
+- [x] Attack-path evaluator rewritten: attributable interceptions, `agent_refused`, `not_measurable`, `error` outcomes (`attacks/harness.py`, `docs/scoring_v2.md`)
+- [x] Evaluator unit tests, 29 cases on synthetic events (`tests/test_harness.py`)
+- [x] All 37 runs re-scored; changelog at `results/eval_attacks/rescoring_changelog.csv`
+- [x] Charts, per-run and cross-group analytics, ablation bounds, TAMAS live-log mapping regenerated
+- [x] Headline tables scripted (`analysis/scoring_v2_summary.py`)
+- [x] Invalid runs identified: J finance, J legal, I cyberops, D cyberops, D legal
+- [x] AP-3 success criteria pointed at real tool ids (`T11_epp_av`, `T6_siem_search`)
+- [x] Simulated TAMAS re-run with a fresh middleware per trial; significance claim dropped
+- [x] Eval I: measurability rule for prompt-modification defenses; tables and cross-defense notebooks regenerated
+- [x] Group H and I cyberops baseline summaries regenerated from their own logs
+- [x] Consensus validators made concurrent (`consensus/validator.py`)
+- [x] Tool-call arguments and memory-write hashes logged for future runs
+- [x] README, experiment plan, TAMAS and Eval I READMEs, engineering notes updated; notebooks 02 and 03 re-executed
+
+Needs live model servers:
+
+- [ ] Re-run AgenticCyOps attack paths with per-trial state reset to settle the replay confound (first-incident ASR 9.1%, pooled 0.9%, bound 18.9%)
+- [ ] Re-run the invalid runs: J finance, J legal, I cyberops (and its flat/ACL baseline), D cyberops, D legal
+- [ ] Group F attack paths (Claude primary); Group B outside cyberops
+- [ ] Re-run ablations (`./scripts/run_ablations.sh rerun ...`) and the `llm_judge` config
+- [ ] Eval I: re-run D4, D5, D6, D8 with the shared detector, plus a no-defense baseline, and widen `UNTRUSTED_FIELDS`
+- [ ] Add `proposed_action` blocks to AP-7, AP-8, AP-9, AP-10 payloads so argument matching applies
+- [ ] Seed `poisoned_memory_entry` and feed read results to agents so AP-14 v1 to v4 become measurable; simulate the AP-15 tampering
+- [ ] Eval C (memory poisoning rates)
+
+---
+
 ## Model Reference
 
 | Role | Model | Family | GPU | Port |
@@ -482,7 +514,7 @@ Four iterative red team passes against the integrated system. All findings fixed
 
 ## Phase 4: Run Eval A — CyberOps Attack Paths (Days 5–6)
 
-**Status (2026-04-17):** Groups A, C, D, E, F complete (~3,150 trials). Group B pending.
+**Status (2026-04-17, legacy evaluator; superseded by the 2026-09 corrections at the top of this file):** Groups A, C, D, E, F complete (~3,150 trials). Group B pending.
 
 ### 4.1 Execution — **A + B**
 
@@ -626,7 +658,7 @@ python -m attacks.harness --domain legal --benign --config all --trials 5
 
 ---
 
-## Phase 6: Eval D — TAMAS — **COMPLETE (2026-04-17)**
+## Phase 6: Eval D — TAMAS — re-run 2026-09-19 (figures below are the superseded April and May runs)
 
 ### 6.1 Setup — **A** — **DONE**
 - [x] `benchmarks/tamas/setup.sh` (clone candidates + placeholder fallback + pyautogen install + import smoke test)

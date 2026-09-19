@@ -25,16 +25,25 @@ After any production agenticcyops run finishes, derive the upper-bound −Pn ASR
 - `results/eval_attacks/group_A/cyberops/ablation_from_logs.csv`
 - `results/eval_attacks/group_A/ablation_from_logs.md`
 
-**Sample output (from existing Group A cyberops run, 375 agenticcyops trials):**
+**Output for the Group A cyberops run (scoring v2, 305 measurable agenticcyops trials of 375):**
 
 | ablation | Pn caught | upper-bound ASR | Δ vs full |
 |---|---:|---:|---:|
-| baseline (full P1-P5) | — | 1.87% | — |
-| −P1 | 15 | 5.87% | +4.00pp |
-| −P2 | 116 | 32.80% | +30.93pp |
-| −P3 | 170 | 47.20% | +45.33pp |
-| −P4 | 25 | 8.53% | +6.66pp |
-| −P5 | 10 | 4.53% | +2.66pp |
+| baseline (full P1-P5) | — | 0.98% | — |
+| −P1 | 0 | 0.98% | +0.00pp |
+| −P2 | 82 | 27.87% | +26.89pp |
+| −P3 | 96 | 32.46% | +31.48pp |
+| −P4 | 25 | 9.18% | +8.20pp |
+| −P5 | 5 | 2.62% | +1.64pp |
+
+Pooled over the large-primary groups (A to E) and all four domains, 5,176 measurable
+trials: −P3 +26.2pp, −P2 +16.0pp, −P4 +8.2pp, −P5 +1.6pp, −P1 +0.0pp. Agent refusals
+(47% of measurable trials) and not-measurable trials are not attributed to any
+principle. P1 never blocks an attack in this testbed because every attack uses
+registered tools, so its necessity is not demonstrated here.
+
+**Status (2026-09-19):** no `rerun` ablation and no `llm_judge` run exists on disk.
+Every ablation figure in the repository is the post-hoc upper bound above.
 
 The upper bound is worst-case (assumes every Pn-catch becomes a success when Pn is disabled, even though some would have been caught by Pn+1/Pn+2 downstream). For a *tight* number you need the `rerun` path.
 

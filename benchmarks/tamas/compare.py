@@ -147,8 +147,14 @@ def compare(
         b_cell = _evaluate_cell(scenario, attack_type, base_by_cell.get((scenario, attack_type), {}))
         d_cell = _evaluate_cell(scenario, attack_type, def_by_cell.get((scenario, attack_type), {}))
 
-        # Pair on trial_id -> McNemar on attack cells only
+        # Pair on trial_id -> McNemar on attack cells only.
+        # The simulated driver is deterministic: repeated trials of a cell
+        # produce identical outcomes, so a paired test over trial replicates
+        # is pseudo-replication.  McNemar is only reported when the cell
+        # shows within-cell variance on at least one side; otherwise the
+        # cell is flagged ``deterministic`` and no p-value is claimed.
         mcnemar = None
+        deterministic = None
         if attack_type is not None:
             paired_ids = sorted(set(t["trial_id"] for t in b_cell["trials"]) &
                                 set(t["trial_id"] for t in d_cell["trials"]))
@@ -156,7 +162,9 @@ def compare(
                      for tid in paired_ids]
             d_vec = [next(t["asr_success"] for t in d_cell["trials"] if t["trial_id"] == tid)
                      for tid in paired_ids]
-            mcnemar = _mcnemar(b_vec, d_vec)
+            deterministic = (len(set(b_vec)) <= 1 and len(set(d_vec)) <= 1)
+            if not deterministic:
+                mcnemar = _mcnemar(b_vec, d_vec)
 
         cell = {
             "scenario": scenario,
@@ -165,6 +173,7 @@ def compare(
             "defended": {"asr": d_cell["asr"], "tsr": d_cell["tsr"], "ers": d_cell["ers"], "n": d_cell["n"]},
             "asr_reduction": b_cell["asr"] - d_cell["asr"],
             "mcnemar": mcnemar,
+            "deterministic": deterministic,
         }
         summary["cells"].append(cell)
         rows_csv.append({
@@ -184,6 +193,7 @@ def compare(
             "mcnemar_n_pairs": (mcnemar or {}).get("n_pairs", ""),
             "mcnemar_p_value": round((mcnemar or {}).get("p_value", 1.0), 6)
                                if mcnemar else "",
+            "deterministic": "" if deterministic is None else deterministic,
         })
 
     # --- aggregate (only on attack cells) -------------------------------
@@ -191,6 +201,9 @@ def compare(
     if attack_cells:
         summary["aggregate"] = {
             "n_cells": len(attack_cells),
+            "n_cells_fully_blocked": sum(1 for c in attack_cells if c["defended"]["asr"] == 0.0),
+            "n_cells_deterministic": sum(1 for c in attack_cells if c.get("deterministic")),
+            "n_cells_with_mcnemar": sum(1 for c in attack_cells if c.get("mcnemar")),
             "mean_baseline_asr": round(mean(c["baseline"]["asr"] for c in attack_cells), 4),
             "mean_defended_asr": round(mean(c["defended"]["asr"] for c in attack_cells), 4),
             "mean_asr_reduction": round(mean(c["asr_reduction"] for c in attack_cells), 4),
@@ -233,15 +246,23 @@ def _write_markdown(summary: dict, path: Path) -> None:
         lines.append(f"- Mean TSR (baseline):  **{agg['mean_baseline_tsr']:.2%}**")
         lines.append(f"- Mean TSR (defended):  **{agg['mean_defended_tsr']:.2%}**")
         lines.append(f"- Mean ERS (baseline):  **{agg['mean_baseline_ers']:.2%}**")
-        lines.append(f"- Mean ERS (defended):  **{agg['mean_defended_ers']:.2%}**\n")
+        lines.append(f"- Mean ERS (defended):  **{agg['mean_defended_ers']:.2%}**")
+        lines.append(f"- Cells fully blocked (defended ASR = 0): **{agg['n_cells_fully_blocked']} / {agg['n_cells']}**")
+        lines.append(f"- Deterministic cells (identical outcome on every trial): "
+                     f"**{agg['n_cells_deterministic']} / {agg['n_cells']}**")
+        lines.append("- McNemar p-values are reported only for cells with within-cell "
+                     "variance; the simulated driver is deterministic, so trial "
+                     "replication is not a source of statistical power.\n")
 
     lines.append("## Per-cell results\n")
     lines.append("| Scenario | Attack | n | ASR_base | ASR_def | TSR_base | TSR_def | ERS_base | ERS_def | McNemar_p |")
     lines.append("|---|---|---|---|---|---|---|---|---|---|")
     for c in summary["cells"]:
         p = ""
-        if c["mcnemar"]:
+        if c.get("mcnemar"):
             p = f"{c['mcnemar']['p_value']:.4f}"
+        elif c.get("deterministic"):
+            p = "n/a (deterministic)"
         lines.append(
             f"| {c['scenario']} | {c['attack_type']} | {c['baseline']['n']} | "
             f"{c['baseline']['asr']:.2%} | {c['defended']['asr']:.2%} | "

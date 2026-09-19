@@ -1,9 +1,9 @@
 group,domain,kind,principle,trials,successes,asr_pct,delta_pct,note
-A,cyberops,baseline,agenticcyops_full,375,7,1.87,0.0,current full-stack AgenticCyOps ASR
-A,cyberops,leave_one_out_upper_bound,-P1,375,22,5.87,4.0,"P1 caught 15 trials; if P1 were disabled and downstream layers caught NONE of them (worst case), ASR would rise from 1.87% to 5.87% (+4.0pp)"
-A,cyberops,leave_one_out_upper_bound,-P2,375,123,32.8,30.93,"P2 caught 116 trials; if P2 were disabled and downstream layers caught NONE of them (worst case), ASR would rise from 1.87% to 32.8% (+30.93pp)"
-A,cyberops,leave_one_out_upper_bound,-P3,375,177,47.2,45.33,"P3 caught 170 trials; if P3 were disabled and downstream layers caught NONE of them (worst case), ASR would rise from 1.87% to 47.2% (+45.33pp)"
-A,cyberops,leave_one_out_upper_bound,-P4,375,32,8.53,6.66,"P4 caught 25 trials; if P4 were disabled and downstream layers caught NONE of them (worst case), ASR would rise from 1.87% to 8.53% (+6.66pp)"
-A,cyberops,leave_one_out_upper_bound,-P5,375,17,4.53,2.66,"P5 caught 10 trials; if P5 were disabled and downstream layers caught NONE of them (worst case), ASR would rise from 1.87% to 4.53% (+2.66pp)"
-A,cyberops,context,agent_refused,375,32,8.53,0.0,agent_refused fired on 32 trials
-A,cyberops,context,none,375,7,1.87,0.0,none fired on 7 trials
+A,cyberops,baseline,agenticcyops_full,305,3,0.98,0.0,current full-stack AgenticCyOps ASR
+A,cyberops,leave_one_out_upper_bound,-P1,305,3,0.98,0.0,"P1 caught 0 trials; if P1 were disabled and downstream layers caught NONE of them (worst case), ASR would rise from 0.98% to 0.98% (+0.0pp)"
+A,cyberops,leave_one_out_upper_bound,-P2,305,85,27.87,26.89,"P2 caught 82 trials; if P2 were disabled and downstream layers caught NONE of them (worst case), ASR would rise from 0.98% to 27.87% (+26.89pp)"
+A,cyberops,leave_one_out_upper_bound,-P3,305,99,32.46,31.48,"P3 caught 96 trials; if P3 were disabled and downstream layers caught NONE of them (worst case), ASR would rise from 0.98% to 32.46% (+31.48pp)"
+A,cyberops,leave_one_out_upper_bound,-P4,305,28,9.18,8.2,"P4 caught 25 trials; if P4 were disabled and downstream layers caught NONE of them (worst case), ASR would rise from 0.98% to 9.18% (+8.2pp)"
+A,cyberops,leave_one_out_upper_bound,-P5,305,8,2.62,1.64,"P5 caught 5 trials; if P5 were disabled and downstream layers caught NONE of them (worst case), ASR would rise from 0.98% to 2.62% (+1.64pp)"
+A,cyberops,context,agent_refused,305,94,30.82,0.0,agent_refused fired on 94 trials
+A,cyberops,context,none,305,3,0.98,0.0,none fired on 3 trials

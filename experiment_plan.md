@@ -434,6 +434,31 @@ All benign scenarios across all 4 domains were validated for access policy compl
 
 #### Eval A Results (CyberOps Attack Paths)
 
+> **Status update 2026-09-19 (scoring v2).** An audit of the evaluation code changed how attack
+> trials are scored and invalidated several runs. The tables further down in this section are the
+> April 2026 run under the legacy evaluator and are kept as a historical record only. Current
+> figures: `results/eval_attacks/scoring_v2_summary.md`; rules: `docs/scoring_v2.md`.
+>
+> | Pool (valid runs, measurable trials) | Flat MAS | ACL-Hardened | AgenticCyOps |
+> |---|---:|---:|---:|
+> | Large primaries, groups A to E, four domains | 28.7% | 21.8% | 0.9% |
+> | Small and mid primaries, groups G to K | 30.7% | 23.4% | 0.6% |
+> | Attack paths with headroom only (large primaries) | 40.6% | 29.2% | 1.1% |
+>
+> - 41,625 attack trials on disk: 15 APs x 5 variants x 5 trials x 3 configs for 37 (group, domain)
+>   runs. All four domains now run all 15 attack paths, so Eval F is part of Eval A.
+> - Invalid and excluded: Group J finance and legal, Group I cyberops, Group D cyberops and legal.
+>   Group F has no attack results in the current tree. Group B covers cyberops only.
+> - Not measurable from the logs: AP-4 (cyberops, finance, legal), legal AP-2, AP-14 v1 to v4, AP-15.
+> - AgenticCyOps trials end 51.9% blocked, 47.4% agent refused, 0.7% succeeded.
+> - Replay confound: 35% of AgenticCyOps blocks come from P3 layers that keep state across incidents
+>   while the harness replays each payload 25 times per process. First-incident ASR is 9.1%
+>   against 32.4% for Flat; the worst-case bound is 18.9%.
+> - ACL-Hardened is no longer indistinguishable from Flat.
+> - Post-hoc ablation bounds (no re-run exists): -P3 +26.2 pp, -P2 +16.0 pp, -P4 +8.2 pp,
+>   -P5 +1.6 pp, -P1 +0.0 pp.
+
+
 **Status (2026-04-17):** Groups A, C, D, E, F complete. Group B pending.
 
 - **Group A:** All 15 APs × 30 trials × 3 configs (flat + acl_hardened + agenticcyops) = 1,350 trials
@@ -503,7 +528,17 @@ Group descriptions in the notebooks match the actual model assignments: Group A 
 - AP-12 Group D investigation (63% ASR vs 0-3% others)
 - AP-11 operational context improvements (persuasive manipulation weak spot)
 
-### 2.9 Eval D -- TAMAS Benchmark -- **COMPLETE (2026-04-17)**
+### 2.9 Eval D -- TAMAS Benchmark -- re-run 2026-09-19 with independent trials
+
+> **Status update 2026-09-19.** The simulated figures below (5.53% defended ASR, 94.47% ERS,
+> 18/19 cells significant) came from one middleware instance shared across every trial and cell of
+> a scenario; its replay and accumulation state blocked the repeats. With a fresh middleware per
+> trial the defended ASR is **31.58%**, ERS **68.42%**, with **13 of 19** cells fully blocked. The
+> driver is deterministic, so no McNemar significance is claimed. The live-log mapping under
+> scoring v2 (groups A, C, D, E; four domains) gives ERS 65.03% Flat, 71.40% ACL-Hardened,
+> 98.95% AgenticCyOps (ERS_strict 85.42%), with the replay caveat above. See
+> `benchmarks/tamas/README.md`.
+
 
 The P1-P5 stack was validated against the independent TAMAS benchmark (arxiv 2506.02635) in two complementary modes:
 
@@ -801,13 +836,13 @@ Cross-domain ablation spot check: Run P2 ablation on Finance AP-1 analogue (30 r
 
 | Evaluation | Runs | Domains | Purpose | Status |
 |-----------|------|---------|---------|--------|
-| A: CyberOps Attack Paths (15 APs, 35 vectors) | ~3,150 | CyberOps | Depth in primary domain | 5/6 groups (A, C, D, E, F) COMPLETE; Group B pending |
-| F: Multi-Domain Generalizability (5 APs per domain) | ~495 | Healthcare, Finance, Legal | Domain-agnostic proof | PENDING |
+| A / F: Attack Paths (15 APs x 4 domains) | 41,625 trials, 37 runs | All 4 | Depth and generalizability | Re-scored under v2 (2026-09-19); 5 runs invalid; Group F absent |
+| F: Multi-Domain Generalizability | merged into A | Healthcare, Finance, Legal | Domain-agnostic proof | Done for groups A, C, D, E, G to K |
 | B: Trust Boundaries (Weighted) | Analytical | All 4 | Structural reduction | Partial |
 | C: Memory Poisoning | ~90 | CyberOps | P4 efficacy | PENDING |
-| D: TAMAS Benchmark | 960 simulated + real-logs mapping (5 groups) | Generic (5 scenarios) + CyberOps | Independent benchmark | **COMPLETE -- ERS 94.47 sim / 83.68 real-logs** |
+| D: TAMAS Benchmark | 240 simulated + live-log mapping (4 groups) | Generic (5 scenarios) + all 4 | Independent benchmark | **Re-run -- ERS 68.42 sim / 98.95 live-log (lower-bound ASR)** |
 | E: Consensus Overhead | From A logs | CyberOps | Latency tradeoff | Derived |
-| Ablation | ~360 | CyberOps + Finance spot check | Principle necessity | PENDING |
+| Ablation | post-hoc bounds only | All 4 | Principle necessity | Re-run ablations PENDING |
 | Validator Diversity | ~90 | CyberOps | Correlated failure | PENDING |
 | **Total executed** | **~4,110** | **4 domains + TAMAS** | | |
 | **Total with pending** | **~5,485** | | | |

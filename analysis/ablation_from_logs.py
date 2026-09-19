@@ -59,6 +59,8 @@ def _principle_of(mechanism: str) -> str:
             return p
     if m == "agent_refused":
         return "agent_refused"
+    if m.startswith("not_measurable"):
+        return "not_measurable"
     if m == "none" or m == "":
         return "none"
     return "other"
@@ -67,6 +69,14 @@ def _principle_of(mechanism: str) -> str:
 def _summary_for_csv(df: pd.DataFrame, group: str, domain: str) -> pd.DataFrame:
     """Per-group, per-domain ablation summary frame."""
     acy = df[df.Config == "agenticcyops"].copy()
+    if acy.empty:
+        return pd.DataFrame()
+    # Scoring v2: trials whose criterion cannot be decided from the logs are
+    # excluded from every rate (they are neither successes nor catches).
+    if "Outcome" in acy.columns:
+        acy = acy[~acy.Outcome.isin(["not_measurable", "error"])]
+    else:
+        acy = acy[~acy.Mechanism.astype(str).str.startswith("not_measurable")]
     if acy.empty:
         return pd.DataFrame()
 

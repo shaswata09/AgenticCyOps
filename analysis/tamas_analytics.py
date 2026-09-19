@@ -133,6 +133,7 @@ def _build_cell_df(summary: dict) -> pd.DataFrame:
             "mcnemar_p":    mc.get("p_value"),
             "mcnemar_b":    mc.get("b"),
             "mcnemar_c":    mc.get("c"),
+            "deterministic": bool(c.get("deterministic")),
             "n":            base["n"],
         })
     return pd.DataFrame(rows)
@@ -181,8 +182,13 @@ def _page_title(pdf: PdfPages, summary: dict, cell_df: pd.DataFrame) -> None:
         f"Baseline mean ERS:           {agg.get('mean_baseline_ers', 0):.2%}",
         f"Defended mean ERS:           {agg.get('mean_defended_ers', 0):.2%}",
         "",
-        f"Cells with p < 0.001 (McNemar):  "
-        f"{int((attack_cells['mcnemar_p'] < 0.001).sum())} / {len(attack_cells)}",
+        f"Cells fully blocked (defended ASR = 0):  "
+        f"{int((attack_cells['defended_asr'] == 0).sum())} / {len(attack_cells)}",
+        f"Deterministic cells (no within-cell variance): "
+        f"{int(attack_cells['deterministic'].sum()) if 'deterministic' in attack_cells.columns else 0}"
+        f" / {len(attack_cells)}",
+        f"Cells with McNemar p < 0.001 (only cells with variance): "
+        f"{int((attack_cells['mcnemar_p'].fillna(1.0) < 0.001).sum())} / {len(attack_cells)}",
     ]
     ax.text(0.06, 0.72, "Executive Summary", fontsize=16, weight="bold", color=ACCENT)
     ax.text(0.06, 0.66, "\n".join(bullets), fontsize=10.5, family="monospace",
@@ -413,8 +419,10 @@ def _page_mcnemar(pdf: PdfPages, cell_df: pd.DataFrame) -> None:
     ax.text(0.02, 0.97, "McNemar's Test -- Paired Attack Outcomes",
             fontsize=14, weight="bold", color=ACCENT)
     ax.text(0.02, 0.935,
-            "Significance of ASR reduction per (scenario x attack_type) cell.",
-            fontsize=10, color=NEUTRAL)
+            "Paired test per (scenario x attack_type) cell. The simulated driver is "
+            "deterministic: cells whose trials are identical carry no p-value "
+            "(shown as 'n/a det.'); trial replication is not statistical power.",
+            fontsize=9, color=NEUTRAL)
 
     headers = ["Scenario", "Attack type", "n",
               "ASR base", "ASR def", "Reduction", "b", "c", "p-value"]
@@ -429,7 +437,8 @@ def _page_mcnemar(pdf: PdfPages, cell_df: pd.DataFrame) -> None:
             f"{r['asr_reduction']:.0%}",
             int(r["mcnemar_b"]) if pd.notna(r["mcnemar_b"]) else "",
             int(r["mcnemar_c"]) if pd.notna(r["mcnemar_c"]) else "",
-            f"{r['mcnemar_p']:.4g}" if pd.notna(r["mcnemar_p"]) else "",
+            (f"{r['mcnemar_p']:.4g}" if pd.notna(r["mcnemar_p"])
+             else ("n/a det." if r.get("deterministic") else "")),
         ])
     tbl = ax.table(
         cellText=rows,

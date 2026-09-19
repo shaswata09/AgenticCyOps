@@ -13,8 +13,14 @@ from collections import defaultdict
 import numpy as np
 
 
+def measurable(results: list[dict]) -> list[dict]:
+    """Drop trials whose verdict is ``None`` (not measurable)."""
+    return [r for r in results if r.get("blocked") is not None]
+
+
 def compute_bypass_rate(results: list[dict]) -> float:
-    """Top-level bypass rate across all results."""
+    """Top-level bypass rate across measurable results."""
+    results = measurable(results)
     if not results:
         return 0.0
     return sum(1 for r in results if not r["blocked"]) / len(results)
@@ -26,19 +32,25 @@ def compute_per_ap_bypass(results: list[dict]) -> dict[str, dict]:
     Returns {ap: {bypass_rate, total, bypassed, blocked, ci_low, ci_high}}.
     """
     by_ap = defaultdict(list)
+    not_measurable = defaultdict(int)
     for r in results:
+        if r.get("blocked") is None:
+            not_measurable[r["ap"]] += 1
+            by_ap.setdefault(r["ap"], [])
+            continue
         by_ap[r["ap"]].append(0 if r["blocked"] else 1)
 
     out = {}
     for ap, vals in by_ap.items():
         n = len(vals)
         bypassed = sum(vals)
-        mean, lo, hi = bootstrap_ci(vals)
+        mean, lo, hi = bootstrap_ci(vals) if n else (0.0, 0.0, 0.0)
         out[ap] = {
-            "bypass_rate": bypassed / n if n else 0.0,
+            "bypass_rate": bypassed / n if n else None,
             "total": n,
             "bypassed": bypassed,
             "blocked": n - bypassed,
+            "not_measurable": not_measurable.get(ap, 0),
             "ci_low": lo,
             "ci_high": hi,
         }
@@ -48,7 +60,7 @@ def compute_per_ap_bypass(results: list[dict]) -> dict[str, dict]:
 def compute_per_variant_bypass(results: list[dict]) -> dict[tuple, float]:
     """Returns {(ap, variant_id): bypass_rate}."""
     by_var = defaultdict(list)
-    for r in results:
+    for r in measurable(results):
         key = (r["ap"], r.get("variant", "v?"))
         by_var[key].append(0 if r["blocked"] else 1)
     return {k: np.mean(v) for k, v in by_var.items()}
@@ -99,6 +111,8 @@ def summarize_results(results: list[dict]) -> dict:
     struct = [r for r in results if r["category"] == "Structural"]
     return {
         "total_trials": len(results),
+        "measurable_trials": len(measurable(results)),
+        "not_measurable_trials": len(results) - len(measurable(results)),
         "overall_bypass_rate": compute_bypass_rate(results),
         "ipi_trials": len(ipi),
         "ipi_bypass_rate": compute_bypass_rate(ipi),

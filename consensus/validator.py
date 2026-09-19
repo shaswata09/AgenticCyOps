@@ -3,6 +3,13 @@ P3: Verified Execution via Multi-Model Consensus.
 
 Before irreversible actions, the proposal is sent to independent validator LLMs.
 If >= threshold approve, the action proceeds. Otherwise blocked and escalated.
+
+Concurrency note (2026-09): validator calls use the synchronous OpenAI /
+Anthropic SDK clients.  They are dispatched with ``asyncio.to_thread`` so
+that ``asyncio.gather`` overlaps them.  Logs recorded before this change
+(all Eval A / baseline runs up to May 2026) executed the validators
+sequentially, so the consensus latencies in those logs are an upper bound
+on what the concurrent implementation produces.
 """
 
 import asyncio
@@ -194,25 +201,32 @@ class ConsensusValidator:
         return vote
 
     async def _call_openai(self, config: dict, proposal_msg: str) -> dict:
-        client = OpenAI(base_url=config["url"], api_key="unused")
-        # Auto-detect model name from vLLM (it uses full path as model ID)
-        model_name = config.get("model", "default")
-        try:
-            models = client.models.list()
-            if models.data:
-                model_name = models.data[0].id
-        except Exception:
-            pass
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": VALIDATOR_SYSTEM_PROMPT},
-                {"role": "user", "content": proposal_msg},
-            ],
-            temperature=0.0,
-            max_tokens=2048,
-        )
-        content = response.choices[0].message.content or "{}"
+        # The OpenAI SDK client is synchronous.  Run the blocking network
+        # call in a worker thread so that ``asyncio.gather`` in
+        # ``validate_with_details`` really overlaps the validators instead of
+        # serialising them on the event loop (concurrency fix, 2026-09).
+        def _blocking() -> str:
+            client = OpenAI(base_url=config["url"], api_key="unused")
+            # Auto-detect model name from vLLM (it uses full path as model ID)
+            model_name = config.get("model", "default")
+            try:
+                models = client.models.list()
+                if models.data:
+                    model_name = models.data[0].id
+            except Exception:
+                pass
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": VALIDATOR_SYSTEM_PROMPT},
+                    {"role": "user", "content": proposal_msg},
+                ],
+                temperature=0.0,
+                max_tokens=2048,
+            )
+            return response.choices[0].message.content or "{}"
+
+        content = await asyncio.to_thread(_blocking)
         # Strip thinking tags from reasoning models (Qwen3, DeepSeek-R1)
         import re
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
@@ -232,17 +246,21 @@ class ConsensusValidator:
     async def _call_openai_api(self, config: dict, proposal_msg: str) -> dict:
         """Call OpenAI API directly (GPT-4o etc.) — not a local vLLM server."""
         api_key = config.get("api_key") or os.environ.get("OPENAI_API_KEY")
-        client = OpenAI(api_key=api_key)
-        response = client.chat.completions.create(
-            model=config.get("model", "gpt-4o"),
-            messages=[
-                {"role": "system", "content": VALIDATOR_SYSTEM_PROMPT},
-                {"role": "user", "content": proposal_msg},
-            ],
-            temperature=0.0,
-            max_tokens=300,
-        )
-        content = response.choices[0].message.content or "{}"
+
+        def _blocking() -> str:
+            client = OpenAI(api_key=api_key)
+            response = client.chat.completions.create(
+                model=config.get("model", "gpt-4o"),
+                messages=[
+                    {"role": "system", "content": VALIDATOR_SYSTEM_PROMPT},
+                    {"role": "user", "content": proposal_msg},
+                ],
+                temperature=0.0,
+                max_tokens=300,
+            )
+            return response.choices[0].message.content or "{}"
+
+        content = await asyncio.to_thread(_blocking)
         try:
             return json.loads(content)
         except json.JSONDecodeError:
@@ -258,14 +276,18 @@ class ConsensusValidator:
     async def _call_anthropic(self, config: dict, proposal_msg: str) -> dict:
         import anthropic
         api_key = config.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")
-        client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model=config.get("model", "claude-sonnet-4-20250514"),
-            max_tokens=300,
-            system=VALIDATOR_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": proposal_msg}],
-        )
-        content = response.content[0].text
+
+        def _blocking() -> str:
+            client = anthropic.Anthropic(api_key=api_key)
+            response = client.messages.create(
+                model=config.get("model", "claude-sonnet-4-20250514"),
+                max_tokens=300,
+                system=VALIDATOR_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": proposal_msg}],
+            )
+            return response.content[0].text
+
+        content = await asyncio.to_thread(_blocking)
         try:
             return json.loads(content)
         except json.JSONDecodeError:

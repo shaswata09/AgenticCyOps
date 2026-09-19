@@ -317,8 +317,14 @@ class ExperimentLogger:
         tokens_completion: int = 0,
         payload: Optional[Any] = None,
         interception_step: Optional[int] = None,
+        extra: Optional[dict] = None,
     ):
-        """Log an agent -> tool call."""
+        """Log an agent -> tool call.
+
+        ``extra`` may carry a compact ``arguments`` snapshot of the call so
+        that the attack evaluator can match scripted adversarial actions on
+        (tool, operation, parameters) instead of tool name alone.
+        """
         payload_hash = None
         if payload:
             raw = json.dumps(payload, default=str) if not isinstance(payload, str) else payload
@@ -335,6 +341,7 @@ class ExperimentLogger:
             tokens_completion=tokens_completion,
             payload_hash=payload_hash,
             interception_step=interception_step,
+            extra=extra,
         )
 
     def log_memory_read(

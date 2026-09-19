@@ -32,7 +32,7 @@ def _sorted_aps(asr_dict: dict) -> list[str]:
 def plot_bypass_per_ap(per_ap: dict, defense_name: str, domain: str,
                        figsize=(15, 6), ylim=(0, 105)):
     """Bar chart of bypass rate per AP with bootstrap 95% CI error bars."""
-    aps = _sorted_aps(per_ap)
+    aps = [a for a in _sorted_aps(per_ap) if per_ap[a].get("bypass_rate") is not None]
     rates = [per_ap[a]["bypass_rate"] * 100 for a in aps]
     errs_lo = [(per_ap[a]["bypass_rate"] - per_ap[a]["ci_low"]) * 100 for a in aps]
     errs_hi = [(per_ap[a]["ci_high"] - per_ap[a]["bypass_rate"]) * 100 for a in aps]
@@ -63,8 +63,10 @@ def plot_bypass_per_ap(per_ap: dict, defense_name: str, domain: str,
 def plot_bypass_by_category(per_ap: dict, defense_name: str, domain: str,
                             figsize=(7, 5)):
     """Two-bar summary: mean IPI vs mean Structural bypass."""
-    ipi_rates = [per_ap[a]["bypass_rate"] for a in per_ap if category(a) == "IPI"]
-    struct_rates = [per_ap[a]["bypass_rate"] for a in per_ap if category(a) == "Structural"]
+    ipi_rates = [per_ap[a]["bypass_rate"] for a in per_ap
+                 if category(a) == "IPI" and per_ap[a].get("bypass_rate") is not None]
+    struct_rates = [per_ap[a]["bypass_rate"] for a in per_ap
+                    if category(a) == "Structural" and per_ap[a].get("bypass_rate") is not None]
     fig, ax = plt.subplots(figsize=figsize)
     cats = [f"IPI APs\n(n={len(ipi_rates)})", f"Structural APs\n(n={len(struct_rates)})"]
     means = [np.mean(ipi_rates) * 100 if ipi_rates else 0,
@@ -128,7 +130,7 @@ def plot_defense_comparison(per_ap_dict_by_defense: dict, domain: str,
     cmap = plt.get_cmap("tab10")
     for idx, dname in enumerate(defenses):
         per_ap = per_ap_dict_by_defense[dname]
-        rates = [per_ap.get(a, {}).get("bypass_rate", 0) * 100 for a in all_aps]
+        rates = [(per_ap.get(a, {}).get("bypass_rate") or 0) * 100 for a in all_aps]
         offset = (idx - (len(defenses) - 1) / 2) * width
         ax.bar(x + offset, rates, width, label=dname, color=cmap(idx))
     ax.set_xticks(x)

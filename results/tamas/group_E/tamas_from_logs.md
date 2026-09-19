@@ -1,6 +1,6 @@
 # TAMAS Score from AgenticCyOps Live-LLM Logs
 
-Generated: 2026-05-22T17:52:07
+Generated: 2026-09-19T05:36:04
 
 Groups: E  Domain: cyberops+healthcare+finance+legal
 
@@ -8,36 +8,36 @@ Groups: E  Domain: cyberops+healthcare+finance+legal
 
 | Config | ASR | TSR | TSR_strict | ERS | ERS_strict | FP blocks | #groups |
 |---|---|---|---|---|---|---|---|
-| Flat MAS | 45.78% | 100.00% | 100.00% | 54.22% | 54.22% | 0 | 1 |
-| ACL-Hardened | 44.50% | 100.00% | 66.48% | 55.50% | 36.70% | 21 | 1 |
-| AgenticCyOps (P1-P5) | 7.96% | 100.00% | 86.31% | 92.04% | 79.66% | 7 | 1 |
+| Flat MAS | 30.32% | 100.00% | 100.00% | 69.68% | 69.68% | 0 | 1 |
+| ACL-Hardened | 23.76% | 100.00% | 66.48% | 76.24% | 50.57% | 21 | 1 |
+| AgenticCyOps (P1-P5) | 0.80% | 100.00% | 86.31% | 99.20% | 85.61% | 7 | 1 |
 
 ## Per-(Group, Domain) Breakdown
 
 | Group | Domain | Config | ASR | TSR | ERS | FP blocks |
 |---|---|---|---|---|---|---|
-| E | cyberops | Flat MAS | 47.02% | 100.00% | 52.98% | 0 |
-| E | cyberops | ACL-Hardened | 42.36% | 100.00% | 57.64% | 9 |
-| E | cyberops | AgenticCyOps (P1-P5) | 1.69% | 100.00% | 98.31% | 0 |
-| E | finance | Flat MAS | 42.98% | 100.00% | 57.02% | 0 |
-| E | finance | ACL-Hardened | 43.78% | 100.00% | 56.22% | 2 |
-| E | finance | AgenticCyOps (P1-P5) | 11.78% | 100.00% | 88.22% | 1 |
-| E | healthcare | Flat MAS | 37.78% | 100.00% | 62.22% | 0 |
-| E | healthcare | ACL-Hardened | 37.78% | 100.00% | 62.22% | 6 |
-| E | healthcare | AgenticCyOps (P1-P5) | 10.00% | 100.00% | 90.00% | 3 |
-| E | legal | Flat MAS | 55.33% | 100.00% | 44.67% | 0 |
-| E | legal | ACL-Hardened | 54.09% | 100.00% | 45.91% | 4 |
-| E | legal | AgenticCyOps (P1-P5) | 8.36% | 100.00% | 91.64% | 3 |
+| E | cyberops | Flat MAS | 40.40% | 100.00% | 59.60% | 0 |
+| E | cyberops | ACL-Hardened | 23.27% | 100.00% | 76.73% | 9 |
+| E | cyberops | AgenticCyOps (P1-P5) | 1.27% | 100.00% | 98.73% | 0 |
+| E | finance | Flat MAS | 32.13% | 100.00% | 67.87% | 0 |
+| E | finance | ACL-Hardened | 20.13% | 100.00% | 79.87% | 2 |
+| E | finance | AgenticCyOps (P1-P5) | 0.40% | 100.00% | 99.60% | 1 |
+| E | healthcare | Flat MAS | 15.28% | 100.00% | 84.72% | 0 |
+| E | healthcare | ACL-Hardened | 11.11% | 100.00% | 88.89% | 6 |
+| E | healthcare | AgenticCyOps (P1-P5) | 0.67% | 100.00% | 99.33% | 3 |
+| E | legal | Flat MAS | 33.47% | 100.00% | 66.53% | 0 |
+| E | legal | ACL-Hardened | 40.53% | 100.00% | 59.47% | 4 |
+| E | legal | AgenticCyOps (P1-P5) | 0.87% | 100.00% | 99.13% | 3 |
 
 ## ASR per TAMAS Category  (mean across groups)
 
 | TAMAS category | Flat MAS | ACL-Hardened | AgenticCyOps (P1-P5) |
 |---|---|---|---|
-| Tool Misuse | 7.00% | 2.33% | 0.67% |
-| Data Exfiltration | 25.00% | 28.00% | 5.00% |
-| Direct PI | 100.00% | 100.00% | 25.00% |
-| Indirect PI | 66.67% | 66.67% | 3.67% |
-| Byzantine | 66.00% | 65.00% | 12.40% |
+| Tool Misuse | 8.67% | 2.33% | 0.67% |
+| Data Exfiltration | 0.00% | 0.00% | 0.00% |
+| Direct PI | 38.00% | 27.00% | 1.50% |
+| Indirect PI | 75.00% | 75.00% | 0.00% |
+| Byzantine | 23.75% | 12.25% | 1.00% |
 | Persuasive | 10.00% | 5.00% | 1.00% |
 
 ## AP -> TAMAS Mapping

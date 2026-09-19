@@ -26,6 +26,12 @@ from .log_writer import DefenseEvalLogger
 from .evaluator import evaluate_filter_defense, evaluate_prompt_defense
 from .benign_loader import load_benign_payloads, list_benign_variants
 from .benign_evaluator import evaluate_prompt_defense_benign, detect_overrefusal
+from .measurability import (
+    prompt_defense_targets,
+    prompt_defense_measurable,
+    default_malicious_response,
+    is_prompt_mod_defense,
+)
 
 __all__ = [
     "load_attack_payloads", "extract_untrusted_spans", "list_aps",
@@ -38,4 +44,6 @@ __all__ = [
     "evaluate_filter_defense", "evaluate_prompt_defense",
     "load_benign_payloads", "list_benign_variants",
     "evaluate_prompt_defense_benign", "detect_overrefusal",
+    "prompt_defense_targets", "prompt_defense_measurable",
+    "default_malicious_response", "is_prompt_mod_defense",
 ]

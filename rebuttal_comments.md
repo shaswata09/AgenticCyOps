@@ -1,4 +1,14 @@
 # AgenticCyOps — Author Response to Reviews - CAIS 2026
+> **Correction notice (2026-09-19).** The figures in this response were produced with the
+> first attack-path evaluator and the May 2026 simulated TAMAS run. An audit found that
+> both overstated the effect (see [docs/scoring_v2.md](docs/scoring_v2.md) and
+> [docs/engineering_challenges.md](docs/engineering_challenges.md), section 6). Current
+> figures: pooled ASR 28.7% Flat, 21.8% ACL-Hardened, 0.9% AgenticCyOps for large
+> primaries, with a first-incident AgenticCyOps ASR of 9.1%; simulated TAMAS defended ASR
+> 31.58% with 13 of 19 cells fully blocked and no significance claim. ACL-Hardened is no
+> longer indistinguishable from Flat. The text below is kept unchanged as the record of
+> what was written at the time.
+
 ---
 
 ## Overview

@@ -483,15 +483,16 @@ async def run_grid(
 ) -> list[dict]:
     """Run a full grid of (scenario × attack × trial) trials.
 
-    ``middleware_factory`` is called once per scenario; pass ``lambda scenario: None``
-    for baseline mode.
+    ``middleware_factory`` is called once per trial (independent trials);
+    pass ``lambda scenario: None`` for baseline mode.  The emitters are
+    deterministic, so repeated trials of a cell reproduce the same event
+    log; trial replication therefore does not add statistical power.
     """
     results: list[dict] = []
     for path in scenario_paths:
         scenario = load_scenario(path)
         if only_scenario and scenario["scenario"] != only_scenario:
             continue
-        mw = middleware_factory(scenario)
         applicable = [
             at for at, block in __import__(
                 "benchmarks.tamas.attacks.tamas_payloads", fromlist=["TAMAS_ATTACKS"]
@@ -504,6 +505,13 @@ async def run_grid(
             targets.append(None)
         for attack_type in targets:
             for trial_id in range(trials_per_cell):
+                # A fresh middleware per trial keeps trials independent.
+                # Before 2026-09 one middleware instance was shared across
+                # every (attack x trial) cell of a scenario, so the stateful
+                # P3 layers (replay ledger, accumulation counters) carried
+                # state from earlier trials into later ones and inflated the
+                # defended block rate from trial 2 onward.
+                mw = middleware_factory(scenario)
                 result = await run_trial(scenario, mw, attack_type, trial_id)
                 results.append(result)
     return results
