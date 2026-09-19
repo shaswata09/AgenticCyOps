@@ -225,7 +225,11 @@ models/*
 !models/test_scripts/
 configs/hmac_key.txt
 logs/mma_gateway/
+logs_legacy_v1/mma_gateway/
 logs/tools/
+logs_legacy_v1/tools/
+logs/vllm/
+logs_legacy_v1/vllm/
 
 # TAMAS benchmark artifacts
 benchmarks/tamas/external/
