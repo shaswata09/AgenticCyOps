@@ -26,12 +26,11 @@ fi
 head=$(git rev-parse HEAD); tagc=$(git rev-parse "$TAG^{commit}")
 status=0
 if [ "$head" != "$tagc" ]; then
-    echo "[FAIL] HEAD $(git rev-parse --short HEAD) is not the freeze commit $(git rev-parse --short "$tagc") ($TAG)"
     if git diff --quiet "$tagc" HEAD -- "${FROZEN[@]}"; then
-        echo "       (frozen directories are identical to the tag; only unfrozen files changed)"
+        echo "[  ok] HEAD $(git rev-parse --short HEAD) is after $TAG; frozen directories are identical to the tag"
         status=0
     else
-        echo "       frozen files differ from the tag:"
+        echo "[FAIL] HEAD $(git rev-parse --short HEAD): frozen files differ from $TAG:"
         git diff --stat "$tagc" HEAD -- "${FROZEN[@]}" | tail -20
         status=1
     fi

@@ -57,7 +57,7 @@ case "$cmd" in
         echo "[start] $role  port=$port  served=$served  bind=$BIND_HOST"
         nohup conda run --no-capture-output -n "$CONDA_ENV" \
             $VLLM_BIN serve $args --served-model-name "$served" --port "$port" \
-            --host "$BIND_HOST" --api-key "$API_KEY" --enforce-eager --disable-log-requests \
+            --host "$BIND_HOST" --api-key "$API_KEY" --enforce-eager \
             > "$LOG_DIR/a51_${role}.log" 2>&1 &
         echo $! > "$PID_DIR/a51_${role}.pid"
         echo "        log: $LOG_DIR/a51_${role}.log"

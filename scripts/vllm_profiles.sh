@@ -36,7 +36,9 @@ PID_DIR="$LOG_DIR/pids"
 mkdir -p "$LOG_DIR" "$PID_DIR"
 CONDA_ENV="${CONDA_ENV:-agenticcyops}"
 VLLM_BIN="${VLLM_BIN:-vllm}"
-COMMON="--enable-auto-tool-choice --enforce-eager --host 127.0.0.1 --disable-log-requests"
+# --enable-auto-tool-choice is added per server, only where a --tool-call-parser
+# is given (vLLM refuses the flag without a parser; DeepSeek-R1 is validator-only).
+COMMON="--enforce-eager --host 127.0.0.1"
 
 # name | gpus | port | served name | extra args
 declare -A SPEC
@@ -69,8 +71,10 @@ start_server() {
         echo "[skip] $name already answering on :$port"; return 0
     fi
     echo "[start] $name  gpus=$gpus  port=$port  served=$served"
+    local tool_flag=""
+    [[ "$args" == *"--tool-call-parser"* ]] && tool_flag="--enable-auto-tool-choice"
     CUDA_VISIBLE_DEVICES="$gpus" nohup conda run --no-capture-output -n "$CONDA_ENV" \
-        $VLLM_BIN serve $args --served-model-name "$served" --port "$port" $COMMON \
+        $VLLM_BIN serve $args --served-model-name "$served" --port "$port" $tool_flag $COMMON \
         > "$LOG_DIR/${name}.log" 2>&1 &
     echo $! > "$PID_DIR/${name}.pid"
 }
