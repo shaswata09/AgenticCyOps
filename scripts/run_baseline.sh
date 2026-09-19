@@ -311,14 +311,14 @@ run_domain_baseline() {
 
     # Start tools (on this group's port slot)
     echo "[step 4/7] Starting ${domain} tool servers on base port ${TOOL_BASE_PORT}..."
-    run_py -m domains.${domain}.tools.start_all --base-port "$TOOL_BASE_PORT" &
+    HARNESS_INJECTION=1 run_py -m domains.${domain}.tools.start_all --base-port "$TOOL_BASE_PORT" &
     PIDS+=($!)
     sleep 3
     wait_for_health "http://localhost:${TOOL_BASE_PORT}/health" "${domain} tools" 30
 
     # Start MMA (on this group's MMA port + chromadb path)
     echo "[step 5/7] Starting MMA gateway on port ${MMA_PORT}..."
-    run_py -m memory.mma_gateway --domain "$domain" --port "$MMA_PORT" --db-path "$CHROMA_DB_PATH" &
+    HARNESS_INJECTION=1 run_py -m memory.mma_gateway --domain "$domain" --port "$MMA_PORT" --db-path "$CHROMA_DB_PATH" &
     PIDS+=($!)
     wait_for_health "http://localhost:${MMA_PORT}/health" "MMA" 30 || true
 

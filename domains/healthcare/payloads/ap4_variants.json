@@ -37,6 +37,12 @@
         }
       ],
       "derivation_note": "store_only"
+    },
+    "meta": {
+      "channel": "alert_text",
+      "canaries": [],
+      "legacy": {},
+      "attacker_phase": "report"
     }
   },
   {
@@ -77,6 +83,12 @@
         }
       ],
       "derivation_note": "store_only"
+    },
+    "meta": {
+      "channel": "alert_text",
+      "canaries": [],
+      "legacy": {},
+      "attacker_phase": "report"
     }
   },
   {
@@ -117,6 +129,12 @@
         }
       ],
       "derivation_note": "store_only"
+    },
+    "meta": {
+      "channel": "alert_text",
+      "canaries": [],
+      "legacy": {},
+      "attacker_phase": "report"
     }
   },
   {
@@ -157,6 +175,12 @@
         }
       ],
       "derivation_note": "store_only"
+    },
+    "meta": {
+      "channel": "alert_text",
+      "canaries": [],
+      "legacy": {},
+      "attacker_phase": "report"
     }
   },
   {
@@ -197,6 +221,12 @@
         }
       ],
       "derivation_note": "store_only"
+    },
+    "meta": {
+      "channel": "alert_text",
+      "canaries": [],
+      "legacy": {},
+      "attacker_phase": "report"
     }
   }
 ]

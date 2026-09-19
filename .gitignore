@@ -235,3 +235,6 @@ logs_legacy_v1/vllm/
 benchmarks/tamas/external/
 benchmarks/tamas/results/*.jsonl
 benchmarks/tamas/results/budget.jsonl
+
+# Claude Code local settings (contain absolute paths)
+.claude/settings.local.json

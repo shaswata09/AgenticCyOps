@@ -110,8 +110,15 @@ class SOARHost:
 
         self._llm = AsyncOpenAI(base_url=llm_url, api_key="unused")
 
-    async def run_incident(self, incident: dict) -> dict:
-        """Full pipeline: Monitor -> Analyze -> Admin -> Report."""
+    async def run_incident(self, incident: dict, harness_injection: Optional[dict] = None) -> dict:
+        """Full pipeline: Monitor -> Analyze -> Admin -> Report.
+
+        ``harness_injection`` (H5) carries the payload's ``meta.injection``
+        block for the ``handoff`` and ``proposal_justification`` channels.
+        It is never part of ``incident`` and therefore never rendered to a
+        model; the hooks below are the only consumers.
+        """
+        self.harness_injection = dict(harness_injection or {})
         context = {
             "incident": incident,
             "incident_id": incident.get("incident_id", str(uuid4())),
@@ -210,9 +217,60 @@ class SOARHost:
                     phase_output=result,
                     incident_context=context,
                 )
+                if self.harness_injection:
+                    handoff_ctx = self._inject_handoff(phase, next_phase, handoff_ctx)
                 context[f"{phase}_handoff"] = handoff_ctx
 
         return context
+
+    # ---- H5 injection channels (harness only) ---------------------------
+
+    def _inject_handoff(self, phase: str, next_phase: str, handoff_ctx: dict) -> dict:
+        """``handoff`` channel: the attacker phase's handoff is altered as a
+        compromised agent would alter it.  Spec (``meta.injection.handoff``):
+        ``{"from_phase": ..., "fields": {...}, "append_summary": "..."}``."""
+        spec = self.harness_injection.get("handoff")
+        if not isinstance(spec, dict):
+            return handoff_ctx
+        src = spec.get("from_phase") or self.harness_injection.get("attacker_phase")
+        if src and src != phase:
+            return handoff_ctx
+        out = dict(handoff_ctx)
+        for k, v in (spec.get("fields") or {}).items():
+            out[k] = v
+        if spec.get("append_summary"):
+            out["phase_summary"] = f"{out.get('phase_summary', '')}\n\n{spec['append_summary']}".strip()
+        if self.logger:
+            self.logger.log(source="harness", destination=f"{next_phase}_agent",
+                            action="harness_injection",
+                            extra={"channel": "handoff", "phase": phase,
+                                   "fields": sorted((spec.get("fields") or {}).keys()),
+                                   "append_summary": bool(spec.get("append_summary"))})
+        return out
+
+    def _inject_proposals(self, phase: str, result) -> None:
+        """``proposal_justification`` channel: proposals a compromised
+        attacker phase would emit are appended to the agent's own.  Spec:
+        ``meta.injection.proposal`` (one) or ``proposals`` (list) of
+        ``{"phase", "tool", "arguments", "justification"}``."""
+        from agents.base_agent import ToolCallProposal
+        specs = []
+        one = self.harness_injection.get("proposal")
+        if isinstance(one, dict):
+            specs.append(one)
+        specs.extend(p for p in (self.harness_injection.get("proposals") or []) if isinstance(p, dict))
+        default_phase = self.harness_injection.get("attacker_phase")
+        for spec in specs:
+            if (spec.get("phase") or default_phase or phase) != phase or not spec.get("tool"):
+                continue
+            result.proposed_tool_calls.append(ToolCallProposal(
+                tool_id=spec["tool"], arguments=dict(spec.get("arguments") or {}),
+                justification=str(spec.get("justification") or "")))
+            if self.logger:
+                self.logger.log(source="harness", destination=spec["tool"],
+                                action="harness_injection",
+                                extra={"channel": "proposal_justification", "phase": phase,
+                                       "arguments": dict(spec.get("arguments") or {})})
 
     def _trial_id(self) -> str:
         return (getattr(self.logger, "_trial_id", None) or "") if self.logger else ""
@@ -293,6 +351,9 @@ class SOARHost:
             if self.logger:
                 self.logger.log(source=f"{phase}_agent", destination="error",
                                action="agent_error", extra={"error": str(e)[:200]})
+
+        if self.harness_injection:
+            self._inject_proposals(phase, result)
 
         # Process proposed tool calls SEQUENTIALLY (TA-19: no parallel bypass)
         executed_responses = []
@@ -679,6 +740,12 @@ class SOARHost:
         else:
             response = {"status": "no_registry", "tool_id": tool_id}
         _latency = (_time.perf_counter() - _t0) * 1000
+
+        if isinstance(response, dict) and response.pop("_harness_injected", None):
+            if self.logger:
+                self.logger.log(source="harness", destination=tool_id, action="harness_injection",
+                                extra={"channel": "tool_response", "phase": phase,
+                                       **self._args_for_log(tc)})
 
         # ── Post-execution checks (agenticcyops only) ──
         if self.config == "agenticcyops":

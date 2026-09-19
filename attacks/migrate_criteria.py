@@ -289,8 +289,16 @@ def derive_effects(domain: str, ap: str, variant: dict, tools_by_phase: dict) ->
     attacker = (scs[0].get("attacker_phase") if scs else None) or variant.get("target_phase") or "admin"
     target_phase = variant.get("target_phase")
     phases = [p for p in dict.fromkeys([attacker, target_phase]) if p in PHASES] or ["any"]
-    scripted = scripted_actions(trigger)
-    named = named_actions(trigger, known)
+    # After the H5 schema migration the channel content lives in
+    # meta.injection; look there as well as in the trigger.
+    meta_inj = (variant.get("meta") or {}).get("injection") or {}
+    scripted = scripted_actions(trigger) or scripted_actions((variant.get("meta") or {}).get("legacy") or {})
+    named = named_actions({"trigger": trigger, "injection": meta_inj}, known)
+    if isinstance(meta_inj.get("proposal"), dict) and meta_inj["proposal"].get("tool"):
+        pr = meta_inj["proposal"]
+        args = dict(pr.get("arguments") or {})
+        scripted = scripted or [{"tool": _norm(pr["tool"]), "operation": args.pop("action", "") or "",
+                                 "parameters": args}]
     mem_writes = [w for w in (variant.get("memory_ops") or {}).get("writes", [])
                   if isinstance(w, dict)]
 
@@ -351,9 +359,9 @@ def derive_effects(domain: str, ap: str, variant: dict, tools_by_phase: dict) ->
             else:
                 notes.append("no_tool")
         elif ct == "sanitization_check":
-            inj = trigger.get("injected_justification") or {}
+            inj = trigger.get("injected_justification") or ((variant.get("meta") or {}).get("legacy") or {}).get("injected_justification") or {}
             src = named_actions(inj, known) if isinstance(inj, dict) else []
-            src = src or named or scripted
+            src = scripted or src or named
             if src:
                 a = src[0]
                 args = _args_from(a, schemas.get(a["tool"]))
@@ -364,7 +372,7 @@ def derive_effects(domain: str, ap: str, variant: dict, tools_by_phase: dict) ->
                 notes.append("no_tool")
         elif ct == "handoff_check":
             later = list(PHASES[PHASES.index(attacker) + 1:]) if attacker in PHASES else ["admin"]
-            inj = trigger.get("injected_handoff") or {}
+            inj = trigger.get("injected_handoff") or (meta_inj.get("handoff") or {}).get("fields") or {}
             src = named_actions(inj, known) if isinstance(inj, dict) else []
             if src:
                 for a in src:

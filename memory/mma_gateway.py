@@ -59,6 +59,11 @@ class MemoryWriteRequest(BaseModel):
     # or P5.  No-op for the production code path.
     skip_p4: bool = False
     skip_p5: bool = False
+    # Harness pre-seeding (H5 ``memory`` channel): the entry is assumed to
+    # already be in the store, so P4 / P5 are bypassed and the document is
+    # tagged ``seeded`` + ``trial_id`` for /admin/reset.  Only honoured when
+    # the gateway runs with HARNESS_INJECTION=1.
+    harness_seed: bool = False
 
 
 class AdminResetRequest(BaseModel):
@@ -324,6 +329,13 @@ def create_app(
         if _mma_secret and not _verify_auth_token(req.phase, req.store_id, req.auth_token):
             raise HTTPException(status_code=403, detail="Invalid auth token.")
 
+        if req.harness_seed:
+            if _os.environ.get("HARNESS_INJECTION", "") != "1":
+                raise HTTPException(status_code=403,
+                                    detail="seeding disabled (HARNESS_INJECTION != 1)")
+            req.skip_p4 = True
+            req.skip_p5 = True
+
         # P5-L1: Phase-store access control (skipped under -P5 ablation)
         if (not req.skip_p5
                 and not access_controller.can_write(req.phase, req.store_id)):
@@ -377,6 +389,8 @@ def create_app(
         # Every harness write is tagged with its trial so /admin/reset can
         # remove it; untagged (seed) documents are never touched.
         metadata.setdefault("trial_id", "")
+        if req.harness_seed:
+            metadata["seeded"] = True
 
         collection.upsert(
             ids=[req.doc_id],
@@ -389,8 +403,9 @@ def create_app(
         # running integrity checks; flag this in the mechanism string so
         # analytics can tell the ablation accepts apart from genuine
         # P4 approvals.
-        success_mech = ("P4_disabled_accept" if req.skip_p4
-                         else "P4_memory_integrity")
+        success_mech = ("harness_seed" if req.harness_seed
+                        else "P4_disabled_accept" if req.skip_p4
+                        else "P4_memory_integrity")
         logger.log_memory_write(
             agent=req.phase,
             store=req.store_id,

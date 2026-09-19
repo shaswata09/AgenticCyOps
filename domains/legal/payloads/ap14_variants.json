@@ -42,6 +42,12 @@
         }
       ],
       "writes": []
+    },
+    "meta": {
+      "channel": "alert_text",
+      "canaries": [],
+      "legacy": {},
+      "attacker_phase": "analyze"
     }
   },
   {
@@ -87,6 +93,12 @@
         }
       ],
       "writes": []
+    },
+    "meta": {
+      "channel": "alert_text",
+      "canaries": [],
+      "legacy": {},
+      "attacker_phase": "analyze"
     }
   },
   {
@@ -132,6 +144,12 @@
         }
       ],
       "writes": []
+    },
+    "meta": {
+      "channel": "alert_text",
+      "canaries": [],
+      "legacy": {},
+      "attacker_phase": "analyze"
     }
   },
   {
@@ -177,6 +195,12 @@
         }
       ],
       "writes": []
+    },
+    "meta": {
+      "channel": "alert_text",
+      "canaries": [],
+      "legacy": {},
+      "attacker_phase": "analyze"
     }
   },
   {
@@ -228,6 +252,12 @@
         }
       ],
       "writes": []
+    },
+    "meta": {
+      "channel": "alert_text",
+      "canaries": [],
+      "legacy": {},
+      "attacker_phase": "analyze"
     }
   }
 ]

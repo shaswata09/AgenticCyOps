@@ -30,6 +30,7 @@ from consensus.validator import ConsensusValidator
 from attacks.effects import (evaluate_effects, trial_costs, OUTCOME_EXECUTED,
                              OUTCOME_BLOCKED, OUTCOME_NOT_ATTEMPTED,
                              OUTCOME_NOT_MEASURABLE)
+from attacks.payload_schema import injection_of, memory_seed_entries, meta_of, split_payload
 
 
 CYBEROPS_APS = ["ap1", "ap2", "ap3", "ap4", "ap5", "ap6"]
@@ -364,14 +365,14 @@ class AttackHarness:
         # Reset tools
         await self.reset_tools()
 
-        # Run incident — include memory_ops from payload for P4/P5 baseline coverage
-        trigger = payload.get("trigger", payload)
-        if isinstance(trigger, dict) and "memory_ops" in payload:
-            trigger = {**trigger, "memory_ops": payload["memory_ops"]}
+        # What the host (and so the model) sees vs. what only the harness knows
+        trigger, meta = split_payload(payload)
+        injection = injection_of(payload)
         start = time.perf_counter()
 
         try:
-            result = await self.host.run_incident(trigger)
+            await self.deliver_injection(meta.get("channel", "alert_text"), injection)
+            result = await self.host.run_incident(trigger, harness_injection=injection)
             latency_s = time.perf_counter() - start
 
             # Get tool states
@@ -432,6 +433,50 @@ class AttackHarness:
             print(f"  {ap} v{variant} t{trial} [{self.config}]: {status}")
 
         return trial_result
+
+    # ---- H5 channel delivery ---------------------------------------------
+
+    async def deliver_injection(self, channel: str, injection: dict) -> None:
+        """Deliver the payload's adversarial content through its channel.
+
+        ``tool_response`` queues a response override on the tool stub;
+        ``memory`` pre-seeds entries through the gateway (tagged with the
+        trial id so the per-trial reset removes them).  ``handoff`` and
+        ``proposal_justification`` are applied by the host from the
+        ``harness_injection`` argument; ``alert_text`` needs nothing.
+        """
+        import httpx
+        if channel == "tool_response" and injection.get("tool"):
+            tool = injection["tool"]
+            port = self.registry._ports.get(tool)
+            if port is None:
+                self.logger.log(source="harness", destination=tool, action="harness_injection",
+                                extra={"channel": channel, "status": "unknown_tool"})
+                return
+            body = {"response": injection.get("response"),
+                    "mode": injection.get("mode", "merge"),
+                    "calls": int(injection.get("calls", 1))}
+            try:
+                async with httpx.AsyncClient() as client:
+                    r = await client.post(f"http://127.0.0.1:{port}/inject", json=body, timeout=5)
+                status = r.status_code
+            except Exception as exc:
+                status = f"error:{str(exc)[:80]}"
+            self.logger.log(source="harness", destination=tool, action="harness_injection",
+                            extra={"channel": channel, "status": status, "queued": True})
+        elif channel == "memory":
+            for e in memory_seed_entries(injection):
+                status, body = await self.host._mma_post("/memory/write", {
+                    "phase": e["phase"], "store_id": e["store"], "document": e["content"],
+                    "doc_id": e["doc_id"], "incident_evidence": "",
+                    "metadata": {**e["metadata"], "trial_id": self.logger._trial_id or "untagged"},
+                    "auth_token": self.host._mma_token(e["phase"], e["store"]),
+                    "harness_seed": True,
+                })
+                self.logger.log(source="harness", destination=e["store"], action="harness_injection",
+                                extra={"channel": channel, "status": status, "doc_id": e["doc_id"],
+                                       "seeded": status == 200},
+                                scan_text=e["content"])
 
     # ---- per-trial bookkeeping ------------------------------------------
 
