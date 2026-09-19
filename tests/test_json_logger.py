@@ -34,12 +34,12 @@ def test_model_field_never_contains_a_host_path(tmp_path):
     lg.log(source="monitor_agent", destination="llm", action="llm_call",
            extra={"model": "/srv/models/meta-llama/Llama-4-Scout-17B-16E-Instruct"})
     lg.log(source="monitor_agent", destination="llm", action="llm_call",
-           extra={"model": "claude-sonnet-4-20250514"})
+           extra={"model": "claude-sonnet-4-5-20250929"})
     lg.close()
     rows = _lines(lg.log_file)
     assert rows[0]["primary_model"] == "Qwen/Qwen3-235B-A22B-Instruct-2507"
     assert rows[1]["model"] == "meta-llama/Llama-4-Scout-17B-16E-Instruct"
-    assert rows[2]["model"] == "claude-sonnet-4-20250514"
+    assert rows[2]["model"] == "claude-sonnet-4-5-20250929"
     text = open(lg.log_file).read()
     assert "/srv/" not in text and "/mnt/" not in text
 

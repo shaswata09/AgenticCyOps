@@ -15,7 +15,7 @@ validators:
     type: "openai"
 
   V4_claude:
-    model: "claude-sonnet-4-20250514"
+    model: "claude-sonnet-4-5-20250929"
     type: "anthropic"
 
   V5_mistral:

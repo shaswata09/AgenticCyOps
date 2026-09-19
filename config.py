@@ -90,7 +90,7 @@ def model_display_name(model: str | None) -> str:
     """Strip host paths from a model identifier for logs and headers.
 
     ``/mnt/x/models/Qwen/Qwen3-32B`` -> ``Qwen/Qwen3-32B``;
-    ``claude-sonnet-4-20250514`` is returned unchanged.
+    ``claude-sonnet-4-5-20250929`` is returned unchanged.
     """
     if not model:
         return str(model)

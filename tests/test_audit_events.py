@@ -104,3 +104,18 @@ def test_call_ids_are_unique_within_an_incident(tmp_path):
     assert len(ids) == 2 and len(set(ids)) == 2
     # same content -> same hash suffix, different sequence number
     assert ids[0].split(":")[-1] == ids[1].split(":")[-1]
+
+
+def test_tool_port_map_is_the_same_for_servers_and_clients():
+    """Regression (found in E0): servers were numbered in discovery order,
+    clients in sorted order, so most tool calls hit the wrong server (404)."""
+    from mcp_servers.server_registry import ServerRegistry
+    serving = ServerRegistry(domain="cyberops", logger=None)
+    serving.load_tools()
+    serving.assign_ports(9000)            # what start_all does before serving
+    client = ServerRegistry(domain="cyberops", logger=None)
+    client.load_tools()
+    client.assign_ports(9000)             # what the harness does
+    assert serving._ports == client._ports
+    assert list(serving._ports.values()) == list(range(9000, 9000 + len(serving._ports)))
+    assert sorted(serving._ports, key=serving._ports.get) == sorted(serving._servers)

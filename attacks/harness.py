@@ -165,6 +165,7 @@ class AttackHarness:
         temperature: float = 0.7,
         base_seed: Optional[int] = None,
         require_freeze: bool = False,
+        run_tag: str = "",
     ):
         self.domain = domain
         self.config = config
@@ -190,6 +191,8 @@ class AttackHarness:
         eval_name = f"{domain}_eval_attacks_{group}"
         if self.disabled_principles:
             eval_name += "_disabled_" + "".join(sorted(self.disabled_principles))
+        if run_tag:
+            eval_name += f"_{run_tag}"          # smoke / persistent runs keep their own log dir
         header = build_run_header(
             group=group, config=config, domain=domain,
             primary_url=llm_url, primary_provider=llm_provider,
@@ -214,10 +217,7 @@ class AttackHarness:
         # Load tool registry
         self.registry = ServerRegistry(domain=domain, logger=self.logger)
         self.registry.load_tools()
-        port = tool_base_port
-        for tool_id in sorted(self.registry._servers.keys()):
-            self.registry._ports[tool_id] = port
-            port += 1
+        self.registry.assign_ports(tool_base_port)
 
         # Load manifests
         self.enforcer = ManifestEnforcer(domain=domain, logger=self.logger)
@@ -716,6 +716,9 @@ async def main():
     parser.add_argument("--resume", action="store_true",
                         help="Skip (ap, variant, trial, config) cells already present "
                               "in results.csv with a non-error outcome.")
+    parser.add_argument("--run-tag", default="",
+                        help="Suffix for the log directory (smoke, persistent) so special "
+                              "runs never mix with the group's main logs.")
     parser.add_argument("--max-variants", type=int, default=None,
                         help="Only the first N variants of each attack path (smoke runs, E1b).")
     parser.add_argument("--state-mode", default="isolated", choices=["isolated", "persistent"],
@@ -751,6 +754,7 @@ async def main():
             temperature=args.temperature,
             base_seed=args.seed,
             require_freeze=args.require_freeze,
+            run_tag=args.run_tag,
         )
         if args.results_dir != "none":
             suffix = ("_disabled_" + "".join(sorted(disabled))) if disabled else ""

@@ -436,13 +436,15 @@ def create_app(
             raise HTTPException(status_code=403, detail="Invalid auth token.")
         deleted = 0
         touched = 0
-        where = ({"trial_id": req.trial_id} if req.trial_id
-                 else {"trial_id": {"$ne": ""}})
         for coll_name in set(store_id_to_name.values()):
             try:
                 collection = chroma_client.get_or_create_collection(name=coll_name)
-                got = collection.get(where=where, include=[])
-                ids = got.get("ids") or []
+                # Chroma's $ne also matches documents that have no such key
+                # at all (the seed data), so the filter is applied here.
+                got = collection.get(include=["metadatas"])
+                ids = [i for i, m in zip(got.get("ids") or [], got.get("metadatas") or [])
+                       if isinstance(m, dict) and m.get("trial_id")
+                       and (not req.trial_id or m.get("trial_id") == req.trial_id)]
                 if ids:
                     collection.delete(ids=ids)
                     deleted += len(ids)

@@ -77,3 +77,26 @@ def test_validator_error_is_a_logged_error_vote(tmp_path, monkeypatch):
     assert sorted(v["auth_decision"] for v in votes) == ["approve", "approve", "error", "error"]
     ok = [v for v in votes if v["auth_decision"] == "approve"]
     assert all(v["tokens_used"] == 60 for v in ok)
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+def test_every_agent_class_constructs_for_real(provider, monkeypatch):
+    """Regression: a function-local `import os` shadowed the module import and
+    made every agent constructor raise UnboundLocalError (found in E0)."""
+    from agents.admin_agent import AdminAgent
+    from agents.analyze_agent import AnalyzeAgent
+    from agents.monitor_agent import MonitorAgent
+    from agents.report_agent import ReportAgent
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("PRIMARY_TEMPERATURE", "0.7")
+    for cls in (MonitorAgent, AnalyzeAgent, AdminAgent, ReportAgent):
+        kw = dict(domain="cyberops", config="agenticcyops", manifest={"allowed_tools": []},
+                  tool_schemas=[], all_tool_schemas=[], logger=None)
+        if provider == "anthropic":
+            kw["llm_provider"] = "anthropic"
+        else:
+            kw["llm_url"] = "http://127.0.0.1:1/v1"
+        a = cls(**kw)
+        assert a.temperature == 0.7 and a.seed is None
+        a.set_seed(5); a.set_temperature(0.2)
+        assert a.seed == 5 and a.temperature == 0.2

@@ -53,7 +53,7 @@ GROUP_CONFIGS: dict[str, dict] = {
                      "primary_model": "meta-llama/Llama-3.1-8B-Instruct",
                      "primary_type": "openai", "api_key_env": "REMOTE_5090_API_KEY",
                      "consensus": "div4"},
-    "claude_loc": {"primary_url": None, "primary_model": "claude-sonnet-4-20250514",
+    "claude_loc": {"primary_url": None, "primary_model": "claude-sonnet-4-5-20250929",
                    "primary_type": "anthropic", "consensus": "claude_loc"},
     "glm_div4": {"primary_url": env_url("PRIMARY_URL_GLM", "http://localhost:8001/v1"),
                  "primary_model": "zai-org/GLM-4.7-FP8",
@@ -80,7 +80,7 @@ GROUP_CONFIGS: dict[str, dict] = {
           "primary_type":  "openai",
           "consensus":     "with_mistral"},
     "F": {"primary_url": None,
-          "primary_model": "claude-sonnet-4-20250514",
+          "primary_model": "claude-sonnet-4-5-20250929",
           "primary_type":  "anthropic",
           "consensus":     "all_with_gpt4o"},
     # ---- Small / mid-tier primary groups (G-J) ----

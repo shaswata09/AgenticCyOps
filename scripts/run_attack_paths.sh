@@ -88,7 +88,7 @@ GP_DESC[mistral_div3p]="Mistral-Small-3.2-24B + [V1 Qwen, V4 Claude, V6 GPT-4o] 
 GP_PRIMARY[llama8b_div4]="${REMOTE_5090_URL:-}"; GP_PROVIDER[llama8b_div4]="openai"; GP_PORTS[llama8b_div4]="8002 8003"; GP_CONSENSUS[llama8b_div4]="div4"; GP_API_KEY_ENV[llama8b_div4]="REMOTE_5090_API_KEY"
 GP_DESC[llama8b_div4]="Llama-3.1-8B-Instruct BF16 on the RTX 5090 node (REMOTE_5090_URL) + div4"
 GP_PRIMARY[claude_loc]="anthropic"; GP_PROVIDER[claude_loc]="anthropic"; GP_PORTS[claude_loc]="8002 8003 8004"; GP_CONSENSUS[claude_loc]="claude_loc"
-GP_DESC[claude_loc]="claude-sonnet-4 (API) + [V1 Qwen, V5 Mistral, V3 Llama-4-Scout, V6 GPT-4o] 3/4"
+GP_DESC[claude_loc]="claude-sonnet-4-5 (API) + [V1 Qwen, V5 Mistral, V3 Llama-4-Scout, V6 GPT-4o] 3/4"
 GP_PRIMARY[glm_div4]="http://localhost:8001/v1"; GP_PROVIDER[glm_div4]="openai"; GP_PORTS[glm_div4]="8001 8002 8003"; GP_CONSENSUS[glm_div4]="div4"
 GP_DESC[glm_div4]="GLM-4.7-FP8 TP=4 + div4 (optional, lowest priority)"
 
@@ -325,19 +325,15 @@ run_domain() {
     echo "  tool_base=${TOOL_BASE_PORT}  mma=${MMA_PORT}  chromadb=${CHROMA_DB_PATH}/${domain}"
     echo "============================================================"
 
-    # Check for existing data — prompt before overwriting
+    # Logs and results are append-only (every log file carries a timestamp,
+    # results.csv is appended per trial and rebuilt from the logs), so an
+    # existing run directory is never deleted: RESUME=1 continues it, and a
+    # repeat without RESUME adds new log files next to the old ones.  Only
+    # this slot's ChromaDB scratch directory is recreated and re-seeded.
     if [ -d "$log_dir" ] || [ -d "$result_dir" ]; then
-        echo ""
-        echo "  WARNING: Existing attack data found for ${domain}/Group ${GROUP}."
-        read -p "  Overwrite? (y/N): " confirm
-        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-            echo "  Skipping ${domain}."
-            return 0
-        fi
+        echo "  existing data for ${domain}/Group ${GROUP}: keeping it (RESUME=${RESUME:-0})"
     fi
-
-    # Clean previous run data
-    rm -rf "$log_dir" "$result_dir" "${CHROMA_DB_PATH}/${domain}" 2>/dev/null || true
+    rm -rf "${CHROMA_DB_PATH:?}/${domain}" 2>/dev/null || true
     mkdir -p "$result_dir" "$CHROMA_DB_PATH"
 
     # Kill only stale processes in *this* group/domain's port slot --
@@ -399,6 +395,7 @@ run_domain() {
         [ "${RESUME:-0}" = "1" ] && _run_args+=(--resume)
         [ "${REQUIRE_FREEZE:-0}" = "1" ] && _run_args+=(--require-freeze)
         [ -n "${MAX_VARIANTS:-}" ] && _run_args+=(--max-variants "$MAX_VARIANTS")
+        [ -n "${RUN_TAG:-}" ] && _run_args+=(--run-tag "$RUN_TAG")
         if [ -n "${RUN_TAG:-}" ] || [ -n "$DISABLE_PRINCIPLES" ]; then
             _run_args+=(--results-dir "$result_dir")
         fi

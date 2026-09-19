@@ -212,9 +212,10 @@ class ConsensusValidator:
                                  reason=f"{exc.__class__.__name__}: {str(exc)[:160]}",
                                  latency_ms=latency)
             if self.logger:
-                self.logger.log_consensus_vote(
-                    validator=vid, proposal_source="agent", vote="error",
-                    confidence=0.0, latency_ms=latency, reasoning=vote.reason,
+                self.logger.log(
+                    source=vid, destination="agent", action="consensus_vote",
+                    auth_decision="error", mechanism="P3_verified_execution",
+                    latency_ms=latency, extra={"confidence": 0.0, "error": vote.reason},
                 )
             return vote
 
@@ -303,7 +304,7 @@ class ConsensusValidator:
         def _blocking() -> str:
             client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
-                model=config.get("model", "claude-sonnet-4-20250514"),
+                model=config.get("model", "claude-sonnet-4-5-20250929"),
                 max_tokens=300,
                 temperature=0.0,
                 system=VALIDATOR_SYSTEM_PROMPT,

@@ -86,7 +86,7 @@ class BaseAgent:
         """
         Args:
             llm_provider: "openai" for vLLM/OpenAI-compatible, "anthropic" for Claude API
-            llm_model: Model name override (e.g. "claude-sonnet-4-20250514")
+            llm_model: Model name override (e.g. "claude-sonnet-4-5-20250929")
             api_key_env: Env-var name to read the OpenAI-compatible API key
                 from (e.g. "NVIDIA_API_KEY" for NVIDIA cloud). Absent for
                 self-hosted vLLM which ignores the key.
@@ -112,15 +112,13 @@ class BaseAgent:
         self.seed: Optional[int] = None
 
         if llm_provider == "anthropic":
-            import os
             from anthropic import Anthropic
             from config import load_env
             load_env()
             self._anthropic_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-            self._model_name = llm_model or "claude-sonnet-4-20250514"
+            self._model_name = llm_model or "claude-sonnet-4-5-20250929"
             self._client = None
         else:
-            import os
             from config import load_env
             load_env()
             api_key = os.environ.get(api_key_env, "") if api_key_env else "unused"
@@ -158,12 +156,11 @@ class BaseAgent:
         """Switch LLM endpoint or provider (for diversity checks)."""
         self.llm_provider = provider
         if provider == "anthropic":
-            import os
             from anthropic import Anthropic
             from config import load_env
             load_env()
             self._anthropic_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-            self._model_name = model or "claude-sonnet-4-20250514"
+            self._model_name = model or "claude-sonnet-4-5-20250929"
             self._client = None
         else:
             self.llm_url = url or self.llm_url

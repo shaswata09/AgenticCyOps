@@ -206,7 +206,7 @@ def build_run_header(
     served = probe_openai_server(primary_url, api_key_env) if (probe and primary_provider != "anthropic") else {}
     header["primary_model"] = model_display_name(primary_model) if primary_model else served.get("served_model")
     if primary_provider == "anthropic" and not header["primary_model"]:
-        header["primary_model"] = "claude-sonnet-4-20250514"
+        header["primary_model"] = "claude-sonnet-4-5-20250929"
     header["primary_quantization"] = (
         "api" if primary_provider == "anthropic" else quantization_from_model_id(header["primary_model"]))
     header["vllm_version"] = served.get("vllm_version")

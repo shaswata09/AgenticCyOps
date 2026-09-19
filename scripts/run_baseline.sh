@@ -388,10 +388,7 @@ async def run():
 
     registry = ServerRegistry(domain=domain, logger=logger)
     registry.load_tools()
-    port = tool_base_port
-    for tool_id in sorted(registry._servers.keys()):
-        registry._ports[tool_id] = port
-        port += 1
+    registry.assign_ports(tool_base_port)
 
     all_schemas = registry.get_all_schemas()
 
