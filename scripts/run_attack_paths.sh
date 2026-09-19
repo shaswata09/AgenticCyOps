@@ -302,6 +302,9 @@ run_domain() {
             | tr ',' '\n' | tr '[:lower:]' '[:upper:]' \
             | sort -u | tr -d '\n')"
     fi
+    # RUN_TAG (e.g. "persistent", "smoke") keeps a special run out of the
+    # group's main log / result directories.
+    [ -n "${RUN_TAG:-}" ] && _ablation_tag="${_ablation_tag}_${RUN_TAG}"
     local log_dir="logs/${domain}_eval_attacks_${GROUP}${_ablation_tag}"
     local result_dir="results/eval_attacks/group_${GROUP}${_ablation_tag}/${domain}"
 
@@ -386,6 +389,10 @@ run_domain() {
         [ -n "${TEMPERATURE:-}" ] && _run_args+=(--temperature "$TEMPERATURE")
         [ "${RESUME:-0}" = "1" ] && _run_args+=(--resume)
         [ "${REQUIRE_FREEZE:-0}" = "1" ] && _run_args+=(--require-freeze)
+        [ -n "${MAX_VARIANTS:-}" ] && _run_args+=(--max-variants "$MAX_VARIANTS")
+        if [ -n "${RUN_TAG:-}" ] || [ -n "$DISABLE_PRINCIPLES" ]; then
+            _run_args+=(--results-dir "$result_dir")
+        fi
 
         # Remote-endpoint extras (API key env var, model-specific extra_body).
         local _api_args=()

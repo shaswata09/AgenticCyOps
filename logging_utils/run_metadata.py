@@ -149,17 +149,25 @@ def validator_panel_for(consensus_config: Optional[str]) -> tuple[Optional[dict]
 
 
 def assert_frozen(header: dict) -> None:
-    """Abort unless HEAD is exactly a defense-freeze tag with a clean tree.
+    """Abort unless the defense code equals the freeze tag.
 
-    ``git describe --exact-match`` yields the bare tag (``defense-freeze-v2``);
-    a commit after the tag yields ``defense-freeze-v2-3-gabc1234`` and fails.
+    Accepts HEAD == tag, or a later commit whose frozen directories are
+    byte-identical to the tag (analysis / scripts may keep changing).  The
+    tree must be clean in the frozen directories.
     """
     tag = header.get("freeze_tag") or ""
     if not re.fullmatch(rf"{FREEZE_TAG_PREFIX}[A-Za-z0-9.]+", tag):
-        raise SystemExit(f"--require-freeze: HEAD is not a defense-freeze tag (freeze_tag={tag!r}). "
-                         "Run scripts/check_freeze.sh.")
+        # not exactly on the tag: fall back to the directory comparison
+        check = BASE_DIR / "scripts" / "check_freeze.sh"
+        rc = subprocess.run(["bash", str(check)], cwd=BASE_DIR, capture_output=True, text=True)
+        if rc.returncode != 0:
+            raise SystemExit("--require-freeze: defense code differs from the freeze tag:\n" + rc.stdout)
+        return
     if header.get("git_dirty"):
-        raise SystemExit("--require-freeze: working tree has uncommitted changes in tracked files.")
+        rc = subprocess.run(["bash", str(BASE_DIR / "scripts" / "check_freeze.sh")], cwd=BASE_DIR,
+                            capture_output=True, text=True)
+        if rc.returncode != 0:
+            raise SystemExit("--require-freeze: uncommitted changes in frozen directories:\n" + rc.stdout)
 
 
 def build_run_header(

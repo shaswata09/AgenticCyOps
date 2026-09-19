@@ -1,0 +1,206 @@
+#!/bin/bash
+# ============================================================
+# AgenticCyOps revision-v2 — experiment driver for the 5x H200 server.
+#
+# Runs the MINIMUM set of experiments the revision needs and reuses every
+# v1 result that survives the harness fixes (ASB primary outputs through
+# the paired replay, InjecAgent as-is).  The RTX 5090 node only serves
+# Llama-3.1-8B (scripts/a51_vllm.sh); everything else runs here.
+#
+#   scripts/run_revision.sh preflight             # env, keys, weights, ports, A51 reachability
+#   scripts/run_revision.sh serve q235|mid        # start a vLLM profile and wait for it
+#   scripts/run_revision.sh e0                    # smoke (1 variant x 1 trial, all APs, CyberOps) + ASB drift check   [STOP]
+#   scripts/run_revision.sh q235-main             # E1 + E2 + E3 + E1b on q235_div4, then ASB div4 replay
+#   scripts/run_revision.sh mid-main              # E1 + E2 on scout_div4, mistral_div3p, llama8b_div4 in parallel;
+#                                                 # ASB replay for div3 / lin3 / single
+#   scripts/run_revision.sh e1|e2|e3|e1b <group> [domains]   # single stage
+#   scripts/run_revision.sh asb-replay <panel>    # div4 | div3 | lin3 | single
+#   scripts/run_revision.sh tables                # make paper-tables
+#
+# Environment (all optional):  TRIALS=3  SEED=20260919  TEMPERATURE=0.7
+#   RESUME=1 (default)  REQUIRE_FREEZE=1 (default)  DOMAINS="cyberops finance"
+#
+# Wall-clock budget for 2 days (v1 medians 31 s flat / 68 s defended per
+# incident, 4 domains in parallel):  q235-main ~20 h, mid-main ~10 h.
+# E4 (held-out variants) and E5 (adaptive attacker) are NOT run.
+# ============================================================
+set -eEo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO"
+[ -f .env ] && set -a && . ./.env && set +a
+
+export TRIALS="${TRIALS:-3}"
+export SEED="${SEED:-20260919}"
+export TEMPERATURE="${TEMPERATURE:-0.7}"
+export RESUME="${RESUME:-1}"
+export REQUIRE_FREEZE="${REQUIRE_FREEZE:-1}"
+export STATE_MODE="${STATE_MODE:-isolated}"
+CONDA_ENV="${CONDA_ENV:-agenticcyops}"
+ALL_DOMAINS="cyberops healthcare finance legal"
+MAIN_GROUP="q235_div4"
+LEGACY_ASB="results_legacy_v1/asb/e2e_validator_group_A/general/results.csv"
+STAGE_LOG="logs/revision_stages.log"
+mkdir -p logs
+
+run_py() { conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"; }
+stamp()  { echo "$(date '+%F %T')  $*" | tee -a "$STAGE_LOG"; }
+attack() { # attack <group> <domain> <ap|all|benign> <config|all> [trials]
+    scripts/run_attack_paths.sh "$1" "$2" "$3" "$4" "${5:-$TRIALS}"
+}
+
+# Run one stage over several domains in parallel (one tool/MMA slot each).
+parallel_domains() { # parallel_domains <group> <ap-arg> <config-arg> <domains...>
+    local group="$1" aparg="$2" cfgarg="$3"; shift 3
+    local pids=()
+    for dom in "$@"; do
+        stamp "  start ${group} ${dom} ${aparg} ${cfgarg}"
+        attack "$group" "$dom" "$aparg" "$cfgarg" > "logs/stage_${group}_${dom}_${aparg}_${cfgarg}${RUN_TAG:+_$RUN_TAG}${DISABLE_PRINCIPLES:+_dis_$DISABLE_PRINCIPLES}.log" 2>&1 &
+        pids+=($!)
+    done
+    local rc=0
+    for p in "${pids[@]}"; do wait "$p" || rc=1; done
+    return $rc
+}
+
+# ------------------------------------------------------------
+preflight() {
+    stamp "preflight"
+    local ok=1
+    for v in ANTHROPIC_API_KEY OPENAI_API_KEY; do
+        [ -n "${!v:-}" ] && echo "[  ok] $v set" || { echo "[FAIL] $v missing in .env"; ok=0; }
+    done
+    [ -f configs/hmac_key.txt ] || [ -n "${MMA_SHARED_SECRET:-}" ] && echo "[  ok] shared HMAC key" || { echo "[FAIL] configs/hmac_key.txt missing"; ok=0; }
+    local md="${MODELS_DIR:-$REPO/models}"
+    for m in Qwen/Qwen3-Embedding-0.6B Qwen/Qwen3-Embedding-8B Qwen/Qwen3-235B-A22B-Instruct-2507 Qwen/Qwen3-32B \
+             mistralai/Mistral-Small-3.2-24B-Instruct-2506 meta-llama/Llama-4-Scout-17B-16E-Instruct \
+             deepseek-ai/DeepSeek-R1-Distill-Qwen-32B; do
+        [ -d "$md/$m" ] && echo "[  ok] weights $m" || echo "[warn] weights missing: $md/$m"
+    done
+    [ -d "$md/Qwen/Qwen3-14B" ] && echo "[  ok] weights Qwen/Qwen3-14B (lin3 panel)" || echo "[warn] Qwen/Qwen3-14B missing: lin3 replay unavailable (huggingface-cli download Qwen/Qwen3-14B --local-dir $md/Qwen/Qwen3-14B)"
+    if [ -n "${REMOTE_5090_URL:-}" ]; then
+        if curl -s --max-time 5 -H "Authorization: Bearer ${REMOTE_5090_API_KEY:-}" "${REMOTE_5090_URL%/}/models" > /dev/null; then
+            echo "[  ok] RTX 5090 node answers at REMOTE_5090_URL"
+        else
+            echo "[warn] RTX 5090 node not reachable at REMOTE_5090_URL (llama8b_div4 will be skipped until it is)"
+        fi
+    else
+        echo "[warn] REMOTE_5090_URL not set: llama8b_div4 unavailable"
+    fi
+    scripts/check_freeze.sh && echo "[  ok] defense freeze" || { echo "[FAIL] not on the defense-freeze tag (set REQUIRE_FREEZE=0 to run anyway)"; ok=0; }
+    run_py -m pytest -q -x --no-header -p no:cacheprovider 2>&1 | tail -1
+    [ "$ok" = 1 ] && stamp "preflight OK" || { stamp "preflight FAILED"; return 1; }
+}
+
+serve() {
+    scripts/vllm_profiles.sh start "$1"
+    scripts/vllm_profiles.sh status
+}
+
+# E0: smoke + ASB drift check ---------------------------------------------
+e0() {
+    stamp "E0 smoke start"
+    RUN_TAG=smoke MAX_VARIANTS=1 attack "$MAIN_GROUP" cyberops all all 1
+    RUN_TAG=smoke attack "$MAIN_GROUP" cyberops benign all 1
+    stamp "E0 ASB drift check (50 cases, flat + agenticcyops, 1 trial, live)"
+    run_py -m benchmarks.asb.run_e2e --group "$MAIN_GROUP" --configs flat,agenticcyops --trials 1 \
+        --cases-file benchmarks/asb/representative_cases.json --tag drift --concurrency 4
+    run_py - <<EOF
+import csv, json
+ids = set(json.load(open("benchmarks/asb/representative_cases.json")))
+def llm_asr(path):
+    rows = [r for r in csv.DictReader(open(path)) if r["asb_case_id"] in ids and r["config"] == "flat"]
+    return (sum(r["attack_succeeded_llm"] == "True" for r in rows) / len(rows) if rows else float("nan")), len(rows)
+old, n_old = llm_asr("$LEGACY_ASB")
+new, n_new = llm_asr("results/asb/e2e_validator_group_${MAIN_GROUP}_drift/general/results.csv")
+d = 100 * (new - old)
+print(f"ASB drift check: legacy Group A llm_asr={100*old:.1f}% (n={n_old})  now={100*new:.1f}% (n={n_new})  drift={d:+.1f} pp")
+print("=> within +/-5 pp: legacy ASB primary outputs may be REUSED in E6" if abs(d) <= 5 else
+      "=> drift > 5 pp: rerun ASB live for q235_div4 before E6 (scripts/run_revision.sh asb-live)")
+EOF
+    stamp "E0 done -- STOP: review logs/revision_stages.log, results/eval_attacks/group_${MAIN_GROUP}_smoke/, the drift line above"
+}
+
+# E1: benign utility ---------------------------------------------------------
+e1() { local g="$1"; shift; stamp "E1 benign ${g}: $*"; parallel_domains "$g" benign all "$@"; stamp "E1 ${g} done"; }
+# E2: attack paths -----------------------------------------------------------
+e2() { local g="$1"; shift; stamp "E2 attacks ${g}: $*"; parallel_domains "$g" all all "$@"; stamp "E2 ${g} done"; }
+# E3: ablations (main group, CyberOps) --------------------------------------
+e3() {
+    local g="${1:-$MAIN_GROUP}"
+    stamp "E3 ablations ${g} cyberops"
+    for p in P1 P2 P3 P4 P5; do
+        DISABLE_PRINCIPLES="$p" attack "$g" cyberops all agenticcyops
+        DISABLE_PRINCIPLES="$p" attack "$g" cyberops benign agenticcyops
+    done
+    for cfg in llm_judge symbolic_only; do
+        attack "$g" cyberops all "$cfg"
+        attack "$g" cyberops benign "$cfg"
+    done
+    stamp "E3 done"
+}
+# E1b: persistent-state sequence (30 attack incidents then the benign set) --
+e1b() {
+    local g="${1:-$MAIN_GROUP}"; shift || true
+    local doms="${*:-$ALL_DOMAINS}"
+    stamp "E1b persistent sequence ${g}: ${doms}"
+    for dom in $doms; do
+        STATE_MODE=persistent RUN_TAG=persistent MAX_VARIANTS=2 attack "$g" "$dom" all agenticcyops 1
+        STATE_MODE=persistent RUN_TAG=persistent attack "$g" "$dom" benign agenticcyops 1
+    done
+    stamp "E1b done"
+}
+# E6: ASB paired panel replay ------------------------------------------------
+asb_replay() {
+    local panel="$1"
+    stamp "E6 ASB replay panel=${panel} from legacy Group A primary outputs"
+    run_py -m benchmarks.asb.run_e2e --group "$MAIN_GROUP" --configs agenticcyops --trials 5 \
+        --replay-from "$LEGACY_ASB" --consensus-config "$panel" --tag "$panel" --concurrency 6
+    stamp "E6 ${panel} done"
+}
+asb_live() {
+    stamp "ASB live rerun for ${MAIN_GROUP} (drift check failed)"
+    run_py -m benchmarks.asb.run_e2e --group "$MAIN_GROUP" --configs flat,agenticcyops --trials 5 --concurrency 4
+}
+
+tables() { stamp "tables"; make paper-tables; stamp "tables written to results/paper_tables.md"; }
+
+# ------------------------------------------------------------
+cmd="${1:-}"; shift || true
+case "$cmd" in
+    preflight) preflight ;;
+    serve)     serve "${1:?profile}" ;;
+    e0)        e0 ;;
+    e1|e2)     g="${1:?group}"; shift || true; "$cmd" "$g" ${*:-${DOMAINS:-$ALL_DOMAINS}} ;;
+    e3)        e3 "${1:-$MAIN_GROUP}" ;;
+    e1b)       e1b "${1:-$MAIN_GROUP}" ${DOMAINS:-} ;;
+    asb-replay) asb_replay "${1:?panel}" ;;
+    asb-live)  asb_live ;;
+    tables)    tables ;;
+    q235-main)
+        # profile q235 must be up (scripts/run_revision.sh serve q235)
+        e1 "$MAIN_GROUP" $ALL_DOMAINS
+        e2 "$MAIN_GROUP" $ALL_DOMAINS
+        e3 "$MAIN_GROUP"
+        e1b "$MAIN_GROUP"
+        asb_replay div4          # V1 + V5 are up in this profile
+        tables ;;
+    mid-main)
+        # profile mid must be up; A51 serving llama8b (optional)
+        doms="${DOMAINS:-cyberops finance}"
+        groups="scout_div4 mistral_div3p"
+        curl -s --max-time 5 -H "Authorization: Bearer ${REMOTE_5090_API_KEY:-}" "${REMOTE_5090_URL:-http://127.0.0.1:1}/models" > /dev/null && groups="$groups llama8b_div4" \
+            || stamp "llama8b_div4 skipped: RTX 5090 node not reachable"
+        pids=()
+        for g in $groups; do
+            ( e1 "$g" $doms; e2 "$g" $doms ) > "logs/stage_${g}_mid-main.log" 2>&1 &
+            pids+=($!)
+        done
+        for panel in div3 lin3 single; do asb_replay "$panel" || stamp "E6 ${panel} failed (see log)"; done
+        rc=0; for p in "${pids[@]}"; do wait "$p" || rc=1; done
+        tables
+        [ $rc = 0 ] || { stamp "mid-main: a group failed, see logs/stage_*_mid-main.log"; exit 1; } ;;
+    *)
+        sed -n 2,26p "$0"; exit 2 ;;
+esac

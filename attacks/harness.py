@@ -580,6 +580,9 @@ class AttackHarness:
             print(f"  No payloads for {ap}")
             return []
 
+        max_v = getattr(self, "max_variants", None)
+        if max_v:
+            variants = variants[:int(max_v)]
         done = self._done_cells()
         results = []
         skipped = 0
@@ -713,6 +716,8 @@ async def main():
     parser.add_argument("--resume", action="store_true",
                         help="Skip (ap, variant, trial, config) cells already present "
                               "in results.csv with a non-error outcome.")
+    parser.add_argument("--max-variants", type=int, default=None,
+                        help="Only the first N variants of each attack path (smoke runs, E1b).")
     parser.add_argument("--state-mode", default="isolated", choices=["isolated", "persistent"],
                         help="isolated (default): reset every cross-incident defense "
                               "state and the MMA's trial documents before each trial; "
@@ -753,6 +758,7 @@ async def main():
                 RESULTS_DIR / "eval_attacks" / f"group_{args.group}{suffix}" / args.domain)
             harness.results_csv = rdir / "results.csv"
         harness.resume = args.resume
+        harness.max_variants = args.max_variants
 
         try:
             if args.benign:
