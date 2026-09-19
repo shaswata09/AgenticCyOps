@@ -25,12 +25,6 @@
   "cyberops/ap12_v5": [
    "value:incident_a.description"
   ],
-  "cyberops/ap15_v2": [
-   "value:description"
-  ],
-  "cyberops/ap15_v3": [
-   "value:description"
-  ],
   "cyberops/ap1_v1": [
    "value:description"
   ],
@@ -106,15 +100,6 @@
    "value:description"
   ],
   "finance/ap14_v5": [
-   "value:description"
-  ],
-  "finance/ap15_v2": [
-   "value:description"
-  ],
-  "finance/ap15_v3": [
-   "value:description"
-  ],
-  "finance/ap15_v5": [
    "value:description"
   ],
   "finance/ap3_v1": [
@@ -236,15 +221,6 @@
   "healthcare/ap14_v5": [
    "value:description"
   ],
-  "healthcare/ap15_v2": [
-   "value:description"
-  ],
-  "healthcare/ap15_v3": [
-   "value:description"
-  ],
-  "healthcare/ap15_v5": [
-   "value:description"
-  ],
   "healthcare/ap3_v1": [
    "value:alert_type",
    "value:description"
@@ -353,15 +329,6 @@
    "value:description"
   ],
   "legal/ap14_v5": [
-   "value:description"
-  ],
-  "legal/ap15_v2": [
-   "value:description"
-  ],
-  "legal/ap15_v3": [
-   "value:description"
-  ],
-  "legal/ap15_v5": [
    "value:description"
   ],
   "legal/ap3_v1": [

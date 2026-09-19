@@ -566,11 +566,20 @@ def evaluate_effects(payload: dict, events: list[dict], config: str = "",
     blocked_by = next((r.blocked_by for r in results if r.blocked_by), "")
     attempted_any = any(r.attempted for r in results)
 
+    # An incident the host refused to run at all (P1-L3 config integrity)
+    # is a block of every effect the payload declares.
+    aborted_by = next((e.get("mechanism") for e in events
+                       if e.get("action") == "config_verification"
+                       and e.get("auth_decision") == "deny"), None)
+
     if executed:
         outcome = OUTCOME_EXECUTED
         blocked_by = ""
     elif blocked_by:
         outcome = OUTCOME_BLOCKED
+    elif aborted_by:
+        outcome = OUTCOME_BLOCKED
+        blocked_by = aborted_by
     else:
         outcome = OUTCOME_NOT_ATTEMPTED
 

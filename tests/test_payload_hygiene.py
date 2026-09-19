@@ -62,4 +62,4 @@ def test_meta_is_never_handed_to_the_host():
 def test_waiver_count_is_reported():
     """Keeps the number visible in the test output."""
     print(f"\nhygiene waivers: {len(WAIVERS)} variants")
-    assert len(WAIVERS) <= 118
+    assert len(WAIVERS) <= 107

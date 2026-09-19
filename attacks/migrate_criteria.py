@@ -456,6 +456,12 @@ def migrate(dry_run: bool) -> None:
             variants = data if isinstance(data, list) else data.get("variants", [])
             counter = Counter()
             for v in variants:
+                sc0 = v.get("success_criteria")
+                if (isinstance(sc0, dict) and sc0.get("effects") is not None
+                        and not sc0.get("check_type") and not sc0.get("legacy_criteria")):
+                    # hand-written v3 criteria (e.g. the AP-15 fault variants): keep
+                    counter[_classify(sc0["effects"], "")] += 1
+                    continue
                 effects, note = derive_effects(domain, f"ap{ap}", v, tools_by_phase)
                 sc = v.get("success_criteria")
                 if isinstance(sc, list):

@@ -140,7 +140,8 @@ class SOARHost:
         # P1-L3: Verify config integrity before each incident
         if self.auth_interface:
             self.auth_interface.reset_replay_cache()
-            configs_ok, changed_files = self.auth_interface.verify_config_integrity()
+            configs_ok, changed_files = self.auth_interface.verify_config_integrity(
+                overlay=self._config_tamper_overlay())
             if not configs_ok:
                 if self.logger:
                     self.logger.log(
@@ -271,6 +272,104 @@ class SOARHost:
                                 action="harness_injection",
                                 extra={"channel": "proposal_justification", "phase": phase,
                                        "arguments": dict(spec.get("arguments") or {})})
+
+    # ---- H6 fault injection (harness only) -------------------------------
+
+    def _fault(self, kind: str) -> Optional[dict]:
+        """The harness's fault spec of ``kind`` for this incident, if any.
+        ``meta.injection.fault`` = ``{"kind": "toctou"|"forged_response"|
+        "config_tamper", ...}`` (or ``faults``: a list)."""
+        if not self.harness_injection:
+            return None
+        specs = []
+        one = self.harness_injection.get("fault")
+        if isinstance(one, dict):
+            specs.append(one)
+        specs.extend(f for f in (self.harness_injection.get("faults") or []) if isinstance(f, dict))
+        return next((f for f in specs if f.get("kind") == kind and not f.get("_applied")), None)
+
+    def _config_tamper_overlay(self) -> Optional[dict]:
+        """``config_tamper`` fault: what P1-L3 would read from a tampered
+        config file.  Spec: ``{"kind": "config_tamper", "file":
+        "asset_criticality.json", "patch": {"a.b.c": value, ...}}``.  The
+        patched bytes are handed to the integrity check as an overlay; the
+        file on disk is never modified."""
+        spec = self._fault("config_tamper")
+        if not spec or not spec.get("file"):
+            return None
+        path = BASE_DIR / "domains" / self.domain / "configs" / str(spec["file"])
+        try:
+            data = json.loads(path.read_text())
+        except Exception:
+            return None
+        patch = spec.get("patch") or {}
+        # {"a.b": v} dotted form, or [{"path": ["a", "b"], "value": v}] for
+        # keys that themselves contain dots (IP addresses).
+        items = ([(list(e.get("path") or []), e.get("value")) for e in patch if isinstance(e, dict)]
+                 if isinstance(patch, list) else
+                 [(str(k).split("."), v) for k, v in patch.items()])
+        for keys, value in items:
+            if not keys:
+                continue
+            node = data
+            for k in keys[:-1]:
+                if not isinstance(node, dict):
+                    break
+                node = node.setdefault(k, {})
+            if isinstance(node, dict):
+                node[keys[-1]] = value
+        spec["_applied"] = True
+        if self.logger:
+            self.logger.log(source="harness", destination="config_integrity",
+                            action="harness_fault",
+                            extra={"kind": "config_tamper", "file": str(spec["file"]),
+                                   "patched": [".".join(k) for k, _ in items]})
+        return {str(path): json.dumps(data, indent=2).encode()}
+
+    def _apply_pre_execution_fault(self, phase: str, tc) -> None:
+        """``toctou`` fault: the arguments change between approval and
+        execution, as a compromised executor would change them.  Spec:
+        ``{"kind": "toctou", "tool": id, "phase": p, "mutate": {arg: value}}``."""
+        spec = self._fault("toctou")
+        if not spec or spec.get("tool") != tc.tool_id:
+            return
+        if spec.get("phase") and spec["phase"] != phase:
+            return
+        before = dict(tc.arguments) if isinstance(tc.arguments, dict) else {}
+        original_tool = tc.tool_id
+        if spec.get("swap_tool"):
+            # the executed call targets another tool entirely
+            tc.tool_id = str(spec["swap_tool"])
+            tc.arguments = dict(spec.get("mutate") or {})
+        else:
+            tc.arguments = {**before, **(spec.get("mutate") or {})}
+        spec["_applied"] = True
+        if self.logger:
+            self.logger.log(source="harness", destination=tc.tool_id, action="harness_fault",
+                            extra={"kind": "toctou", "phase": phase, "approved_tool": original_tool,
+                                   "mutated_keys": sorted((spec.get("mutate") or {}).keys()),
+                                   **self._args_for_log(tc)})
+
+    def _apply_post_execution_fault(self, phase: str, tc, response):
+        """``forged_response`` fault: the tool's response is replaced after
+        the tool answered (unsigned, as a forgery in transit would be).
+        Spec: ``{"kind": "forged_response", "tool": id, "response": {...}}``."""
+        spec = self._fault("forged_response")
+        if not spec or spec.get("tool") != tc.tool_id:
+            return response
+        if spec.get("phase") and spec["phase"] != phase:
+            return response
+        forged = spec.get("response")
+        forged = dict(forged) if isinstance(forged, dict) else {"status": "success", "result": forged}
+        forged.setdefault("tool_id", tc.tool_id)
+        forged.pop("signature", None)
+        spec["_applied"] = True
+        if self.logger:
+            self.logger.log(source="harness", destination=tc.tool_id, action="harness_fault",
+                            extra={"kind": "forged_response", "phase": phase,
+                                   **self._args_for_log(tc)},
+                            scan_text=forged)
+        return forged
 
     def _trial_id(self) -> str:
         return (getattr(self.logger, "_trial_id", None) or "") if self.logger else ""
@@ -504,8 +603,9 @@ class SOARHost:
           2. P2-L1: Manifest enforcement (tool allowed for this phase?)
           3. P2-L2: Parameter validation (wildcards, criticality, rules, evidence)
           4. P3:    Consensus validation (for irreversible actions)
+          4b. P3-L7: Execution verification before the call (approved == executed, fresh)
           5. Execute tool
-          6. P1-L2: Response integrity (schema, timing, replay)
+          6. P1-L2: Response integrity (signature, schema, timing, replay)
           7. P2-L3: Output classification (sensitive data detection)
         """
         tool_id = tc.tool_id
@@ -727,6 +827,39 @@ class SOARHost:
                         extra=self._args_for_log(tc))
                 return {"status": "escalated", "tool_id": tool_id, "reason": "Action limit reached."}
 
+        # ── Harness fault: TOCTOU mutation between approval and execution ──
+        if self.harness_injection:
+            self._apply_pre_execution_fault(phase, tc)
+            tool_id = tc.tool_id          # may have been swapped
+
+        # ── Step 4b: P3-L7 — Execution verification, BEFORE execution (H6) ──
+        # What is about to be executed must be exactly what was approved,
+        # and the approval must be fresh.  Runs before the tool is called so
+        # a mismatch never reaches the tool.
+        if (self.config == "agenticcyops" and self.verified_execution
+                and _p3_approved_at is not None and self._principle_active("P3")):
+            _to_execute = tc.to_proposal()
+            _to_execute["phase"] = phase
+            for _f in ("action", "target", "target_user", "target_hosts",
+                       "target_users", "account_id", "patient_id", "case_id"):
+                _a = _to_execute.get("arguments", {})
+                if _f in _a and _f not in _to_execute:
+                    _to_execute[_f] = _a[_f]
+            l7_ok, l7_reason = self.verified_execution.verify_execution(
+                proposal, _to_execute, _p3_approved_at
+            )
+            if not l7_ok:
+                if self.logger:
+                    self.logger.log(
+                        source=f"{phase}_agent", destination=tool_id,
+                        action="tool_call", auth_decision="deny",
+                        mechanism="P3_execution_verification",
+                        interception_step=7,
+                        extra={"l7_reason": l7_reason, **self._args_for_log(tc)},
+                    )
+                return {"status": "execution_mismatch", "tool_id": tool_id,
+                        "reason": "Execution verification failed."}
+
         # ── Step 5: Execute tool with latency tracking ──
         _t0 = _time.perf_counter()
         if self.tool_registry:
@@ -747,9 +880,13 @@ class SOARHost:
                                 extra={"channel": "tool_response", "phase": phase,
                                        **self._args_for_log(tc)})
 
+        # ── Harness fault: forged response (unsigned) ──
+        if self.harness_injection:
+            response = self._apply_post_execution_fault(phase, tc, response)
+
         # ── Post-execution checks (agenticcyops only) ──
         if self.config == "agenticcyops":
-            # ── Step 6: P1-L2 — Response integrity ──
+            # ── Step 6: P1-L2 — Response integrity (schema, timing, replay, signature) ──
             if (self.auth_interface and isinstance(response, dict)
                     and self._principle_active("P1")):
                 resp_ok, resp_reason = self.auth_interface.validate_response(
@@ -766,33 +903,6 @@ class SOARHost:
                         )
                     return {"status": "response_rejected", "tool_id": tool_id,
                             "reason": "Response validation failed."}
-
-            # ── Step 6b: P3-L7 — Execution verification (Fix #3) ──
-            # Compare approved proposal against what was actually executed
-            # (same tc object — hash match verifies no TOCTOU modification)
-            if (self.verified_execution and _p3_approved_at is not None
-                    and self._principle_active("P3")):
-                _executed_proposal = tc.to_proposal()
-                _executed_proposal["phase"] = phase
-                for _f in ("action", "target", "target_user", "target_hosts",
-                           "target_users", "account_id", "patient_id", "case_id"):
-                    _a = _executed_proposal.get("arguments", {})
-                    if _f in _a and _f not in _executed_proposal:
-                        _executed_proposal[_f] = _a[_f]
-                l7_ok, l7_reason = self.verified_execution.verify_execution(
-                    proposal, _executed_proposal, _p3_approved_at
-                )
-                if not l7_ok:
-                    if self.logger:
-                        self.logger.log(
-                            source=f"{phase}_agent", destination=tool_id,
-                            action="tool_call", auth_decision="deny",
-                            mechanism="P3_execution_verification",
-                            interception_step=7,
-                            extra={"l7_reason": l7_reason, **self._args_for_log(tc)},
-                        )
-                    return {"status": "execution_mismatch", "tool_id": tool_id,
-                            "reason": "Execution verification failed."}
 
             # ── Step 7: P2-L3 — Output classification (Fix #8: actual redaction) ──
             if (self.output_classifier and isinstance(response, dict)
@@ -827,6 +937,8 @@ class SOARHost:
                 latency_ms=_latency,
             extra=self._args_for_log(tc))
 
+        if isinstance(response, dict):
+            response.pop("signature", None)
         return response
 
     async def _mma_post(self, path: str, payload: dict, timeout: float = 10.0):

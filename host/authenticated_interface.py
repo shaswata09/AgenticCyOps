@@ -119,6 +119,24 @@ class AuthenticatedInterface:
         if entry is None:
             return False, f"P1_unknown_component: {component_id}"
 
+        # --- Signature check (H6) -------------------------------------------
+        # Tool stubs sign every response with the shared key; a response
+        # altered after signing (forged, replaced in transit) fails here.
+        # Validators are not signed (API providers), so only tools are checked.
+        if self._lookup_component(component_id, "tools") is not None:
+            from mcp_servers.signing import verify as _verify_sig
+            sig_ok, sig_reason = _verify_sig(response)
+            if not sig_ok:
+                if self.logger:
+                    self.logger.log(
+                        source="authenticated_interface",
+                        destination=component_id,
+                        action="P1_L2_validate",
+                        auth_decision="deny",
+                        mechanism=sig_reason,
+                    )
+                return False, sig_reason
+
         expected_keys = set(entry.get("expected_response_keys", []))
         if expected_keys and not expected_keys.issubset(response.keys()):
             missing = expected_keys - response.keys()
@@ -205,11 +223,23 @@ class AuthenticatedInterface:
     # P1-L3  Configuration + Data Integrity
     # ------------------------------------------------------------------
 
-    def verify_config_integrity(self) -> tuple[bool, list[str]]:
-        """Recompute config hashes and compare against stored snapshot."""
+    def verify_config_integrity(self, overlay: Optional[dict] = None) -> tuple[bool, list[str]]:
+        """Recompute config hashes and compare against stored snapshot.
+
+        ``overlay`` maps a config file path to the bytes the harness wants
+        the check to see instead of the file on disk (config-tamper fault
+        injection, H6).  Nothing is written to disk.
+        """
         changed: list[str] = []
+        overlay = overlay or {}
         for filepath, original_hash in self._config_hashes.items():
             path = Path(filepath)
+            if str(path) in overlay or path.name in overlay:
+                data = overlay.get(str(path), overlay.get(path.name))
+                current_hash = hashlib.sha256(data).hexdigest()
+                if current_hash != original_hash:
+                    changed.append(filepath)
+                continue
             if not path.exists():
                 changed.append(filepath)
                 continue

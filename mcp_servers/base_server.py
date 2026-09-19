@@ -26,6 +26,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from logging_utils import ExperimentLogger
+from mcp_servers.signing import sign
 
 
 class ToolCallRequest(BaseModel):
@@ -161,6 +162,9 @@ class BaseMCPServer:
                 "result": result,
                 "payload_hash": payload_hash,
             }
+            sig = sign(out)
+            if sig:
+                out["signature"] = sig
             if injected:
                 out["_harness_injected"] = True   # audit marker; stripped before the model sees it
             return out
@@ -175,11 +179,15 @@ class BaseMCPServer:
                     mechanism="none",
                     latency_ms=elapsed_ms,
                 )
-            return {
+            out = {
                 "status": "error",
                 "tool_id": self.tool_id,
                 "error": str(e),
             }
+            sig = sign(out)
+            if sig:
+                out["signature"] = sig
+            return out
 
     def get_openai_tool_schema(self) -> dict:
         """Return OpenAI-compatible tool definition for LLM tool_choice."""
