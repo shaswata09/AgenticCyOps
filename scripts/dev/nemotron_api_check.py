@@ -1,3 +1,6 @@
+# Manual connectivity check for a hosted Nemotron endpoint (not a unit test).
+# Moved out of tests/ so that bare `pytest -q` collects only offline tests.
+
 """Standalone smoke test for the NVIDIA Nemotron cloud endpoint (Group K).
 
 Run from repo root::
