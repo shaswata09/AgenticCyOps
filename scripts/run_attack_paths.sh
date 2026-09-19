@@ -129,7 +129,33 @@ compute_tool_base() {
 }
 
 # ---- Helpers ----
-run_py() { conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"; }
+# ---- CPU pinning -----------------------------------------------------------
+# Every stream (group, domain, slot) gets its own block of cores.  Without it
+# each MMA gateway / seeding job sizes its ONNX and torch thread pools to all
+# 128 cores, and 18 concurrent streams drove the load average to ~280 while
+# the GPUs sat idle (measured 2026-09-19).  Thread pools follow the affinity
+# mask, so pinning also bounds them.  PIN_CPUS=0 disables; CPU_WIDTH = cores
+# per stream; cores above 108 are left to the vLLM API servers.
+declare -A CPU_BASE PIN_DOMAIN_IDX
+CPU_BASE[q235_div4]=0; CPU_BASE[glm_div4]=0; CPU_BASE[claude_loc]=0
+CPU_BASE[scout_div4]=0; CPU_BASE[mistral_div3p]=36; CPU_BASE[llama8b_div4]=72
+PIN_DOMAIN_IDX[cyberops]=0; PIN_DOMAIN_IDX[finance]=1; PIN_DOMAIN_IDX[healthcare]=2; PIN_DOMAIN_IDX[legal]=3
+CPUSET=""
+set_cpuset() { # set_cpuset <domain>
+    CPUSET=""
+    [ "${PIN_CPUS:-1}" = "1" ] && command -v taskset > /dev/null || return 0
+    local width="${CPU_WIDTH:-6}" ncpu; ncpu=$(nproc --all)
+    local idx=$(( ${PIN_DOMAIN_IDX[$1]:-0} * 3 + ${SLOT:-0} ))
+    local start=$(( ( ${CPU_BASE[$GROUP]:-0} + idx * width ) % (ncpu - width + 1) ))
+    CPUSET="${start}-$(( start + width - 1 ))"
+}
+run_py() {
+    if [ -n "$CPUSET" ]; then
+        taskset -c "$CPUSET" conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"
+    else
+        conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"
+    fi
+}
 
 wait_for_health() {
     local url="$1" name="$2" timeout="${3:-60}" elapsed=0
@@ -319,10 +345,11 @@ run_domain() {
     local MMA_PORT=$((TOOL_BASE_PORT + 30))
     local CHROMA_DB_PATH="./data/chromadb/group_${GROUP}${SLOT:+_s${SLOT}}"
 
+    set_cpuset "$domain"
     echo ""
     echo "============================================================"
     echo "  ${domain} / Group ${GROUP}"
-    echo "  tool_base=${TOOL_BASE_PORT}  mma=${MMA_PORT}  chromadb=${CHROMA_DB_PATH}/${domain}"
+    echo "  tool_base=${TOOL_BASE_PORT}  mma=${MMA_PORT}  chromadb=${CHROMA_DB_PATH}/${domain}  cpus=${CPUSET:-all}"
     echo "============================================================"
 
     # Logs and results are append-only (every log file carries a timestamp,

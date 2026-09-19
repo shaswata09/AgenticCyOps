@@ -1,0 +1,7 @@
+2026-09-19 18:57:22  E1 benign llama8b_div4: cyberops finance
+2026-09-19 18:57:22    start llama8b_div4 cyberops benign flat (slot 0)
+2026-09-19 18:57:42    start llama8b_div4 cyberops benign acl_hardened (slot 1)
+2026-09-19 18:58:02    start llama8b_div4 cyberops benign agenticcyops (slot 2)
+2026-09-19 18:58:22    start llama8b_div4 finance benign flat (slot 0)
+2026-09-19 18:58:42    start llama8b_div4 finance benign acl_hardened (slot 1)
+2026-09-19 18:59:02    start llama8b_div4 finance benign agenticcyops (slot 2)
