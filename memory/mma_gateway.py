@@ -236,36 +236,38 @@ def create_app(
                 detail=f"Phase '{req.phase}' is not allowed to read from '{req.store_id}'.",
             )
 
-        # P5-L3: Query scope validation
-        context = getattr(req, "_context", {})  # context passed if available
-        ok, reason, details = access_isolation.validate_query(
-            req.phase, req.store_id, req.query, context
-        )
-        if not ok:
-            latency = (time.perf_counter() - start) * 1000
-            logger.log_memory_read(
-                agent=req.phase,
-                store=req.store_id,
-                auth_decision="deny",
-                mechanism=reason,
-                latency_ms=latency,
+        # P5-L3 / L4: query scope and read-pattern checks.  Skipped under
+        # the -P5 ablation and for the flat / acl_hardened systems, which
+        # have no gateway defenses (the host sets skip_p5 for them, H4).
+        if not req.skip_p5:
+            context = getattr(req, "_context", {})  # context passed if available
+            ok, reason, details = access_isolation.validate_query(
+                req.phase, req.store_id, req.query, context
             )
-            raise HTTPException(status_code=422, detail=reason)
+            if not ok:
+                latency = (time.perf_counter() - start) * 1000
+                logger.log_memory_read(
+                    agent=req.phase,
+                    store=req.store_id,
+                    auth_decision="deny",
+                    mechanism=reason,
+                    latency_ms=latency,
+                )
+                raise HTTPException(status_code=422, detail=reason)
 
-        # P5-L4: Read pattern monitoring
-        ok, reason, details = access_isolation.check_read_pattern(
-            req.phase, req.store_id, req.query
-        )
-        if not ok:
-            latency = (time.perf_counter() - start) * 1000
-            logger.log_memory_read(
-                agent=req.phase,
-                store=req.store_id,
-                auth_decision="deny",
-                mechanism=reason,
-                latency_ms=latency,
+            ok, reason, details = access_isolation.check_read_pattern(
+                req.phase, req.store_id, req.query
             )
-            raise HTTPException(status_code=429, detail=reason)
+            if not ok:
+                latency = (time.perf_counter() - start) * 1000
+                logger.log_memory_read(
+                    agent=req.phase,
+                    store=req.store_id,
+                    auth_decision="deny",
+                    mechanism=reason,
+                    latency_ms=latency,
+                )
+                raise HTTPException(status_code=429, detail=reason)
 
         # Execute query
         collection = _get_collection(req.store_id)
@@ -278,29 +280,30 @@ def create_app(
         metadatas = results["metadatas"][0] if results["metadatas"] else []
         distances = results["distances"][0] if results["distances"] else []
 
-        # P5-L5: Sanitize results (strip prompt injections)
-        result_entries = [
-            {"text": doc, "metadata": meta}
-            for doc, meta in zip(documents, metadatas)
-        ]
-        sanitized = access_isolation.sanitize_results(result_entries, req.phase)
-        documents = [e.get("text", "") for e in sanitized]
-        metadatas = [e.get("metadata", {}) for e in sanitized]
+        if not req.skip_p5:
+            # P5-L5: Sanitize results (strip prompt injections)
+            result_entries = [
+                {"text": doc, "metadata": meta}
+                for doc, meta in zip(documents, metadatas)
+            ]
+            sanitized = access_isolation.sanitize_results(result_entries, req.phase)
+            documents = [e.get("text", "") for e in sanitized]
+            metadatas = [e.get("metadata", {}) for e in sanitized]
 
-        # P5-L2: Field-level filtering
-        filtered = access_isolation.filter_fields(
-            req.phase, req.store_id,
-            [{"text": d, "metadata": m} for d, m in zip(documents, metadatas)]
-        )
-        documents = [e.get("text", "") for e in filtered]
-        metadatas = [e.get("metadata", {}) for e in filtered]
+            # P5-L2: Field-level filtering
+            filtered = access_isolation.filter_fields(
+                req.phase, req.store_id,
+                [{"text": d, "metadata": m} for d, m in zip(documents, metadatas)]
+            )
+            documents = [e.get("text", "") for e in filtered]
+            metadatas = [e.get("metadata", {}) for e in filtered]
 
         latency = (time.perf_counter() - start) * 1000
         logger.log_memory_read(
             agent=req.phase,
             store=req.store_id,
             auth_decision="allow",
-            mechanism="P5_access_control",
+            mechanism="P5_disabled_accept" if req.skip_p5 else "P5_access_control",
             latency_ms=latency,
             num_results=len(documents),
         )

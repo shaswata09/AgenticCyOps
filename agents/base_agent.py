@@ -162,8 +162,21 @@ class BaseAgent:
         parts = []
 
         incident = context.get("incident", {})
+        # ``memory_ops`` is harness scripting (which reads / writes to
+        # perform), not part of the alert the operator would see.
+        shown = {k: v for k, v in incident.items() if k != "memory_ops"} if isinstance(incident, dict) else incident
         parts.append("## Incident")
-        parts.append(json.dumps(incident, indent=2, default=str))
+        parts.append(json.dumps(shown, indent=2, default=str))
+
+        # Results of this phase's memory reads (performed by the host
+        # before this call, H4)
+        reads = (context.get("memory_context") or {}).get(self.phase) or []
+        entries = [(r.get("store"), d) for r in reads if isinstance(r, dict)
+                   for d in (r.get("documents") or [])]
+        if entries:
+            parts.append("\n## Memory Context")
+            for store, doc in entries[:6]:
+                parts.append(f"[{store}] {doc}")
 
         # Include prior phase handoffs
         for phase in ("monitor", "analyze", "admin"):

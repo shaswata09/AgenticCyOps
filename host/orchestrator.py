@@ -265,8 +265,24 @@ class SOARHost:
         return _hm.new(key.encode(), f"{phase}:{store_id}".encode(), _hl.sha256).hexdigest()[:16]
 
     async def run_phase(self, phase: str, context: dict) -> dict:
-        """Execute a single phase with enforcement based on config."""
+        """Execute a single phase with enforcement based on config.
+
+        Scripted memory reads (``incident.memory_ops.reads``) run *before*
+        the agent's LLM call and their results are placed in
+        ``context["memory_context"][phase]``, so what the store returns can
+        reach the model (H4).  Scripted writes run after the agent's own
+        writes.
+        """
         agent = self.agents[phase]
+        memory_ops = context.get("incident", {}).get("memory_ops", {}) or {}
+
+        # Scripted reads for this phase (every config; enforcement differs)
+        reads = []
+        for mr in memory_ops.get("reads", []) or []:
+            if mr.get("phase") == phase:
+                reads.append(await self._process_memory_read(phase, mr, context))
+        if reads:
+            context.setdefault("memory_context", {})[phase] = reads
 
         # Agent proposes actions
         try:
@@ -300,115 +316,16 @@ class SOARHost:
         for mw in result.memory_writes:
             await self._process_memory_write(phase, mw, context)
 
-        # Process scripted memory ops from incident payload (for baseline verification)
-        memory_ops = context.get("incident", {}).get("memory_ops", {})
-        if memory_ops:
-            # Scripted reads for this phase
-            for mr in memory_ops.get("reads", []):
-                if mr.get("phase") == phase and self.config == "agenticcyops":
-                    read_call_id = self._next_call_id(
-                        phase, "mem_read", f"{mr['store']}|{mr.get('query', '')}")
-                    if self.logger:
-                        self.logger.log(
-                            source=f"{phase}_agent", destination=mr["store"],
-                            action="memory_read_proposed",
-                            extra={"call_id": read_call_id, "query": mr.get("query", ""),
-                                   "scripted": True},
-                        )
-                    try:
-                        async with httpx.AsyncClient() as client:
-                            import hashlib as _hl
-                            import hmac as _hm
-                            _key_path = BASE_DIR / "configs" / "hmac_key.txt"
-                            _tok = ""
-                            if _key_path.exists():
-                                _k = _key_path.read_text().strip()
-                                _tok = _hm.new(_k.encode(),
-                                    f"{phase}:{mr['store']}".encode(),
-                                    _hl.sha256).hexdigest()[:16]
-                            resp = await client.post(
-                                f"{self.mma_url}/memory/read",
-                                json={"phase": phase, "store_id": mr["store"],
-                                      "query": mr.get("query", ""), "n_results": 3,
-                                      "auth_token": _tok,
-                                      "skip_p5": not self._principle_active("P5")},
-                                timeout=10)
-
-                            # Parse specific P5 mechanism from MMA response when denied.
-                            # MMA returns status 403 for L1 access control, 422 for
-                            # L3 query scope violations, 429 for L4 read-pattern
-                            # anomalies, with the specific reason in `detail`.
-                            if resp.status_code == 200:
-                                p5_mechanism = "P5_access_control"
-                                auth_decision = "allow"
-                            else:
-                                auth_decision = "deny"
-                                try:
-                                    body = resp.json()
-                                    detail = body.get("detail", "") if isinstance(body, dict) else ""
-                                except Exception:
-                                    detail = ""
-                                # Map status + detail -> canonical mechanism name
-                                if resp.status_code == 403:
-                                    p5_mechanism = "P5_access_control"
-                                elif resp.status_code == 422 and detail.startswith("P5_"):
-                                    p5_mechanism = detail.split(".")[0].split(":")[0].strip()
-                                elif resp.status_code == 429 and detail.startswith("P5_"):
-                                    p5_mechanism = detail.split(".")[0].split(":")[0].strip()
-                                else:
-                                    p5_mechanism = f"P5_denied_{resp.status_code}"
-
-                            # Log ALL memory reads for baseline verification
-                            if self.logger:
-                                self.logger.log(
-                                    source=f"{phase}_agent",
-                                    destination=mr["store"],
-                                    action="memory_read",
-                                    auth_decision=auth_decision,
-                                    mechanism=p5_mechanism,
-                                    extra={"call_id": read_call_id},
-                                )
-                            # AP-14 fix: Log sanitization events from read results
-                            if resp.status_code == 200 and self.logger:
-                                try:
-                                    read_data = resp.json()
-                                    docs = read_data.get("documents", [])
-                                    metas = read_data.get("metadatas", [])
-                                    sanitized_count = sum(
-                                        1 for m in metas
-                                        if isinstance(m, dict) and m.get("_sanitized")
-                                    )
-                                    if sanitized_count > 0 or any(
-                                        "[REDACTED" in d for d in docs if isinstance(d, str)
-                                    ):
-                                        self.logger.log(
-                                            source=f"{phase}_agent",
-                                            destination=mr["store"],
-                                            action="memory_read",
-                                            auth_decision="allow",
-                                            mechanism="P5_injection_sanitization",
-                                            extra={
-                                                "sanitized_entries": sanitized_count,
-                                                "store": mr["store"],
-                                                "phase": phase,
-                                                "call_id": read_call_id,
-                                            },
-                                        )
-                                except Exception:
-                                    pass
-                    except Exception:
-                        pass  # MMA unreachable — logged at gateway level
-
-            # Scripted writes for this phase
-            for mw in memory_ops.get("writes", []):
-                if mw.get("phase") == phase:
-                    await self._process_memory_write(phase, {
-                        "store_id": mw["store"],
-                        "content": mw.get("content", ""),
-                        "metadata": mw.get("metadata", {}),
-                        "doc_id": f"{phase}_{mw['store']}_{context.get('incident_id', 'unknown')}",
-                        "scripted": True,
-                    }, context)
+        # Scripted writes for this phase (every config; enforcement differs)
+        for mw in memory_ops.get("writes", []) or []:
+            if mw.get("phase") == phase:
+                await self._process_memory_write(phase, {
+                    "store_id": mw["store"],
+                    "content": mw.get("content", ""),
+                    "metadata": mw.get("metadata", {}),
+                    "doc_id": f"{phase}_{mw['store']}_{context.get('incident_id', 'unknown')}",
+                    "scripted": True,
+                }, context)
 
         return result.to_dict()
 
@@ -845,6 +762,106 @@ class SOARHost:
 
         return response
 
+    async def _mma_post(self, path: str, payload: dict, timeout: float = 10.0):
+        """POST to the MMA gateway.  Returns ``(status_code, body)``;
+        ``(0, {"error": ...})`` when the gateway is unreachable."""
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(f"{self.mma_url}{path}", json=payload, timeout=timeout)
+            try:
+                body = resp.json()
+            except Exception:
+                body = {}
+            return resp.status_code, body
+        except Exception as exc:
+            return 0, {"error": str(exc)[:160]}
+
+    @staticmethod
+    def _p5_mechanism(status_code: int, body) -> str:
+        """Map an MMA read denial (status + detail) to the P5 layer name.
+
+        MMA returns 403 for L1 access control, 422 for L3 query scope
+        violations, 429 for L4 read-pattern anomalies, with the specific
+        reason in ``detail``.
+        """
+        detail = body.get("detail", "") if isinstance(body, dict) else ""
+        if status_code == 403:
+            return "P5_access_control"
+        if status_code in (422, 429) and str(detail).startswith("P5_"):
+            return str(detail).split(".")[0].split(":")[0].strip()
+        return f"P5_denied_{status_code}"
+
+    async def _process_memory_read(self, phase: str, mr: dict, context: dict) -> dict:
+        """Scripted memory read with config-appropriate enforcement (H4).
+
+        flat          -> the store, no checks (``mechanism="none"``)
+        acl_hardened  -> manifest ACL, then the store (``acl_network_layer``)
+        agenticcyops  -> MMA gateway with P5 L1-L5
+        Returns ``{"store", "query", "documents", "status"}`` for the
+        agent's context; documents are empty on denial.
+        """
+        store = mr.get("store", "")
+        query = mr.get("query", "")
+        call_id = self._next_call_id(phase, "mem_read", f"{store}|{query}")
+        if self.logger:
+            self.logger.log(source=f"{phase}_agent", destination=store,
+                            action="memory_read_proposed",
+                            extra={"call_id": call_id, "query": query, "scripted": True})
+        out = {"store": store, "query": query, "documents": [], "status": "denied"}
+
+        if self.config == "acl_hardened":
+            allowed, reason = self.enforcer.validate_memory_read(phase, store)
+            if not allowed:
+                if self.logger:
+                    self.logger.log_memory_read(agent=f"{phase}_agent", store=store,
+                                                auth_decision="deny", mechanism="acl_network_layer",
+                                                extra={"call_id": call_id})
+                out["reason"] = f"403: {reason}"
+                return out
+
+        bypass = self.config != "agenticcyops"
+        status, body = await self._mma_post("/memory/read", {
+            "phase": phase, "store_id": store, "query": query, "n_results": 3,
+            "auth_token": self._mma_token(phase, store),
+            "skip_p5": bypass or not self._principle_active("P5"),
+        })
+        if status == 0:
+            if self.logger:
+                self.logger.log_memory_read(agent=f"{phase}_agent", store=store,
+                                            auth_decision="error", mechanism="mma_unreachable",
+                                            extra={"call_id": call_id, "error": body.get("error")})
+            out["status"] = "error"
+            return out
+
+        if status == 200:
+            docs = body.get("documents", []) if isinstance(body, dict) else []
+            metas = body.get("metadatas", []) if isinstance(body, dict) else []
+            out.update({"documents": docs, "status": "ok"})
+            mech = ("none" if self.config == "flat"
+                    else "acl_network_layer" if self.config == "acl_hardened"
+                    else "P5_access_control")
+            if self.logger:
+                self.logger.log_memory_read(agent=f"{phase}_agent", store=store,
+                                            auth_decision="allow", mechanism=mech,
+                                            num_results=len(docs), extra={"call_id": call_id},
+                                            )
+                # P5-L5 sanitisation evidence on the returned entries
+                sanitized = sum(1 for m in metas if isinstance(m, dict) and m.get("_sanitized"))
+                if sanitized or any("[REDACTED" in d for d in docs if isinstance(d, str)):
+                    self.logger.log(source=f"{phase}_agent", destination=store,
+                                    action="memory_read", auth_decision="allow",
+                                    mechanism="P5_injection_sanitization",
+                                    extra={"sanitized_entries": sanitized, "store": store,
+                                           "phase": phase, "call_id": call_id})
+            return out
+
+        mech = self._p5_mechanism(status, body) if self.config == "agenticcyops" else f"store_denied_{status}"
+        if self.logger:
+            self.logger.log_memory_read(agent=f"{phase}_agent", store=store,
+                                        auth_decision="deny", mechanism=mech,
+                                        extra={"call_id": call_id})
+        return out
+
     async def _process_memory_write(self, phase: str, mw: dict, context: dict):
         """Process a memory write with config-appropriate enforcement.
 
@@ -869,107 +886,73 @@ class SOARHost:
                 scan_text=content,
             )
 
-        if self.config == "agenticcyops":
-            # Route through MMA gateway with auth token (Fix #7)
-            import hashlib as _hashlib
-            import hmac as _hmac_mod
-            auth_token = ""
-            hmac_key_path = BASE_DIR / "configs" / "hmac_key.txt"
-            if hmac_key_path.exists():
-                _key = hmac_key_path.read_text().strip()
-                auth_token = _hmac_mod.new(
-                    _key.encode(), f"{phase}:{store_id}".encode(), _hashlib.sha256
-                ).hexdigest()[:16]
+        mech_ok = ("none" if self.config == "flat"
+                   else "acl_network_layer" if self.config == "acl_hardened"
+                   else "P4_memory_integrity")
 
-            try:
-                async with httpx.AsyncClient() as client:
-                    resp = await client.post(
-                        f"{self.mma_url}/memory/write",
-                        json={
-                            "phase": phase,
-                            "store_id": store_id,
-                            "document": content,
-                            "doc_id": doc_id,
-                            "incident_evidence": context.get("incident", {}).get("description", ""),
-                            "metadata": {**(mw.get("metadata", {}) or {}),
-                                         "trial_id": self._trial_id() or "untagged"},
-                            "auth_token": auth_token,
-                            # Ablation switches -- MMA bypasses the
-                            # corresponding check when set.  Default
-                            # (full enforcement) when not in ablation.
-                            "skip_p4": not self._principle_active("P4"),
-                            "skip_p5": not self._principle_active("P5"),
-                        },
-                        timeout=10,
-                    )
-                    # Parse specific P4/P5 mechanism from MMA response.
-                    # MMA returns 403 for P5 access control, 422 for P4
-                    # memory-integrity rejection, with the specific reason
-                    # (e.g., P4_similarity_reject, P4_drift_outlier,
-                    # P4_metadata_invalid) in `detail`.
-                    try:
-                        body = resp.json()
-                    except Exception:
-                        body = {}
-                    if resp.status_code == 200:
-                        accepted = body.get("accepted", True)
-                        sim = body.get("similarity_score", 0.0)
-                        mechanism = "P4_memory_integrity"
-                    else:
-                        accepted = False
-                        sim = 0.0
-                        detail = body.get("detail", "") if isinstance(body, dict) else ""
-                        if resp.status_code == 403:
-                            mechanism = "P5_access_control"
-                        elif resp.status_code == 422:
-                            if "P4_" in detail:
-                                # Extract the P4_* token from the detail message.
-                                for tok in detail.split():
-                                    if tok.startswith("P4_"):
-                                        mechanism = tok.rstrip(".,:")
-                                        break
-                                else:
-                                    mechanism = "P4_memory_integrity"
-                            else:
-                                mechanism = f"P4_denied_{resp.status_code}"
-                        else:
-                            mechanism = f"P4_denied_{resp.status_code}"
-                    if self.logger:
-                        self.logger.log_memory_write(
-                            agent=f"{phase}_agent",
-                            store=store_id,
-                            auth_decision="allow" if accepted else "deny",
-                            mechanism=mechanism,
-                            cosine_similarity=sim,
-                            payload=content,
-                            extra=mem_meta,
-                        )
-                    return body
-            except Exception:
-                return {"status": "mma_unreachable"}
-
-        elif self.config == "acl_hardened":
-            # ACL: Check access but NO write-boundary filtering (P4 absent)
+        if self.config == "acl_hardened":
+            # ACL: manifest check but NO write-boundary filtering (P4 absent)
             allowed, reason = self.enforcer.validate_memory_write(phase, store_id)
             if not allowed:
                 if self.logger:
                     self.logger.log_memory_write(
-                        agent=f"{phase}_agent",
-                        store=store_id,
-                        auth_decision="deny",
-                        mechanism="acl_network_layer",
-                        extra=mem_meta,
-                    )
+                        agent=f"{phase}_agent", store=store_id,
+                        auth_decision="deny", mechanism="acl_network_layer",
+                        extra=mem_meta)
                 return {"status": "denied", "reason": f"403: {reason}"}
 
-        # flat config or acl_hardened allowed — write directly (no P4 filtering)
+        # Every config writes to the same store through the gateway; flat and
+        # acl_hardened bypass P4 / P5 (no gateway defenses in those systems).
+        bypass = self.config != "agenticcyops"
+        status, body = await self._mma_post("/memory/write", {
+            "phase": phase,
+            "store_id": store_id,
+            "document": content,
+            "doc_id": doc_id,
+            "incident_evidence": context.get("incident", {}).get("description", ""),
+            "metadata": {**(mw.get("metadata", {}) or {}),
+                         "trial_id": self._trial_id() or "untagged",
+                         "config": self.config},
+            "auth_token": self._mma_token(phase, store_id),
+            # Ablation switches -- MMA bypasses the corresponding check when
+            # set.  Default (full enforcement) for agenticcyops.
+            "skip_p4": bypass or not self._principle_active("P4"),
+            "skip_p5": bypass or not self._principle_active("P5"),
+        })
+        if status == 0:
+            if self.logger:
+                self.logger.log_memory_write(
+                    agent=f"{phase}_agent", store=store_id,
+                    auth_decision="error", mechanism="mma_unreachable",
+                    payload=content, extra={**mem_meta, "error": body.get("error")})
+            return {"status": "mma_unreachable"}
+
+        # Parse specific P4/P5 mechanism from the MMA response.  MMA returns
+        # 403 for P5 access control, 422 for P4 memory-integrity rejection,
+        # with the specific reason (e.g. P4_similarity_reject,
+        # P4_drift_outlier, P4_metadata_invalid) in ``detail``.
+        if status == 200:
+            accepted = body.get("accepted", True) if isinstance(body, dict) else True
+            sim = body.get("similarity_score", 0.0) if isinstance(body, dict) else 0.0
+            mechanism = mech_ok
+        else:
+            accepted = False
+            sim = 0.0
+            detail = body.get("detail", "") if isinstance(body, dict) else ""
+            if bypass:
+                mechanism = f"store_denied_{status}"
+            elif status == 403:
+                mechanism = "P5_access_control"
+            elif status == 422 and "P4_" in detail:
+                mechanism = next((tok.rstrip(".,:") for tok in detail.split()
+                                  if tok.startswith("P4_")), "P4_memory_integrity")
+            else:
+                mechanism = f"P4_denied_{status}"
         if self.logger:
             self.logger.log_memory_write(
-                agent=f"{phase}_agent",
-                store=store_id,
-                auth_decision="allow",
-                mechanism="none" if self.config == "flat" else "acl_network_layer",
-                payload=content,
-                extra=mem_meta,
-            )
-        return {"status": "written"}
+                agent=f"{phase}_agent", store=store_id,
+                auth_decision="allow" if accepted else "deny",
+                mechanism=mechanism,
+                cosine_similarity=sim if not bypass else None,
+                payload=content, extra=mem_meta)
+        return body if isinstance(body, dict) else {"status": "written"}
