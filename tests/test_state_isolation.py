@@ -139,3 +139,31 @@ def test_symbolic_only_runs_the_stack_without_llm_consensus(tmp_path):
     assert rows[0]["config"] == "symbolic_only"
     mechs = {e.get("mechanism") for e in rows}
     assert "P3_no_consensus" not in mechs
+
+
+def test_access_isolation_is_fully_constructed_without_a_reset():
+    """Found in E0: the H3 reset() was inserted in the middle of __init__, so
+    the L5 sanitisation patterns only existed after the first reset and the
+    ASB / InjecAgent pipelines (which never reset) crashed."""
+    from memory.access_isolation import AccessIsolation
+    ai = AccessIsolation(domain="cyberops", embedding_model=None)
+    out = ai.sanitize_results([{"content": "normal note about 10.0.5.14"}], "analyze")
+    assert isinstance(out, list) and len(out) == 1
+    ai.reset()
+    assert ai.sanitize_results([{"content": "x"}], "analyze")
+
+
+def test_l0_scope_expansion_counts_claims_not_tool_evidence():
+    """Found in E0: entities in verified tool results were counted as scope
+    expansion, so every P3-gated action after a telemetry lookup was denied."""
+    from consensus.handoff_validator import HandoffValidator
+    hv = HandoffValidator()
+    incident = {"description": "credential stuffing from 10.0.5.14 against 10.0.8.200", "initial_severity": "high"}
+    telemetry = [{"result": {"hosts": [f"10.0.9.{i}" for i in range(20)], "user": "CORP\\\\jsmith"}}]
+    ok, reason, _ = hv._check_scope_expansion(
+        {"phase_summary": "Blocked 10.0.5.14 after review.", "tool_results": telemetry}, incident)
+    assert ok, reason
+    inflated = {"phase_summary": "Compromise confirmed on " + ", ".join(f"10.0.7.{i}" for i in range(15)),
+                "tool_results": telemetry}
+    ok, reason, _ = hv._check_scope_expansion(inflated, incident)
+    assert not ok and reason == "P3_scope_expansion"

@@ -279,14 +279,14 @@ class AccessIsolation:
             embedding_model=self._model,
         )
 
-    def reset(self) -> None:
-        """Clear P5-L4 read history (per-trial isolation, H3)."""
-        self._pattern_tracker.reset()
-
         # L5 -- compile injection regexes once
         self._injection_patterns: list[re.Pattern] = [
             re.compile(p) for p in self._RAW_INJECTION_PATTERNS
         ]
+
+    def reset(self) -> None:
+        """Clear P5-L4 read history (per-trial isolation, H3)."""
+        self._pattern_tracker.reset()
 
     # ------------------------------------------------------------------ #
     #  L1: Phase-store access control  (pass-through)

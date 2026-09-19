@@ -126,13 +126,22 @@ class HandoffValidator:
         self, handoff: dict, raw_incident: dict
     ) -> tuple[bool, str, dict]:
         """Detect if handoff introduces significantly more entities than the incident."""
-        incident_text = self._flatten_to_text(raw_incident)
-        handoff_text = self._flatten_to_text(handoff)
+        # Scope expansion is about what a phase *claims* (summary, reasoning,
+        # assessed scope, recommended actions), measured against the evidence.
+        # Results returned by registered, signature-verified tools are
+        # evidence, not claims: their entities join the baseline instead of
+        # counting as expansion.  (Until 2026-09 every tool call failed with
+        # 404, so tool_results carried no entities and this distinction never
+        # mattered; with working tools the check denied every P3-gated action
+        # after any lookup that returned telemetry.)
+        claims = {k: v for k, v in handoff.items() if k != "tool_results"}
+        incident_entities = self._extract_entities(self._flatten_to_text(raw_incident))
+        tool_entities = self._extract_entities(self._flatten_to_text(handoff.get("tool_results") or []))
+        handoff_entities = self._extract_entities(self._flatten_to_text(claims))
 
-        incident_entities = self._extract_entities(incident_text)
-        handoff_entities = self._extract_entities(handoff_text)
-
-        new_entities = handoff_entities - incident_entities
+        # unfounded = claimed but in neither the alert nor the tool evidence;
+        # the ratio stays relative to the alert's own scope (threshold unchanged)
+        new_entities = handoff_entities - incident_entities - tool_entities
         ratio = len(new_entities) / max(1, len(incident_entities))
 
         if ratio > 3.0:

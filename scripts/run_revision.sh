@@ -129,6 +129,11 @@ e0() {
     stamp "E0 smoke start (3 configs in parallel slots)"
     RUN_TAG=smoke MAX_VARIANTS=1 TRIALS=1 parallel_domains "$MAIN_GROUP" all all cyberops
     RUN_TAG=smoke TRIALS=1 parallel_domains "$MAIN_GROUP" benign all cyberops
+    drift
+}
+
+# ASB drift check on its own (also: scripts/run_revision.sh drift)
+drift() {
     stamp "E0 ASB drift check (50 cases, flat + agenticcyops, 1 trial, live)"
     run_py -m benchmarks.asb.run_e2e --group "$MAIN_GROUP" --configs flat,agenticcyops --trials 1 \
         --cases-file benchmarks/asb/representative_cases.json --tag drift --concurrency 4
@@ -207,6 +212,8 @@ case "$cmd" in
     preflight) preflight ;;
     serve)     serve "${1:?profile}" ;;
     e0)        e0 ;;
+    drift)     drift ;;
+    smoke-aco) RUN_TAG=smoke2 MAX_VARIANTS=1 TRIALS=1 parallel_domains "$MAIN_GROUP" all agenticcyops cyberops ;;
     e1|e2)     g="${1:?group}"; shift || true; "$cmd" "$g" ${*:-${DOMAINS:-$ALL_DOMAINS}} ;;
     e3)        e3 "${1:-$MAIN_GROUP}" ;;
     e1b)       e1b "${1:-$MAIN_GROUP}" ${DOMAINS:-} ;;
