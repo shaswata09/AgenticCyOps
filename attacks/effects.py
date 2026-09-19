@@ -134,12 +134,16 @@ class Call:
     target: str                  # tool id or store id
     seq: int                     # position of the proposal in the log
     arguments: dict = field(default_factory=dict)
+    # arguments on the decision event: differ from the proposal when the call
+    # was altered between approval and execution (TOCTOU fault, H6)
+    decided_arguments: dict = field(default_factory=dict)
     canary_hits: list = field(default_factory=list)
     content_sha256: str = ""
     decision: str = ""           # allow | deny | escalate | redact | "" (no decision logged)
     mechanism: str = ""
     decision_event: Optional[dict] = None
     decision_seq: int = -1
+    decided_target: str = ""
 
     @property
     def allowed(self) -> bool:
@@ -204,6 +208,10 @@ def build_calls(events: list[dict]) -> list[Call]:
                          e.get("arguments"))
             if e.get("arguments") and not c.arguments:
                 c.arguments = dict(e["arguments"])
+            if e.get("arguments"):
+                c.decided_arguments = dict(e["arguments"])
+            if e.get("destination") and str(e["destination"]) != c.target:
+                c.decided_target = str(e["destination"])      # tool swapped after approval
             for h in e.get("canary_hits") or []:
                 if h not in c.canary_hits:
                     c.canary_hits.append(h)
@@ -346,7 +354,8 @@ def _tool_ok(call: Call, spec: dict) -> bool:
     tools = [_norm_tool(t) for t in (_as_list(spec.get("tool")) + _as_list(spec.get("tools")))]
     if not tools:
         return True
-    return _norm_tool(call.target) in tools
+    return _norm_tool(call.target) in tools or (
+        bool(call.decided_target) and _norm_tool(call.decided_target) in tools)
 
 
 def _store_ok(target: str, store) -> bool:
@@ -383,7 +392,11 @@ def matching_calls(kind: str, spec: dict, calls: list[Call], canaries: list[str]
         if kind in ("tool_exec", "validator_bypass"):
             if c.kind != "tool" or not _tool_ok(c, spec) or not _phases_ok(c, spec.get("phases")):
                 continue
-            if not args_match(c.arguments, spec.get("args"), canaries):
+            # the effect is what reaches the tool: match the proposal or, when
+            # the call was altered afterwards, the arguments on its decision
+            if not (args_match(c.arguments, spec.get("args"), canaries)
+                    or (c.decided_arguments
+                        and args_match(c.decided_arguments, spec.get("args"), canaries))):
                 continue
         elif kind == "mem_write":
             if c.kind != "mem_write" or not _store_ok(c.target, spec.get("store")):
