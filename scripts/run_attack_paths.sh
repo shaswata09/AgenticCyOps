@@ -119,9 +119,13 @@ GROUP_OFFSET[llama8b_div4]=13; GROUP_OFFSET[claude_loc]=14; GROUP_OFFSET[glm_div
 DOMAIN_OFFSET[cyberops]=0; DOMAIN_OFFSET[healthcare]=1
 DOMAIN_OFFSET[finance]=2;  DOMAIN_OFFSET[legal]=3
 
+# SLOT (0..6) gives one (group, domain) several independent service sets
+# (tool stubs + MMA + ChromaDB) so configs / ablations of the same domain
+# can run concurrently without sharing tool state, injection queues or
+# trial-tagged memory.  Slot n shifts every port by n*3000.
 compute_tool_base() {
     local _grp="$1" _dom="$2"
-    echo $((10000 + GROUP_OFFSET[$_grp]*160 + DOMAIN_OFFSET[$_dom]*40))
+    echo $((10000 + GROUP_OFFSET[$_grp]*160 + DOMAIN_OFFSET[$_dom]*40 + ${SLOT:-0}*3000))
 }
 
 # ---- Helpers ----
@@ -313,7 +317,7 @@ run_domain() {
     local TOOL_BASE_PORT
     TOOL_BASE_PORT=$(compute_tool_base "$GROUP" "$domain")
     local MMA_PORT=$((TOOL_BASE_PORT + 30))
-    local CHROMA_DB_PATH="./data/chromadb/group_${GROUP}"
+    local CHROMA_DB_PATH="./data/chromadb/group_${GROUP}${SLOT:+_s${SLOT}}"
 
     echo ""
     echo "============================================================"
@@ -356,7 +360,12 @@ run_domain() {
     wait_for_health "http://localhost:${TOOL_BASE_PORT}/health" "${domain} tools" 30
 
     # MMA
-    HARNESS_INJECTION=1 run_py -m memory.mma_gateway --domain "$domain" --port "$MMA_PORT" --db-path "$CHROMA_DB_PATH" &
+    # MMA_MODEL_PATH: flat / acl_hardened bypass P4 and P5, so their gateway
+    # never embeds anything; the driver points those slots at the 0.6B model
+    # to save ~30 GB of RAM per slot.  Default (unset) = the gateway's 8B model.
+    local _mma_model=()
+    [ -n "${MMA_MODEL_PATH:-}" ] && _mma_model=(--model-path "$MMA_MODEL_PATH")
+    HARNESS_INJECTION=1 run_py -m memory.mma_gateway --domain "$domain" --port "$MMA_PORT" --db-path "$CHROMA_DB_PATH" "${_mma_model[@]}" &
     PIDS+=($!); wait_for_health "http://localhost:${MMA_PORT}/health" "MMA" 30 || true
 
     # Determine APs for this domain
@@ -431,7 +440,9 @@ run_domain() {
         echo ""
     done
 
-    # Generate CSV + charts + PDF report
+    # Generate CSV + charts + PDF report (SKIP_REPORT=1: the driver rebuilds
+    # results.csv from the logs with analysis.parse_logs once every slot is done)
+    if [ "${SKIP_REPORT:-0}" != "1" ]; then
     echo "[report] Generating analysis..."
     run_py -c "
 import json, sys, csv, os
@@ -661,6 +672,7 @@ with PdfPages(str(result_dir / 'attack_report.pdf')) as pdf:
 
 print(f'Saved: {result_dir}/attack_report.pdf')
 " 2>&1
+    fi
 
     # Stop domain services -- only the ports allocated to *this* slot.
     for pid in "${PIDS[@]}"; do pkill -P "$pid" 2>/dev/null || true; kill "$pid" 2>/dev/null || true; done

@@ -20,8 +20,10 @@
 # Environment (all optional):  TRIALS=3  SEED=20260919  TEMPERATURE=0.7
 #   RESUME=1 (default)  REQUIRE_FREEZE=1 (default)  DOMAINS="cyberops finance"
 #
-# Wall-clock budget for 2 days (v1 medians 31 s flat / 68 s defended per
-# incident, 4 domains in parallel):  q235-main ~20 h, mid-main ~10 h.
+# Wall-clock budget for 2 days, measured on this box (Qwen3-235B eager mode:
+# 17 tok/s per stream, ~140 tok/s aggregate at 12 streams): every (domain,
+# config) pair is its own stream in its own service slot, so q235-main is
+# ~20 h (E1 1 h, E2 ~8 h, E3 ~10 h, E1b 1 h) and mid-main ~10 h.
 # E4 (held-out variants) and E5 (adaptive attacker) are NOT run.
 # ============================================================
 set -eEo pipefail
@@ -50,17 +52,36 @@ attack() { # attack <group> <domain> <ap|all|benign> <config|all> [trials]
     scripts/run_attack_paths.sh "$1" "$2" "$3" "$4" "${5:-$TRIALS}"
 }
 
-# Run one stage over several domains in parallel (one tool/MMA slot each).
-parallel_domains() { # parallel_domains <group> <ap-arg> <config-arg> <domains...>
+# The primary is latency-bound (one incident = 4 sequential LLM calls), and
+# vLLM's aggregate throughput grows almost linearly with concurrent streams
+# (measured on q235: 17 tok/s at 1 stream, 68 at 4, 140 at 12, 400 at 24).
+# So every (domain, config) pair runs as its own stream in its own service
+# slot: 4 domains x 3 configs = 12 concurrent incident streams per group.
+SYSTEM_CONFIGS="flat acl_hardened agenticcyops"
+SMALL_EMB="${MODELS_DIR:-$REPO/models}/Qwen/Qwen3-Embedding-0.6B"
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-8}"      # 12+ torch processes share the CPU
+export SKIP_REPORT=1                               # results.csv is rebuilt from the logs
+
+parallel_domains() { # parallel_domains <group> <ap-arg> <config-arg|all> <domains...>
     local group="$1" aparg="$2" cfgarg="$3"; shift 3
-    local pids=()
+    local cfgs="$cfgarg"; [ "$cfgarg" = "all" ] && cfgs="$SYSTEM_CONFIGS"
+    local pids=() slot
     for dom in "$@"; do
-        stamp "  start ${group} ${dom} ${aparg} ${cfgarg}"
-        attack "$group" "$dom" "$aparg" "$cfgarg" > "logs/stage_${group}_${dom}_${aparg}_${cfgarg}${RUN_TAG:+_$RUN_TAG}${DISABLE_PRINCIPLES:+_dis_$DISABLE_PRINCIPLES}.log" 2>&1 &
-        pids+=($!)
+        slot=0
+        for cfg in $cfgs; do
+            stamp "  start ${group} ${dom} ${aparg} ${cfg} (slot ${slot})"
+            local mma_model=""
+            case "$cfg" in flat|acl_hardened) mma_model="$SMALL_EMB" ;; esac
+            SLOT="$slot" MMA_MODEL_PATH="$mma_model" attack "$group" "$dom" "$aparg" "$cfg" \
+                > "logs/stage_${group}_${dom}_${aparg}_${cfg}${RUN_TAG:+_$RUN_TAG}.log" 2>&1 &
+            pids+=($!)
+            slot=$((slot + 1))
+            sleep 20        # stagger service start-up (each slot seeds ChromaDB and loads an embedder)
+        done
     done
     local rc=0
     for p in "${pids[@]}"; do wait "$p" || rc=1; done
+    run_py -m analysis.parse_logs --group "$group" > /dev/null 2>&1 || true
     return $rc
 }
 
@@ -100,9 +121,9 @@ serve() {
 
 # E0: smoke + ASB drift check ---------------------------------------------
 e0() {
-    stamp "E0 smoke start"
-    RUN_TAG=smoke MAX_VARIANTS=1 attack "$MAIN_GROUP" cyberops all all 1
-    RUN_TAG=smoke attack "$MAIN_GROUP" cyberops benign all 1
+    stamp "E0 smoke start (3 configs in parallel slots)"
+    RUN_TAG=smoke MAX_VARIANTS=1 TRIALS=1 parallel_domains "$MAIN_GROUP" all all cyberops
+    RUN_TAG=smoke TRIALS=1 parallel_domains "$MAIN_GROUP" benign all cyberops
     stamp "E0 ASB drift check (50 cases, flat + agenticcyops, 1 trial, live)"
     run_py -m benchmarks.asb.run_e2e --group "$MAIN_GROUP" --configs flat,agenticcyops --trials 1 \
         --cases-file benchmarks/asb/representative_cases.json --tag drift --concurrency 4
@@ -129,16 +150,25 @@ e2() { local g="$1"; shift; stamp "E2 attacks ${g}: $*"; parallel_domains "$g" a
 # E3: ablations (main group, CyberOps) --------------------------------------
 e3() {
     local g="${1:-$MAIN_GROUP}"
-    stamp "E3 ablations ${g} cyberops"
+    stamp "E3 ablations ${g} cyberops (7 concurrent streams, one slot each)"
+    local pids=() slot=0
     for p in P1 P2 P3 P4 P5; do
-        DISABLE_PRINCIPLES="$p" attack "$g" cyberops all agenticcyops
-        DISABLE_PRINCIPLES="$p" attack "$g" cyberops benign agenticcyops
+        ( SLOT="$slot" DISABLE_PRINCIPLES="$p" attack "$g" cyberops all agenticcyops
+          SLOT="$slot" DISABLE_PRINCIPLES="$p" attack "$g" cyberops benign agenticcyops
+        ) > "logs/stage_${g}_cyberops_ablation_minus${p}.log" 2>&1 &
+        pids+=($!); slot=$((slot + 1)); sleep 20
     done
     for cfg in llm_judge symbolic_only; do
-        attack "$g" cyberops all "$cfg"
-        attack "$g" cyberops benign "$cfg"
+        ( SLOT="$slot" attack "$g" cyberops all "$cfg"
+          SLOT="$slot" attack "$g" cyberops benign "$cfg"
+        ) > "logs/stage_${g}_cyberops_ablation_${cfg}.log" 2>&1 &
+        pids+=($!); slot=$((slot + 1)); sleep 20
     done
+    local rc=0
+    for p in "${pids[@]}"; do wait "$p" || rc=1; done
+    run_py -m analysis.parse_logs --group "$g" > /dev/null 2>&1 || true
     stamp "E3 done"
+    return $rc
 }
 # E1b: persistent-state sequence (30 attack incidents then the benign set) --
 e1b() {
