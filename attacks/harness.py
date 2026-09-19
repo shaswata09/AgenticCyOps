@@ -16,8 +16,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from config import BASE_DIR
+from config import BASE_DIR, MODELS_DIR
 from logging_utils import ExperimentLogger
+from logging_utils.run_metadata import build_run_header
 from host.orchestrator import SOARHost
 from host.manifest_enforcer import ManifestEnforcer
 from mcp_servers.server_registry import ServerRegistry
@@ -108,11 +109,19 @@ class AttackHarness:
         eval_name = f"{domain}_eval_attacks_{group}"
         if self.disabled_principles:
             eval_name += "_disabled_" + "".join(sorted(self.disabled_principles))
+        header = build_run_header(
+            group=group, config=config, domain=domain,
+            primary_url=llm_url, primary_provider=llm_provider,
+            api_key_env=api_key_env,
+            consensus_config=consensus_config if config in ("agenticcyops", "llm_judge") else None,
+            disabled_principles=self.disabled_principles,
+        )
         self.logger = ExperimentLogger(
             eval_name=eval_name,
             domain=domain,
             config=config,
-            model=f"Group_{group}",
+            model=header.get("primary_model") or f"Group_{group}",
+            header=header,
         )
 
         # Load tool registry
@@ -165,7 +174,7 @@ class AttackHarness:
         if config == "agenticcyops":
             try:
                 from sentence_transformers import SentenceTransformer
-                model_path = str(BASE_DIR / "models" / "Qwen" / "Qwen3-Embedding-0.6B")
+                model_path = str(MODELS_DIR / "Qwen" / "Qwen3-Embedding-0.6B")
                 embedding_model = SentenceTransformer(model_path, device="cpu")
             except Exception as e:
                 if verbose:

@@ -344,6 +344,7 @@ import asyncio, json, os, sys
 sys.path.insert(0, '.')
 from pathlib import Path
 from logging_utils import ExperimentLogger
+from logging_utils.run_metadata import build_run_header
 from host.orchestrator import SOARHost
 from host.manifest_enforcer import ManifestEnforcer
 from mcp_servers.server_registry import ServerRegistry
@@ -365,11 +366,17 @@ async def run():
     extra_body_json = os.environ.get('BASELINE_EXTRA_BODY') or ''
     extra_body = json.loads(extra_body_json) if extra_body_json.strip() else None
 
+    header = build_run_header(
+        group=group, config=config, domain=domain, primary_url=llm_url,
+        primary_provider=llm_provider, api_key_env=api_key_env,
+        consensus_config=consensus_config if config in ('agenticcyops', 'llm_judge') else None,
+    )
     logger = ExperimentLogger(
         eval_name=f'{domain}_baseline_{group}',
         domain=domain,
         config=config,
-        model=f'Group_{group}',
+        model=header.get('primary_model') or f'Group_{group}',
+        header=header,
     )
     logger.set_trial(ap='benign', variant=1, trial=1)
 

@@ -13,7 +13,7 @@ from typing import Optional
 
 from openai import OpenAI
 
-from config import BASE_DIR
+from config import BASE_DIR, model_display_name
 from logging_utils import ExperimentLogger
 
 
@@ -211,7 +211,7 @@ class BaseAgent:
                 tokens_prompt=tokens_prompt,
                 tokens_completion=tokens_completion,
                 extra={
-                    "model": self._model_name,
+                    "model": model_display_name(self._model_name),
                     "provider": self.llm_provider,
                     "tools_visible": len(tools) if tools else 0,
                     "config": self.config,

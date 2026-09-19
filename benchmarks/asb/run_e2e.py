@@ -43,6 +43,7 @@ from benchmarks.asb.harness.tool_loader import (
 )
 from benchmarks.injecagent.harness.trial_driver import DefensePipeline
 from logging_utils import ExperimentLogger
+from logging_utils.run_metadata import build_run_header
 
 HERE = Path(__file__).resolve().parent
 DATA_DIR = HERE / "data"
@@ -189,7 +190,14 @@ async def run_sweep(group_id: str,
     for cfg in configs:
         loggers[cfg] = ExperimentLogger(
             eval_name=f"asb_dpi_e2e_{group_id}",
-            domain=DOMAIN, config=cfg, model=primary_model)
+            domain=DOMAIN, config=cfg, model=primary_model,
+            header=build_run_header(
+                group=group_id, config=cfg, domain=DOMAIN,
+                primary_url=GROUP_CONFIGS[group_id].get("primary_url"),
+                primary_provider=GROUP_CONFIGS[group_id].get("primary_type", "openai"),
+                primary_model=primary_model,
+                api_key_env=GROUP_CONFIGS[group_id].get("api_key_env"),
+                consensus_config=GROUP_CONFIGS[group_id].get("consensus")))
 
     sem = asyncio.Semaphore(concurrency)
     all_rows: list[dict] = []
