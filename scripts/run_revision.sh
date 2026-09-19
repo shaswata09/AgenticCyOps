@@ -14,6 +14,7 @@
 #   scripts/run_revision.sh mid-main              # E1 + E2 on scout_div4, mistral_div3p, llama8b_div4 in parallel;
 #                                                 # ASB replay for div3 / lin3 / single
 #   scripts/run_revision.sh llama8b-main          # E1 + E2 on llama8b_div4 (RTX 5090 node); can run next to q235-main
+#   scripts/run_revision.sh e2-rev <group> [domains]   # extra E2 streams, reverse AP order, slots 3-5 (halves E2 wall-clock)
 #   scripts/run_revision.sh e1|e2|e3|e1b <group> [domains]   # single stage
 #   scripts/run_revision.sh asb-replay <panel>    # div4 | div3 | lin3 | single
 #   scripts/run_revision.sh tables                # make paper-tables
@@ -228,6 +229,29 @@ case "$cmd" in
         e1b "$MAIN_GROUP"
         asb_replay div4          # V1 + V5 are up in this profile
         tables ;;
+    e2-rev)
+        # Second set of E2 streams for a group: same cells, attack paths in
+        # REVERSE order, on service slots 3-5 (own ports / ChromaDB), so it
+        # can run next to the group's normal E2 (slots 0-2, forward order).
+        # The two meet in the middle; RESUME skips whatever the other side
+        # has already finished.   scripts/run_revision.sh e2-rev <group> [domains]
+        g="${1:?group}"; shift || true
+        doms="${*:-${DOMAINS:-$ALL_DOMAINS}}"
+        stamp "E2 (reverse order, slots 3-5) ${g}: ${doms}"
+        pids=()
+        for dom in $doms; do
+            slot=3
+            for cfg in $SYSTEM_CONFIGS; do
+                mma_model=""; case "$cfg" in flat|acl_hardened) mma_model="$SMALL_EMB" ;; esac
+                ( for n in 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1; do
+                      SLOT="$slot" MMA_MODEL_PATH="$mma_model" attack "$g" "$dom" "ap${n}" "$cfg"
+                  done ) > "logs/stage_${g}_${dom}_rev_${cfg}.log" 2>&1 &
+                pids+=($!); slot=$((slot + 1)); sleep 20
+            done
+        done
+        rc=0; for p in "${pids[@]}"; do wait "$p" || rc=1; done
+        run_py -m analysis.parse_logs --group "$g" > /dev/null 2>&1 || true
+        stamp "E2 (reverse) ${g} done"; exit $rc ;;
     llama8b-main)
         # needs only V1 + V5 on this box (up in both profiles) and the RTX 5090 node
         [ "$(a51_status)" = "200" ] || { stamp "llama8b-main: RTX 5090 node not usable (HTTP $(a51_status))"; exit 1; }
