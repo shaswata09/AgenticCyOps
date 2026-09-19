@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
+from config import RESULTS_DIR
 
 sns.set_theme(style="whitegrid", font_scale=1.0, palette="muted")
 plt.rcParams.update({
@@ -365,7 +366,7 @@ def generate(results_dir: Path, out_dir: Path) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results-dir",
-                    default="/storage/data/AgenticCyOps_Private/results/injecagent/static")
+                    default=str(RESULTS_DIR / "injecagent" / "static"))
     ap.add_argument("--out-dir", default=None)
     args = ap.parse_args()
     results_dir = Path(args.results_dir)

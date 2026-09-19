@@ -59,7 +59,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from config import BASE_DIR
+from config import BASE_DIR, MODELS_DIR
 
 # We re-use the InjecAgent DefensePipeline since the per-case logic
 # (build proposal, drive through P1-P5, return verdict) is identical
@@ -212,7 +212,7 @@ def main() -> None:
                     help="Cap #cases per attack (smoke-test mode).")
     ap.add_argument("--out-dir", type=Path, default=RESULTS_DIR)
     ap.add_argument("--embedding-model", type=str,
-                    default="/storage/data/AgenticCyOps_Private/models/Qwen/Qwen3-Embedding-0.6B",
+                    default=str(MODELS_DIR / "Qwen" / "Qwen3-Embedding-0.6B"),
                     help="Local SentenceTransformer for P2-L2 (set empty to disable)")
     args = ap.parse_args()
 

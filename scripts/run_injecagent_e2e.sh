@@ -43,7 +43,7 @@ CONDA_ENV="agenticcyops"
 
 ALL_DOMAINS=("cyberops" "healthcare" "finance" "legal")
 ALL_CONFIGS=("flat" "acl_hardened" "agenticcyops")
-ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
+ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J")
 
 # ---- Group matrix (matches run_attack_paths.sh) ----
 # Small/mid-tier primary groups (G-J) avoid self-voting in the consensus
@@ -59,9 +59,8 @@ GP_PORTS[E]="8000 8002 8003"; GP_DESC[E]="Qwen3-235B + V1 + V5(Mistral) + V4 + V
 GP_PORTS[F]="8002 8005 8004"; GP_DESC[F]="Claude (API primary) + V1 + V2 + V3(Llama) + V6"
 GP_PORTS[G]="8002 8003";      GP_DESC[G]="Qwen3-32B (mid) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 GP_PORTS[H]="8002 8003";      GP_DESC[H]="Mistral-Small-3.2-24B (mid) + V1(Qwen) + V4(Claude) + V6(GPT-4o)"
-GP_PORTS[I]="8002 8003";      GP_DESC[I]="Llama-3.1-8B-Instruct (small, external) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
+GP_PORTS[I]="8002 8003";      GP_DESC[I]="Llama-3.1-8B-Instruct (small, REMOTE_5090_URL) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 GP_PORTS[J]="8006 8002 8003"; GP_DESC[J]="GPT-OSS-120B + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
-GP_PORTS[K]="8002 8003";      GP_DESC[K]="Nemotron-3-Nano-Omni-30B BF16 (self-hosted vLLM @ 10.116.34.125:8003) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 
 run_py() { conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"; }
 

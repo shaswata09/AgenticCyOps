@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
+from config import BASE_DIR, RESULTS_DIR
 
 sns.set_theme(style="whitegrid", font_scale=1.0, palette="muted")
 plt.rcParams.update({
@@ -44,7 +45,7 @@ ACCENT = "#2980b9"
 DIR_RE = re.compile(r"^e2e_validator_group_(?P<grp>[A-F])$")
 
 TOOLS_JSON = Path(
-    "/storage/data/AgenticCyOps_Private/benchmarks/injecagent/data/tools.json")
+    str(BASE_DIR / "benchmarks" / "injecagent" / "data" / "tools.json"))
 
 
 def load_toolkit_lookup(path: Path = TOOLS_JSON) -> dict[str, str]:
@@ -538,7 +539,7 @@ def main() -> None:
         description="Per-group InjecAgent E2E analytics. "
                     "Each group's PDF+CSVs land in its own run directory.")
     ap.add_argument("--results-root",
-                    default="/storage/data/AgenticCyOps_Private/results/injecagent")
+                    default=str(RESULTS_DIR / "injecagent"))
     ap.add_argument("--groups", default="",
                     help="Comma-separated subset to process, e.g. 'A,C'. "
                          "Default: every group with results on disk.")

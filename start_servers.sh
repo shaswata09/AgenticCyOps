@@ -189,7 +189,7 @@ GROUP_F_IDX=(2 3 5)    # Claude API primary — V1(2)+V2(3)+V3(4,5) [V5 swaps wi
 #   - Qwen3-32B on 8002 = V1 validator AND primary for benchmark Group G
 #   - Mistral on   8003 = V5 validator AND primary for benchmark Group H
 #   - GPT-OSS-120B 8006 = primary for benchmark Group J
-#   - Llama-3.1-8B is hosted externally (10.116.35.188:8008) for Group I
+#   - Llama-3.1-8B is served from the RTX 5090 node (REMOTE_5090_URL in .env) for Group I
 GROUP_G_IDX=(2 4 6)    # Qwen3-32B(2) + V5 Mistral(3) + GPT-OSS-120B(0,1,4,5)
 
 # ---- Selection menu ----

@@ -35,7 +35,7 @@ CONFIGS = ["flat", "acl_hardened", "agenticcyops"]
 CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened", "agenticcyops": "AgenticCyOps"}
 DOMAINS = ["cyberops", "healthcare", "finance", "legal"]
 MAIN_GROUPS = ["A", "B", "C", "D", "E"]          # large primaries
-SMALL_GROUPS = ["G", "H", "I", "J", "K"]         # small / mid primaries
+SMALL_GROUPS = ["G", "H", "I", "J"]         # small / mid primaries
 APS = [f"ap{i}" for i in range(1, 16)]
 AP_NAMES = {
     "ap1": "Tool Redirection", "ap2": "Memory Poisoning", "ap3": "Confused Deputy",

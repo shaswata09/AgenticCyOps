@@ -38,7 +38,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
-from config import BASE_DIR
+from config import BASE_DIR, MODELS_DIR
 
 from benchmarks.injecagent.harness.live_llm_driver import (
     GROUP_CONFIGS, run_live_trial,
@@ -351,7 +351,7 @@ def main() -> None:
                     help="Max concurrent LLM calls")
     ap.add_argument("--out-root", type=Path, default=RESULTS_DIR)
     ap.add_argument("--embedding-model", type=str,
-                    default="/storage/data/AgenticCyOps_Private/models/Qwen/Qwen3-Embedding-0.6B")
+                    default=str(MODELS_DIR / "Qwen" / "Qwen3-Embedding-0.6B"))
     args = ap.parse_args()
 
     cases = load_cases()

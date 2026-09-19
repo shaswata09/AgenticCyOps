@@ -89,11 +89,12 @@ GROUP_PORTS[H]="8002 8003"
 GROUP_CONSENSUS[H]="no_mistral_panel"
 GROUP_DESC[H]="Mistral-Small-3.2-24B (8003) + V1(Qwen) + V4(Claude) + V6(GPT-4o) [need 2 of 3 to approve, no V5]"
 
-GROUP_NAMES[I]="Group I: Llama-3.1-8B-Instruct Primary (small, external)"
-GROUP_PRIMARY[I]="http://10.116.35.188:8008/v1"
+GROUP_NAMES[I]="Group I: Llama-3.1-8B-Instruct Primary (small, RTX 5090 node)"
+GROUP_PRIMARY[I]="${REMOTE_5090_URL:-}"   # RTX 5090 node, address from .env only
 GROUP_PORTS[I]="8002 8003"
 GROUP_CONSENSUS[I]="with_mistral"
-GROUP_DESC[I]="Llama-3.1-8B-Instruct (10.116.35.188:8008 external) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
+GROUP_DESC[I]="Llama-3.1-8B-Instruct (REMOTE_5090_URL) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
+GROUP_API_KEY_ENV[I]="REMOTE_5090_API_KEY"
 
 GROUP_NAMES[J]="Group J: GPT-OSS-120B Primary (mid-large)"
 GROUP_PRIMARY[J]="http://localhost:8006/v1"
@@ -101,15 +102,8 @@ GROUP_PORTS[J]="8006 8002 8003"
 GROUP_CONSENSUS[J]="with_mistral"
 GROUP_DESC[J]="GPT-OSS-120B (8006) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
 
-GROUP_NAMES[K]="Group K: Nemotron-3-Nano-Omni-30B BF16 (self-hosted)"
-GROUP_PRIMARY[K]="http://10.116.34.125:8003/v1"
-GROUP_PORTS[K]="8002 8003"
-GROUP_CONSENSUS[K]="with_mistral"
-GROUP_DESC[K]="Nemotron-3-Nano-Omni-30B BF16 (10.116.34.125:8003 self-hosted vLLM) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
-# Thinking mode off -- the model otherwise burns 30+s per trivial call.
-GROUP_EXTRA_BODY[K]='{"chat_template_kwargs":{"enable_thinking":false}}'
 
-ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
+ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J")
 
 # ---- Per-(group, domain) port + ChromaDB allocator ----
 # Multiple groups can now run baselines in parallel without their tool
@@ -124,7 +118,7 @@ ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
 declare -A GROUP_OFFSET DOMAIN_OFFSET
 GROUP_OFFSET[A]=0;  GROUP_OFFSET[B]=1; GROUP_OFFSET[C]=2; GROUP_OFFSET[D]=3
 GROUP_OFFSET[E]=4;  GROUP_OFFSET[F]=5; GROUP_OFFSET[G]=6; GROUP_OFFSET[H]=7
-GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9; GROUP_OFFSET[K]=10
+GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9
 DOMAIN_OFFSET[cyberops]=0; DOMAIN_OFFSET[healthcare]=1
 DOMAIN_OFFSET[finance]=2;  DOMAIN_OFFSET[legal]=3
 

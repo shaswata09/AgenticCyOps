@@ -25,7 +25,7 @@ MODELS_DIR="$(pwd)/models"
 LOG_DIR="$(pwd)/logs/vllm"
 mkdir -p "$LOG_DIR"
 
-ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
+ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J")
 ALL_DOMAINS=("cyberops" "healthcare" "finance" "legal")
 SKIP_EXISTING=false
 
@@ -64,7 +64,7 @@ SRV_CMD[6]="vllm serve $MODELS_DIR/openai/gpt-oss-120b --tensor-parallel-size 4 
 # Mid/small/large primary groups (G/H/I/J/K) only need the validator
 # panel locally; primaries are either co-located with a validator
 # (G=Qwen-32B at 8002, H=Mistral at 8003), externally hosted (I=Llama-3.1-8B
-# remote, K=Nemotron remote), or use a new local server slot (J=GPT-OSS-120B).
+# remote on the RTX 5090 node), or use a new local server slot (J=GPT-OSS-120B).
 declare -A GROUP_IDX GROUP_EXTERNAL_URL
 GROUP_IDX[A]="0 2 3"    # Qwen3-235B + V1 + V2
 GROUP_IDX[B]="1 2 3"    # GLM-4.7 + V1 + V2
@@ -76,11 +76,9 @@ GROUP_IDX[G]="2 4"      # Qwen3-32B (primary + V1) + V5 Mistral
 GROUP_IDX[H]="2 4"      # Mistral (primary + V5) + V1 Qwen
 GROUP_IDX[I]="2 4"      # External Llama-3.1-8B; need V1 + V5 locally
 GROUP_IDX[J]="2 4 6"    # GPT-OSS-120B + V1 + V5
-GROUP_IDX[K]="2 4"      # External Nemotron; need V1 + V5 locally
 
 # External primary endpoints to reachability-check before starting baseline
-GROUP_EXTERNAL_URL[I]="http://10.116.35.188:8008/v1/models"
-GROUP_EXTERNAL_URL[K]="http://10.116.34.125:8003/v1/models"
+GROUP_EXTERNAL_URL[I]="${REMOTE_5090_URL:-}/models"   # RTX 5090 node, address from .env only
 
 # ---- Helpers ----
 run_py() { conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"; }

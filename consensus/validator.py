@@ -22,7 +22,7 @@ from typing import Optional
 import yaml
 from openai import OpenAI
 
-from config import BASE_DIR, load_env
+from config import BASE_DIR, expand_env, load_env
 from logging_utils import ExperimentLogger
 
 # Load .env for API keys (ANTHROPIC_API_KEY)
@@ -97,7 +97,10 @@ class ConsensusValidator:
 
         for vid in self._active_ids:
             if vid in all_validators:
-                self._validators[vid] = all_validators[vid]
+                cfg = dict(all_validators[vid])
+                if "url" in cfg:
+                    cfg["url"] = expand_env(cfg["url"])
+                self._validators[vid] = cfg
 
     async def validate(self, proposal: dict, incident_context: dict) -> bool:
         """Send proposal to all validators, return True if approved."""

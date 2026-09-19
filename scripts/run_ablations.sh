@@ -64,7 +64,7 @@ PY_BIN=""
 for cand in \
     "$HOME/.conda/envs/${CONDA_ENV}/bin/python3" \
     "/opt/conda/envs/${CONDA_ENV}/bin/python3" \
-    "/home/student/.conda/envs/${CONDA_ENV}/bin/python3"; do
+    "${CONDA_PREFIX:-/nonexistent}/bin/python3"; do
     [ -x "$cand" ] && PY_BIN="$cand" && break
 done
 run_py() {

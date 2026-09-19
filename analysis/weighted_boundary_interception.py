@@ -17,8 +17,9 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
+from config import BASE_DIR
 
-ROOT = Path("/storage/data/AgenticCyOps_Private")
+ROOT = BASE_DIR
 LOG_DIRS = sorted(ROOT.glob("logs/cyberops_eval_attacks_*"))
 OUT_DIR = ROOT / "results" / "tables"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

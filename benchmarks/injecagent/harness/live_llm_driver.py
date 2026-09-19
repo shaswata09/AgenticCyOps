@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from openai import AsyncOpenAI
+
+from config import MODELS_DIR, env_url
 try:
     from anthropic import AsyncAnthropic
     HAS_ANTHROPIC = True
@@ -35,24 +37,24 @@ except ImportError:
 # --------------------------------------------------------------------- #
 
 GROUP_CONFIGS: dict[str, dict] = {
-    "A": {"primary_url": "http://localhost:8000/v1",
-          "primary_model": "/storage/data/AgenticCyOps_Private/models/Qwen/Qwen3-235B-A22B-Instruct-2507",
+    "A": {"primary_url": env_url("PRIMARY_URL_Q235", "http://localhost:8000/v1"),
+          "primary_model": str(MODELS_DIR / "Qwen/Qwen3-235B-A22B-Instruct-2507"),
           "primary_type":  "openai",  # vLLM OpenAI-compatible
           "consensus":     "default_consensus"},
-    "B": {"primary_url": "http://localhost:8001/v1",
-          "primary_model": "/storage/data/AgenticCyOps_Private/models/zai-org/GLM-4.7-FP8",
+    "B": {"primary_url": env_url("PRIMARY_URL_GLM", "http://localhost:8001/v1"),
+          "primary_model": str(MODELS_DIR / "zai-org/GLM-4.7-FP8"),
           "primary_type":  "openai",
           "consensus":     "default_consensus"},
-    "C": {"primary_url": "http://localhost:8000/v1",
-          "primary_model": "/storage/data/AgenticCyOps_Private/models/Qwen/Qwen3-235B-A22B-Instruct-2507",
+    "C": {"primary_url": env_url("PRIMARY_URL_Q235", "http://localhost:8000/v1"),
+          "primary_model": str(MODELS_DIR / "Qwen/Qwen3-235B-A22B-Instruct-2507"),
           "primary_type":  "openai",
           "consensus":     "same_family"},
-    "D": {"primary_url": "http://localhost:8004/v1",
-          "primary_model": "/storage/data/AgenticCyOps_Private/models/meta-llama/Llama-4-Scout-17B-16E-Instruct",
+    "D": {"primary_url": env_url("PRIMARY_URL_SCOUT", "http://localhost:8004/v1"),
+          "primary_model": str(MODELS_DIR / "meta-llama/Llama-4-Scout-17B-16E-Instruct"),
           "primary_type":  "openai",
           "consensus":     "default_consensus"},
-    "E": {"primary_url": "http://localhost:8000/v1",
-          "primary_model": "/storage/data/AgenticCyOps_Private/models/Qwen/Qwen3-235B-A22B-Instruct-2507",
+    "E": {"primary_url": env_url("PRIMARY_URL_Q235", "http://localhost:8000/v1"),
+          "primary_model": str(MODELS_DIR / "Qwen/Qwen3-235B-A22B-Instruct-2507"),
           "primary_type":  "openai",
           "consensus":     "with_mistral"},
     "F": {"primary_url": None,
@@ -62,34 +64,23 @@ GROUP_CONFIGS: dict[str, dict] = {
     # ---- Small / mid-tier primary groups (G-J) ----
     # Each panel excludes the validator that would duplicate the primary
     # model family, avoiding self-voting in the consensus quorum.
-    "G": {"primary_url": "http://localhost:8002/v1",
-          "primary_model": "/storage/data/AgenticCyOps_Private/models/Qwen/Qwen3-32B",
+    "G": {"primary_url": env_url("VALIDATOR_URL_V1", "http://localhost:8002/v1"),
+          "primary_model": str(MODELS_DIR / "Qwen/Qwen3-32B"),
           "primary_type":  "openai",
           "consensus":     "no_qwen_panel"},
-    "H": {"primary_url": "http://localhost:8003/v1",
-          "primary_model": "/storage/data/AgenticCyOps_Private/models/mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+    "H": {"primary_url": env_url("PRIMARY_URL_MISTRAL", "http://localhost:8003/v1"),
+          "primary_model": str(MODELS_DIR / "mistralai/Mistral-Small-3.2-24B-Instruct-2506"),
           "primary_type":  "openai",
           "consensus":     "no_mistral_panel"},
-    "I": {"primary_url": "http://10.116.35.188:8008/v1",
-          "primary_model": "Llama-3.1-8B-Instruct",
+    # Served from the RTX 5090 node; address and key come from .env only.
+    "I": {"primary_url": env_url("REMOTE_5090_URL", ""),
+          "primary_model": "meta-llama/Llama-3.1-8B-Instruct",
           "primary_type":  "openai",
+          "api_key_env":   "REMOTE_5090_API_KEY",
           "consensus":     "with_mistral"},
-    "J": {"primary_url": "http://localhost:8006/v1",
-          "primary_model": "/storage/data/AgenticCyOps_Private/models/openai/gpt-oss-120b",
+    "J": {"primary_url": env_url("PRIMARY_URL_GPTOSS", "http://localhost:8006/v1"),
+          "primary_model": str(MODELS_DIR / "openai/gpt-oss-120b"),
           "primary_type":  "openai",
-          "consensus":     "with_mistral"},
-    # Self-hosted vLLM serving the BF16 variant of Nemotron-3-Nano-Omni.
-    # Moved off NVIDIA's NIM serverless because the 40 RPM cap + 404
-    # cold-evicts under load made multi-thousand-trial sweeps infeasible.
-    # The vLLM endpoint has --enable-auto-tool-choice set and supports
-    # the same chat_template_kwargs as NIM, so we keep thinking OFF for
-    # benchmark fairness (other groups are evaluated in non-thinking mode).
-    # Different family from any validator in `with_mistral`, so no
-    # self-vote risk.
-    "K": {"primary_url":  "http://10.116.34.125:8003/v1",
-          "primary_model": "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
-          "primary_type":  "openai",
-          "extra_body":    {"chat_template_kwargs": {"enable_thinking": False}},
           "consensus":     "with_mistral"},
 }
 

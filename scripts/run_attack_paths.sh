@@ -69,24 +69,14 @@ GP_DESC[G]="Qwen3-32B (mid, self-host) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 GP_PRIMARY[H]="http://localhost:8003/v1"; GP_PROVIDER[H]="openai"; GP_PORTS[H]="8002 8003"; GP_CONSENSUS[H]="no_mistral_panel"
 GP_DESC[H]="Mistral-Small-3.2-24B (mid) + V1(Qwen) + V4(Claude) + V6(GPT-4o)"
 
-GP_PRIMARY[I]="http://10.116.35.188:8008/v1"; GP_PROVIDER[I]="openai"; GP_PORTS[I]="8002 8003"; GP_CONSENSUS[I]="with_mistral"
-GP_DESC[I]="Llama-3.1-8B-Instruct (small, external) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
+GP_PRIMARY[I]="${REMOTE_5090_URL:-}"; GP_PROVIDER[I]="openai"; GP_PORTS[I]="8002 8003"; GP_CONSENSUS[I]="with_mistral"; GP_API_KEY_ENV[I]="REMOTE_5090_API_KEY"
+GP_DESC[I]="Llama-3.1-8B-Instruct (small, RTX 5090 node via REMOTE_5090_URL) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 
 GP_PRIMARY[J]="http://localhost:8006/v1"; GP_PROVIDER[J]="openai"; GP_PORTS[J]="8006 8002 8003"; GP_CONSENSUS[J]="with_mistral"
 GP_DESC[J]="GPT-OSS-120B (mid-large) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 
-# K: self-hosted vLLM Nemotron at 10.116.34.125:8003 (external host,
-# external port -- no localhost preflight on the primary).  GP_PORTS
-# still lists the localhost validator ports (V1 Qwen 8002, V5 Mistral
-# 8003) that the consensus panel needs.  No API key needed.
-# Thinking mode off -- the model otherwise burns 30+s per trivial call
-# on internal reasoning, even self-hosted.  Flip to true if you want
-# to measure the reasoning-mode variant separately.
-GP_PRIMARY[K]="http://10.116.34.125:8003/v1"; GP_PROVIDER[K]="openai"; GP_PORTS[K]="8002 8003"; GP_CONSENSUS[K]="with_mistral"
-GP_DESC[K]="Nemotron-3-Nano-Omni-30B BF16 (self-hosted vLLM @ 10.116.34.125:8003) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
-GP_EXTRA_BODY[K]='{"chat_template_kwargs":{"enable_thinking":false}}'
 
-ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
+ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J")
 
 # ---- Per-(group, domain) port + ChromaDB allocator -----------------------
 # Multiple groups can now run in parallel without their tool/MMA servers
@@ -107,7 +97,7 @@ ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
 declare -A GROUP_OFFSET DOMAIN_OFFSET
 GROUP_OFFSET[A]=0;  GROUP_OFFSET[B]=1; GROUP_OFFSET[C]=2; GROUP_OFFSET[D]=3
 GROUP_OFFSET[E]=4;  GROUP_OFFSET[F]=5; GROUP_OFFSET[G]=6; GROUP_OFFSET[H]=7
-GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9; GROUP_OFFSET[K]=10
+GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9
 DOMAIN_OFFSET[cyberops]=0; DOMAIN_OFFSET[healthcare]=1
 DOMAIN_OFFSET[finance]=2;  DOMAIN_OFFSET[legal]=3
 
@@ -369,7 +359,7 @@ run_domain() {
             _disable_args=(--disable-principles "$DISABLE_PRINCIPLES")
         fi
 
-        # Cloud-API extras (e.g. Group K Nemotron on NVIDIA cloud).
+        # Remote-endpoint extras (API key env var, model-specific extra_body).
         local _api_args=()
         if [ -n "${GP_API_KEY_ENV[$GROUP]:-}" ]; then
             _api_args+=(--api-key-env "${GP_API_KEY_ENV[$GROUP]}")

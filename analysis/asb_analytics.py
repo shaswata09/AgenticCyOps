@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
+from config import RESULTS_DIR
 
 sns.set_theme(style="whitegrid", font_scale=1.0, palette="muted")
 plt.rcParams.update({
@@ -50,7 +51,7 @@ ATTACK_LABEL = {"DPI": "Direct Prompt Injection",
                 "PoT": "Backdoor (Plan-of-Thought)"}
 ACCENT = "#2980b9"
 
-ASB_ROOT = Path("/storage/data/AgenticCyOps_Private/results/asb")
+ASB_ROOT = RESULTS_DIR / "asb"
 
 
 def load_group_csv(group: str) -> pd.DataFrame:
