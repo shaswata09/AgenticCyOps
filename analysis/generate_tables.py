@@ -79,10 +79,18 @@ def _md(headers: list[str], rows: list[list]) -> str:
 # --------------------------------------------------------------------- #
 
 
+TAGGED = ("_smoke", "_debug", "_persistent")
+
+
+def _is_tagged(group: str) -> bool:
+    """Smoke / debug / persistent runs are separate run tags, not groups."""
+    return any(t in group for t in TAGGED)
+
+
 def t1_headline(stats: list[dict]) -> str:
     rows = []
     for r in stats:
-        if r["domain"] != "all":
+        if r["domain"] != "all" or _is_tagged(r["group"]):
             continue
         for cfg in SYSTEM_CONFIGS:
             cmp_key = {"flat": "flat_minus_aco", "acl_hardened": "acl_minus_aco"}.get(cfg)
@@ -93,7 +101,7 @@ def t1_headline(stats: list[dict]) -> str:
                          f"[{_f(r.get(f'{cfg}_boot_low'))}, {_f(r.get(f'{cfg}_boot_high'))}]",
                          _f(r.get(f"{cfg}_attempt_rate")), _f(r.get(f"{cfg}_block_given_attempt")), diff])
     return _md(["Group", "Config", "N", "ASR % [Wilson 95%]", "Cluster bootstrap 95%", "Attempt %",
-                "Block | attempt %", "Δ vs AgenticCyOps"], rows)
+                "Block given attempt %", "Δ vs AgenticCyOps"], rows)
 
 
 def t2_per_ap(stats: list[dict], group: str, domain: str) -> str:
@@ -113,7 +121,8 @@ def t3_benign(trials: list[dict]) -> str:
     rows = []
     by = defaultdict(list)
     for t in trials:
-        if t["ap"] == "benign" and t["outcome"] == "benign" and not t.get("suffix"):
+        if (t["ap"] == "benign" and t["outcome"] == "benign" and not t.get("suffix")
+                and not _is_tagged(t["group"])):
             by[(t["group"], t["config"])].append(t)
     for (group, cfg), ts in sorted(by.items()):
         n = len(ts)
@@ -131,6 +140,36 @@ def t3_benign(trials: list[dict]) -> str:
                      f"{ptok:.0f} / {vtok:.0f}"])
     return _md(["Group", "Config", "N", "Task completed % [95%]", "Any denial % [95%]",
                 "Denials / incident", "Latency s median / p95", "Tokens primary / validator"], rows)
+
+
+def t3b_persistent(trials: list[dict], group: str) -> str:
+    """E1b: benign incidents run after 30 attack incidents with state kept
+    (persistent) vs the same scenarios with per-trial isolation."""
+    rows = []
+    for dom in ("cyberops", "healthcare", "finance", "legal"):
+        for label, g, first_trial_only in (("isolated", group, True), ("persistent", f"{group}_persistent", False)):
+            ts = [t for t in trials if t["group"] == g and t["domain"] == dom and t["config"] == "agenticcyops"
+                  and t["ap"] == "benign" and t["outcome"] == "benign" and not t.get("suffix")
+                  and (not first_trial_only or str(t["trial"]) == "1")]
+            if not ts:
+                continue
+            n = len(ts)
+            any_den = sum(1 for t in ts if int(t.get("collateral_denials") or 0) > 0)
+            task = [t for t in ts if t.get("task_completed") not in ("", None)]
+            tc = sum(1 for t in task if str(t["task_completed"]).lower() == "true")
+            p, lo, hi = wilson(any_den, n)
+            q, qlo, qhi = wilson(tc, len(task))
+            # first vs second half of the scenario list = early vs late position in the sequence
+            ts_sorted = sorted(ts, key=lambda t: int(t["variant"]))
+            half = max(1, n // 2)
+            early = sum(1 for t in ts_sorted[:half] if int(t.get("collateral_denials") or 0) > 0) / half
+            late = sum(1 for t in ts_sorted[half:] if int(t.get("collateral_denials") or 0) > 0) / max(1, n - half)
+            rows.append([dom, label, n, _ci(p, lo, hi), f"{sum(int(t.get('collateral_denials') or 0) for t in ts) / n:.2f}",
+                         _ci(q, qlo, qhi), f"{100 * early:.0f} / {100 * late:.0f}"])
+    if not rows:
+        return "_no persistent-state run found_"
+    return _md(["Domain", "State mode", "N", "Any denial % [95%]", "Denials / incident",
+                "Task completed % [95%]", "Any denial %: first half / second half of sequence"], rows)
 
 
 def t4_ablations(trials: list[dict], group: str) -> str:
@@ -178,7 +217,8 @@ def t7_cost(trials: list[dict]) -> str:
     rows = []
     by = defaultdict(list)
     for t in trials:
-        if t["ap"] != "benign" and t["outcome"] in MEASURABLE and not t.get("suffix"):
+        if (t["ap"] != "benign" and t["outcome"] in MEASURABLE and not t.get("suffix")
+                and not _is_tagged(t["group"])):
             by[(t["group"], t["config"])].append(t)
     for (group, cfg), ts in sorted(by.items()):
         n = len(ts)
@@ -207,7 +247,7 @@ def build(results_dir: Path, main_group: str) -> str:
     trials = _read(base / "all_trials.csv")
     stats = _read(base / "stats.csv")
     runs = _read(base / "runs.csv")
-    groups = sorted({t["group"] for t in trials})
+    groups = sorted({t["group"] for t in trials if not _is_tagged(t["group"])})
     if main_group not in groups and groups:
         main_group = groups[0]
     parts = ["# Paper tables (scoring v3)", "",
@@ -219,6 +259,10 @@ def build(results_dir: Path, main_group: str) -> str:
              "", f"## T2a. Per attack path, {main_group}, all domains", "", t2_per_ap(stats, main_group, "all"),
              "", f"## T2b. Per attack path, {main_group}, CyberOps", "", t2_per_ap(stats, main_group, "cyberops"),
              "", "## T3. Benign utility (E1)", "", t3_benign(trials),
+             "", f"## T3b. Persistent-state sequence (E1b), AgenticCyOps, {main_group}", "",
+             "Benign scenarios run after 30 attack incidents with all defense state kept, "
+             "against the same scenarios under per-trial isolation (first trial of E1).", "",
+             t3b_persistent(trials, main_group),
              "", f"## T4. Ablations (E3), {main_group}", "", t4_ablations(trials, main_group),
              "", f"## T5. Which layer blocked the attacks (AgenticCyOps, {main_group})", "", t5_blocked_by(trials, main_group),
              "", "## T6. ASB paired panel replay (E6)", "", t6_asb(results_dir),
