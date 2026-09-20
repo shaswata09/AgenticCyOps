@@ -14,6 +14,7 @@
 #   scripts/run_revision.sh mid-main              # E1 + E2 on scout_div4, mistral_div3p, llama8b_div4 in parallel;
 #                                                 # ASB replay for div3 / lin3 / single
 #   scripts/run_revision.sh llama8b-main          # E1 + E2 on llama8b_div4 (RTX 5090 node); can run next to q235-main
+#   scripts/run_revision.sh e3-rev [group]             # helper streams for the running E3 (benign first, then APs in reverse)
 #   scripts/run_revision.sh e2-rev <group> [domains]   # extra E2 streams, reverse AP order, slots 3-5 (halves E2 wall-clock)
 #   scripts/run_revision.sh e1|e2|e3|e1b <group> [domains]   # single stage
 #   scripts/run_revision.sh asb-replay <panel>    # div4 | div3 | lin3 | single
@@ -259,6 +260,40 @@ case "$cmd" in
         rc=0; for p in "${pids[@]}"; do wait "$p" || rc=1; done
         run_py -m analysis.parse_logs --group "$g" > /dev/null 2>&1 || true
         stamp "E2 (reverse) ${g} done"; exit $rc ;;
+    e3-rev)
+        # Helper streams for E3: the same seven ablations, benign first and
+        # then the attack paths in REVERSE order, next to the running E3.
+        # Same slot numbers as E3 but shifted ports (PORT_EXTRA), their own
+        # ChromaDB dirs (CHROMA_TAG) and their own core blocks; RESUME skips
+        # whatever the forward stream has finished.
+        #   scripts/run_revision.sh e3-rev [group]      ABLATIONS="P1 P2 llm_judge" to restrict
+        g="${1:-$MAIN_GROUP}"
+        abls="${ABLATIONS:-P1 P2 P3 P4 P5 llm_judge symbolic_only}"
+        read -r -a rev_cpus <<< "${REV_CPUSETS:-42-47 48-53 54-59 60-65 66-71 72-77 78-83}"
+        stamp "E3 (reverse helpers) ${g} cyberops: ${abls}"
+        pids=(); stream=0
+        for tok in $abls; do
+            case "$tok" in
+                P1) slot=0 ;; P2) slot=1 ;; P3) slot=2 ;; P4) slot=3 ;; P5) slot=4 ;;
+                llm_judge) slot=5 ;; symbolic_only) slot=6 ;; *) echo "unknown ablation $tok"; exit 2 ;;
+            esac
+            cpu="${rev_cpus[$stream]:-}"
+            stamp "  start ${g} cyberops reverse ${tok} (slot ${slot}+1500${cpu:+, cpus ${cpu}})"
+            (
+                export SLOT="$slot" PORT_EXTRA=1500 CHROMA_TAG=rev CPUSET_OVERRIDE="$cpu"
+                case "$tok" in
+                    P*) export DISABLE_PRINCIPLES="$tok"; cfg=agenticcyops ;;
+                    *)  cfg="$tok" ;;
+                esac
+                attack "$g" cyberops benign "$cfg"
+                for n in 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1; do
+                    attack "$g" cyberops "ap${n}" "$cfg"
+                done
+            ) > "logs/stage_${g}_cyberops_ablation_${tok}_rev.log" 2>&1 &
+            pids+=($!); stream=$((stream + 1)); sleep 20
+        done
+        rc=0; for p in "${pids[@]}"; do wait "$p" || rc=1; done
+        stamp "E3 (reverse helpers) ${g} done"; exit $rc ;;
     llama8b-main)
         # needs only V1 + V5 on this box (up in both profiles) and the RTX 5090 node
         [ "$(a51_status)" = "200" ] || { stamp "llama8b-main: RTX 5090 node not usable (HTTP $(a51_status))"; exit 1; }

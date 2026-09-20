@@ -25,3 +25,5 @@
 2026-09-19 20:59:52    start q235_div4 legal all flat (slot 0)
 2026-09-19 21:00:12    start q235_div4 legal all acl_hardened (slot 1)
 2026-09-19 21:00:32    start q235_div4 legal all agenticcyops (slot 2)
+2026-09-20 01:30:09  E2 q235_div4 done
+2026-09-20 01:30:09  E3 ablations q235_div4 cyberops (7 concurrent streams, one slot each)

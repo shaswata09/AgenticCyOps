@@ -125,7 +125,10 @@ DOMAIN_OFFSET[finance]=2;  DOMAIN_OFFSET[legal]=3
 # trial-tagged memory.  Slot n shifts every port by n*3000.
 compute_tool_base() {
     local _grp="$1" _dom="$2"
-    echo $((10000 + GROUP_OFFSET[$_grp]*160 + DOMAIN_OFFSET[$_dom]*40 + ${SLOT:-0}*3000))
+    # PORT_EXTRA shifts a helper stream into the gap between slot blocks
+    # (each slot block spans < 2600 ports of its 3000) so it can share a SLOT
+    # number with a running stream without sharing its ports.
+    echo $((10000 + GROUP_OFFSET[$_grp]*160 + DOMAIN_OFFSET[$_dom]*40 + ${SLOT:-0}*3000 + ${PORT_EXTRA:-0}))
 }
 
 # ---- Helpers ----
@@ -345,7 +348,7 @@ run_domain() {
     local TOOL_BASE_PORT
     TOOL_BASE_PORT=$(compute_tool_base "$GROUP" "$domain")
     local MMA_PORT=$((TOOL_BASE_PORT + 30))
-    local CHROMA_DB_PATH="./data/chromadb/group_${GROUP}${SLOT:+_s${SLOT}}"
+    local CHROMA_DB_PATH="./data/chromadb/group_${GROUP}${SLOT:+_s${SLOT}}${CHROMA_TAG:+_${CHROMA_TAG}}"
 
     set_cpuset "$domain"
     echo ""
