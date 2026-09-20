@@ -251,8 +251,21 @@ async def run_sweep(group_id: str,
                 if key not in replay:
                     missing_replay += 1
                     return
-                trial = dict(replay[key])
-                trial["group"] = group_id
+                # same row shape as run_live_trial(): case / config identity
+                # comes from this run, the primary's output from the recording
+                rec = replay[key]
+                trial = {
+                    "group": group_id,
+                    "asb_case_id": case.get("asb_case_id", ""),
+                    "scenario": case.get("scenario", ""),
+                    "agent_name": case.get("agent_name", ""),
+                    "attack_type": case.get("attack_type", ""),
+                    "attack_subtype": case.get("attack_subtype", ""),
+                    "config": cfg,
+                    **rec,
+                    "user_tool": rec.get("user_tool") or case.get("User Tool", ""),
+                    "emitted_args": json.dumps(rec.get("emitted_args") or {}, default=str)[:400],
+                }
             else:
                 trial = await run_live_trial(
                     group_id=group_id, case=case, temperature=temperature,
