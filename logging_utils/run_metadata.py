@@ -64,8 +64,15 @@ def git_state() -> dict[str, Any]:
     dirty = None
     if sha:
         status = _git("status", "--porcelain", "--untracked-files=no") or ""
-        src = [ln for ln in status.splitlines()
-               if not any(ln[3:].startswith(d) for d in _OUTPUT_DIRS)]
+        src = []
+        for ln in status.splitlines():
+            # porcelain is "XY <path>"; _git strips the first line's leading
+            # status space, so take the path as the last whitespace-run token
+            # (rename "a -> b" keeps b, still fine for the output-dir check).
+            parts = ln.strip().split(maxsplit=1)
+            path = parts[1].split(" -> ")[-1] if len(parts) == 2 else ""
+            if not any(path.startswith(d) for d in _OUTPUT_DIRS):
+                src.append(ln)
         dirty = bool(src)
     # The freeze tag is the most recent defense-freeze-* tag reachable from
     # HEAD.  ``git describe --exact-match`` reports whether HEAD *is* the
