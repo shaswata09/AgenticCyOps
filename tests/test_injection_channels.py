@@ -202,6 +202,10 @@ def _bare_harness(tmp_path, domain="cyberops", config="flat"):
 
     class Host:
         calls = []
+        state_mode = "isolated"
+
+        async def reset_trial_state(self):
+            return {}
 
         async def run_incident(self, trigger, harness_injection=None):
             self.calls.append(trigger)
@@ -409,3 +413,51 @@ def test_dirty_tree_refuses_main_runs_but_allows_smoke():
         refuse_if_dirty({"git_dirty": True}, "")
     with pytest.raises(DirtyTreeRefused):
         refuse_if_dirty({"git_dirty": True}, "persistent")
+
+
+# ---- reset-before-seed (isolated agenticcyops memory) --------------------
+
+def test_isolated_reset_runs_before_seed_and_not_during_incident(tmp_path, monkeypatch):
+    """The per-trial reset must happen before the memory seed (else it deletes
+    the planted doc), and run_incident must not reset again."""
+    order = []
+
+    async def fake_post(self, path, payload, timeout=10.0):
+        if path == "/memory/write":
+            order.append(("seed", payload.get("doc_id")))
+        return 200, {"accepted": True}
+
+    monkeypatch.setattr(SOARHost, "_mma_post", fake_post)
+    h = _bare_harness(tmp_path, config="agenticcyops")
+    h.state_mode = "isolated"
+
+    class Host:
+        state_mode = "isolated"
+
+        async def reset_trial_state(self):
+            order.append(("reset", self.state_mode))
+
+        async def run_incident(self, trigger, harness_injection=None):
+            order.append(("incident", self.state_mode))     # must not be "isolated" here
+            return {}
+
+        def _mma_token(self, *a):
+            return ""
+
+        async def _mma_post(self, path, payload, timeout=10.0):
+            return await fake_post(self, path, payload, timeout)
+
+    h.host = Host()
+    payload = {"trigger": {"description": "x"},
+               "meta": {"channel": "memory", "attacker_phase": "analyze", "canaries": ["C-1"],
+                        "injection": {"entries": [{"store": "M1", "content": "note C-1", "doc_id": "D1"}]}},
+               "success_criteria": {"attacker_phase": "analyze",
+                                    "effects": [{"kind": "mem_read_leak", "canary": "C-1"}]}}
+    asyncio.run(h.run_trial("ap14", 1, 1, payload))
+    h.logger.close()
+    kinds = [o[0] for o in order]
+    assert kinds.index("reset") < kinds.index("seed") < kinds.index("incident"), order
+    # run_incident saw a non-isolated state_mode (its own reset suppressed)...
+    assert dict((o[0], o[1]) for o in order if o[0] == "incident")["incident"] != "isolated"
+    # ...and state_mode is restored afterwards
+    assert h.host.state_mode == "isolated"

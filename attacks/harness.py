@@ -438,8 +438,20 @@ class AttackHarness:
         channel = "" if ap == "benign" else str(meta.get("channel") or "alert_text")
         start = time.perf_counter()
 
+        # Isolated mode resets defense state (and, for agenticcyops, deletes
+        # trial-tagged memory docs) at the start of each incident.  That reset
+        # must run BEFORE the harness seeds the memory injection, or it deletes
+        # the just-planted record; so reset here, then seed, then run the
+        # incident with the host's own reset suppressed (state_mode sentinel:
+        # run_incident does the lighter reset_for_incident, which never touches
+        # memory).  No defense decision changes -- the same reset still runs.
+        suppress_reset = self.state_mode == "isolated"
+        saved_mode = self.host.state_mode
+
         try:
             try:
+                if suppress_reset:
+                    await self.host.reset_trial_state()
                 if channel:
                     await self.deliver_injection(channel, injection)
             except InjectionNotDelivered as nd:
@@ -454,7 +466,12 @@ class AttackHarness:
                     details={"error": str(nd), "channel": channel})
                 self._finish_trial(trial_result, ap, variant, trial)
                 return trial_result
-            result = await self.host.run_incident(trigger, harness_injection=injection)
+            if suppress_reset:
+                self.host.state_mode = "isolated_reset_done"   # not "isolated": no second reset
+            try:
+                result = await self.host.run_incident(trigger, harness_injection=injection)
+            finally:
+                self.host.state_mode = saved_mode
             latency_s = time.perf_counter() - start
 
             # Get tool states
