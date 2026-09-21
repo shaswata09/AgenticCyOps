@@ -180,7 +180,10 @@ def build_ap14(domain: str, vs: list) -> None:
 
 
 def build_ap4(domain: str, vs: list) -> None:
-    for i, v in enumerate(vs):
+    # Only the leak/mem_write variants v1-v5; the P5 read families v6/v7 are
+    # owned by append_p5_families and must not be reprocessed here (re-running
+    # the generator on a 7-variant file would otherwise overwrite them).
+    for i, v in enumerate(vs[:5]):
         canary = _canary(domain, "ap4", i)
         meta = v.setdefault("meta", {})
         sc = v.setdefault("success_criteria", {})

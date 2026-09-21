@@ -63,3 +63,20 @@ def test_waiver_count_is_reported():
     """Keeps the number visible in the test output."""
     print(f"\nhygiene waivers: {len(WAIVERS)} variants")
     assert len(WAIVERS) <= 107
+
+
+def test_ap4_p5_read_families_are_intact():
+    """AP-4 has the two P5 read families (v6/v7) with kind mem_read in every
+    domain. Guards against the generator reprocessing them into store_policy
+    leak variants (a build_channel_p5_variants idempotency regression)."""
+    for domain in DOMAINS:
+        vs = load_variants(domain, "ap4")
+        assert len(vs) == 7, f"{domain}: AP-4 should have 7 variants, got {len(vs)}"
+        v6, v7 = vs[5], vs[6]
+        assert v6["variant_id"] == "ap4_v6" and v6["name"] == "unauthorized_store_read"
+        assert v7["variant_id"] == "ap4_v7" and v7["name"] == "dump_query"
+        for v, p5 in ((v6, "store_policy"), (v7, "query_scope")):
+            kinds = [e["kind"] for e in v["success_criteria"]["effects"]]
+            assert kinds == ["mem_read"], f"{domain}/{v['variant_id']}: {kinds}"
+            assert v["meta"]["p5_target"] == p5
+            assert v["meta"]["channel"] == "alert_text" and v["meta"]["canaries"] == []
