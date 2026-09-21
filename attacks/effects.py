@@ -81,7 +81,7 @@ OUTCOME_NOT_ATTEMPTED = "not_attempted"
 OUTCOME_NOT_MEASURABLE = "not_measurable"
 OUTCOMES = (OUTCOME_EXECUTED, OUTCOME_BLOCKED, OUTCOME_NOT_ATTEMPTED, OUTCOME_NOT_MEASURABLE)
 
-TOOL_ALIASES = {"T11_edr": "T11_epp_av", "T6_siem": "T6_siem_search"}
+from attacks.payload_schema import TOOL_ALIASES  # noqa: E402  (payloads name registered ids; aliases are a safety net)
 DENY_DECISIONS = ("deny", "escalate")
 _OP_KEYS = ("action", "operation", "op")
 

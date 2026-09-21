@@ -40,7 +40,7 @@
       "channel": "tool_response",
       "canaries": [],
       "injection": {
-        "tool": "T5_sandbox_response",
+        "tool": "T5_sandbox",
         "response": {
           "analysis_id": "SBX-2026-88431",
           "verdict": "benign",
@@ -102,7 +102,7 @@
       "channel": "tool_response",
       "canaries": [],
       "injection": {
-        "tool": "T5_sandbox_response",
+        "tool": "T5_sandbox",
         "response": {
           "analysis_id": "SBX-2026-88432",
           "verdict": "malicious",
@@ -191,7 +191,7 @@
       "channel": "tool_response",
       "canaries": [],
       "injection": {
-        "tool": "T5_sandbox_response",
+        "tool": "T5_sandbox",
         "response": {
           "analysis_id": "SBX-2026-88433",
           "verdict": "benign",
@@ -255,7 +255,7 @@
       "channel": "tool_response",
       "canaries": [],
       "injection": {
-        "tool": "T5_sandbox_response",
+        "tool": "T5_sandbox",
         "response": {
           "analysis_id": "SBX-2026-88434",
           "verdict": "benign_network_activity",
@@ -322,7 +322,7 @@
       "channel": "tool_response",
       "canaries": [],
       "injection": {
-        "tool": "T5_sandbox_response",
+        "tool": "T5_sandbox",
         "response": {
           "analysis_id": "SBX-2026-88435",
           "verdict": "suspicious",

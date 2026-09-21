@@ -30,10 +30,20 @@ from consensus.validator import ConsensusValidator
 from attacks.effects import (evaluate_effects, evaluate_benign, trial_costs, OUTCOME_EXECUTED,
                              OUTCOME_BLOCKED, OUTCOME_NOT_ATTEMPTED,
                              OUTCOME_NOT_MEASURABLE, OUTCOME_BENIGN)
-from attacks.payload_schema import injection_of, memory_seed_entries, meta_of, split_payload
+from attacks.payload_schema import (injection_of, memory_seed_entries, meta_of, resolve_tool,
+                                    split_payload)
 
 
 CYBEROPS_APS = ["ap1", "ap2", "ap3", "ap4", "ap5", "ap6"]
+
+
+class InjectionNotDelivered(RuntimeError):
+    """The payload's adversarial content could not be placed in its channel.
+
+    Raised by :meth:`AttackHarness.deliver_injection`; the trial is then
+    recorded as ``outcome="error"``, ``blocked_by="injection_not_delivered"``
+    and the incident is not run (the model would never have seen the attack).
+    """
 
 # Columns of results/eval_attacks/group_<G>/<domain>/results.csv (scoring v3).
 RESULT_COLUMNS = ["domain", "ap", "variant", "trial", "config", "group",
@@ -405,7 +415,20 @@ class AttackHarness:
         start = time.perf_counter()
 
         try:
-            await self.deliver_injection(meta.get("channel", "alert_text"), injection)
+            try:
+                await self.deliver_injection(meta.get("channel", "alert_text"), injection)
+            except InjectionNotDelivered as nd:
+                # loud, not silent: no incident is run for a trial the model
+                # could not have been exposed to (T1)
+                trial_result = TrialResult(
+                    ap=ap, variant=variant, trial=trial,
+                    config=self.config, domain=self.domain, group=self.group,
+                    outcome="error", blocked_by="injection_not_delivered",
+                    error=str(nd), measurable=False, seed=seed,
+                    latency_s=time.perf_counter() - start,
+                    details={"error": str(nd), "channel": meta.get("channel", "alert_text")})
+                self._finish_trial(trial_result, ap, variant, trial)
+                return trial_result
             result = await self.host.run_incident(trigger, harness_injection=injection)
             latency_s = time.perf_counter() - start
 
@@ -446,7 +469,11 @@ class AttackHarness:
                 latency_s=time.perf_counter() - start,
             )
 
-        # Log trial summary
+        self._finish_trial(trial_result, ap, variant, trial)
+        return trial_result
+
+    def _finish_trial(self, trial_result: TrialResult, ap: str, variant: int, trial: int) -> None:
+        """Log the trial summary and append the results.csv row."""
         self.logger.log(
             source="harness",
             destination="trial_result",
@@ -466,8 +493,6 @@ class AttackHarness:
                 status = f"ERROR: {trial_result.error[:60]}"
             print(f"  {ap} v{variant} t{trial} [{self.config}]: {status}")
 
-        return trial_result
-
     # ---- H5 channel delivery ---------------------------------------------
 
     async def deliver_injection(self, channel: str, injection: dict) -> None:
@@ -481,12 +506,13 @@ class AttackHarness:
         """
         import httpx
         if channel == "tool_response" and injection.get("tool"):
-            tool = injection["tool"]
-            port = self.registry._ports.get(tool)
-            if port is None:
-                self.logger.log(source="harness", destination=tool, action="harness_injection",
+            named = injection["tool"]
+            tool = resolve_tool(named, self.registry._ports)
+            if tool is None:
+                self.logger.log(source="harness", destination=str(named), action="harness_injection",
                                 extra={"channel": channel, "status": "unknown_tool"})
-                return
+                raise InjectionNotDelivered(f"tool_response: {named!r} is not a registered tool")
+            port = self.registry._ports[tool]
             body = {"response": injection.get("response"),
                     "mode": injection.get("mode", "merge"),
                     "calls": int(injection.get("calls", 1))}
@@ -497,13 +523,19 @@ class AttackHarness:
             except Exception as exc:
                 status = f"error:{str(exc)[:80]}"
             self.logger.log(source="harness", destination=tool, action="harness_injection",
-                            extra={"channel": channel, "status": status, "queued": True})
+                            extra={"channel": channel, "status": status, "queued": status == 200,
+                                   **({"named_tool": str(named)} if tool != named else {})})
+            if status != 200:
+                raise InjectionNotDelivered(f"tool_response: POST /inject on {tool} returned {status}")
         elif channel == "memory":
             for e in memory_seed_entries(injection):
                 status, body = await self.host._mma_post("/memory/write", {
                     "phase": e["phase"], "store_id": e["store"], "document": e["content"],
                     "doc_id": e["doc_id"], "incident_evidence": "",
-                    "metadata": {**e["metadata"], "trial_id": self.logger._trial_id or "untagged"},
+                    # doc_id travels in the metadata so a read that returns the
+                    # planted record can be recognised (T2 exposure logging)
+                    "metadata": {**e["metadata"], "trial_id": self.logger._trial_id or "untagged",
+                                 "doc_id": e["doc_id"]},
                     "auth_token": self.host._mma_token(e["phase"], e["store"]),
                     "harness_seed": True,
                 })
@@ -511,6 +543,9 @@ class AttackHarness:
                                 extra={"channel": channel, "status": status, "doc_id": e["doc_id"],
                                        "seeded": status == 200},
                                 scan_text=e["content"])
+                if status != 200:
+                    raise InjectionNotDelivered(
+                        f"memory: seeding {e['doc_id']} into {e['store']} returned {status}")
 
     # ---- per-trial bookkeeping ------------------------------------------
 

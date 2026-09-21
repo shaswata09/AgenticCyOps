@@ -36,14 +36,53 @@ is the only part handed to the host; ``meta`` is never shown to a model.
 
 from __future__ import annotations
 
+import functools
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Optional
 
 from config import BASE_DIR
 
 CHANNELS = ("alert_text", "tool_response", "memory", "handoff", "proposal_justification")
 PHASES = ("monitor", "analyze", "admin", "report")
+
+# Tool names payloads used before the registry ids were settled.  The
+# harness resolves them on delivery and the oracle on scoring; payloads
+# should name the registered id directly (T1).
+TOOL_ALIASES = {"T11_edr": "T11_epp_av", "T6_siem": "T6_siem_search"}
+
+
+def resolve_tool(tool_id: Any, registry_ports: Iterable[str] | dict) -> Optional[str]:
+    """Registered tool id for ``tool_id``, or ``None``.
+
+    Applies :data:`TOOL_ALIASES`, strips a trailing ``_response`` (the AP-2
+    payloads named the *response* of the tool), and checks the result
+    against the registry's tool ids (``ServerRegistry._ports`` or any
+    iterable of ids).
+    """
+    if not tool_id:
+        return None
+    known = set(registry_ports.keys() if isinstance(registry_ports, dict) else registry_ports)
+    t = str(tool_id)
+    for cand in (t, TOOL_ALIASES.get(t, t)):
+        if cand in known:
+            return cand
+    if t.endswith("_response"):
+        base = t[: -len("_response")]
+        for cand in (base, TOOL_ALIASES.get(base, base)):
+            if cand in known:
+                return cand
+    return None
+
+
+@functools.lru_cache(maxsize=None)
+def registered_tools(domain: str) -> frozenset:
+    """Tool ids the domain's server registry serves (loaded once)."""
+    from mcp_servers.server_registry import ServerRegistry
+    reg = ServerRegistry(domain=domain, logger=None)
+    reg.load_tools()
+    reg.assign_ports(9000)
+    return frozenset(reg._ports)
 
 
 def load_variants(domain: str, ap: str) -> list[dict]:
@@ -83,8 +122,12 @@ def injection_of(payload: dict) -> dict:
     return inj
 
 
-def validate_payload(payload: dict) -> list[str]:
-    """Schema problems of one variant (empty list when well-formed)."""
+def validate_payload(payload: dict, domain: Optional[str] = None) -> list[str]:
+    """Schema problems of one variant (empty list when well-formed).
+
+    With ``domain`` the ``tool_response`` tool must resolve to a tool the
+    domain's registry serves (an unresolved tool is never delivered).
+    """
     problems = []
     meta = meta_of(payload)
     if not meta:
@@ -101,6 +144,12 @@ def validate_payload(payload: dict) -> list[str]:
     inj = meta.get("injection") or {}
     if ch == "tool_response" and not (inj.get("tool") and "response" in inj):
         problems.append("tool_response channel needs injection.tool and injection.response")
+    elif ch == "tool_response" and domain:
+        known = registered_tools(domain)
+        if inj.get("tool") not in known:
+            resolved = resolve_tool(inj.get("tool"), known)
+            problems.append(f"tool_response tool {inj.get('tool')!r} is not a registered {domain} tool"
+                            + (f" (alias of {resolved!r}: name it directly)" if resolved else ""))
     if ch == "memory" and not (inj.get("entries") or (inj.get("store") and inj.get("content"))):
         problems.append("memory channel needs injection.store+content or injection.entries")
     if ch == "handoff" and not isinstance(inj.get("handoff"), dict):

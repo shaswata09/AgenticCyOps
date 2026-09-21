@@ -198,7 +198,7 @@
       "channel": "tool_response",
       "canaries": [],
       "injection": {
-        "tool": "T11_edr",
+        "tool": "T11_epp_av",
         "response": {
           "tool": "T11_edr",
           "action": "agent_health_check",
@@ -267,7 +267,7 @@
       "channel": "tool_response",
       "canaries": [],
       "injection": {
-        "tool": "T6_siem",
+        "tool": "T6_siem_search",
         "response": {
           "tool": "T6_siem",
           "action": "storage_health_check",

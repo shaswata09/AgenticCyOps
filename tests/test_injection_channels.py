@@ -148,3 +148,98 @@ def test_harness_memory_seeding_is_tagged_with_the_trial(tmp_path, monkeypatch):
     assert body["harness_seed"] is True and body["metadata"]["trial_id"] == "cyberops_ap14_v1_t1_agenticcyops"
     ev = [e for e in _events(h.logger) if e["action"] == "harness_injection"]
     assert ev and ev[0]["seeded"] is True and ev[0]["canary_hits"] == ["C-1"]
+
+
+# ---- T1: tool-response delivery ------------------------------------------
+
+DOMAINS = ("cyberops", "healthcare", "finance", "legal")
+
+
+def test_resolve_tool_applies_aliases_and_strips_response_suffix():
+    from attacks.payload_schema import resolve_tool
+    ports = {"T5_sandbox": 9000, "T11_epp_av": 9001, "T6_siem_search": 9002}
+    assert resolve_tool("T5_sandbox", ports) == "T5_sandbox"
+    assert resolve_tool("T5_sandbox_response", ports) == "T5_sandbox"
+    assert resolve_tool("T11_edr", ports) == "T11_epp_av"
+    assert resolve_tool("T6_siem_response", ports) == "T6_siem_search"
+    assert resolve_tool("T99_nothing", ports) is None
+    assert resolve_tool("", ports) is None and resolve_tool(None, ports) is None
+
+
+@pytest.mark.parametrize("domain", DOMAINS)
+def test_every_tool_response_payload_names_a_registered_tool(domain):
+    from attacks.payload_schema import load_variants, registered_tools, resolve_tool, validate_payload
+    known = registered_tools(domain)
+    seen = 0
+    for ap in range(1, 16):
+        for v in load_variants(domain, f"ap{ap}"):
+            meta = v["meta"]
+            if meta.get("channel") != "tool_response":
+                continue
+            seen += 1
+            tool = meta["injection"]["tool"]
+            assert resolve_tool(tool, known) == tool, f"{domain}/{v['variant_id']}: {tool}"
+            assert validate_payload(v, domain=domain) == []
+    if domain == "cyberops":
+        assert seen >= 10
+
+
+def _bare_harness(tmp_path, domain="cyberops", config="flat"):
+    """An AttackHarness without LLM agents or tool servers: enough to run
+    ``run_trial`` up to the delivery step."""
+    from attacks.harness import AttackHarness
+    from mcp_servers.server_registry import ServerRegistry
+    h = AttackHarness.__new__(AttackHarness)
+    h.domain, h.config, h.group, h.verbose = domain, config, "t", False
+    h.state_mode, h.temperature, h.base_seed = "isolated", 0.7, None
+    h.agents, h.disabled_principles = {}, set()
+    h.results_csv, h.resume, h.max_variants = None, False, None
+    h.logger = ExperimentLogger(eval_name="t_ch", domain=domain, config=config,
+                                model="stub", logs_dir=str(tmp_path))
+    h.registry = ServerRegistry(domain=domain, logger=None)
+    h.registry.load_tools()
+    h.registry.assign_ports(39000)          # nothing listens there
+
+    class Host:
+        calls = []
+
+        async def run_incident(self, trigger, harness_injection=None):
+            self.calls.append(trigger)
+            return {}
+
+    h.host = Host()
+    return h
+
+
+def _tool_response_payload(tool):
+    return {"variant_id": "ap2_vX", "trigger": {"description": "alert"},
+            "meta": {"channel": "tool_response", "attacker_phase": "analyze", "canaries": [],
+                     "injection": {"tool": tool, "response": {"verdict": "x"}}},
+            "success_criteria": {"attacker_phase": "analyze",
+                                 "effects": [{"kind": "mem_write", "store": "M1"}]}}
+
+
+def test_unresolved_tool_is_an_error_trial_without_an_agent_call(tmp_path):
+    h = _bare_harness(tmp_path)
+    r = asyncio.run(h.run_trial("ap2", 1, 1, _tool_response_payload("T99_not_a_tool")))
+    h.logger.close()
+    assert r.outcome == "error" and r.blocked_by == "injection_not_delivered"
+    assert r.measurable is False and "T99_not_a_tool" in (r.error or "")
+    assert h.host.calls == []                       # the incident never ran
+    ev = _events(h.logger)
+    inj = [e for e in ev if e["action"] == "harness_injection"]
+    assert inj and inj[0]["status"] == "unknown_tool"
+    done = [e for e in ev if e["action"] == "trial_complete"]
+    assert done and done[0]["outcome"] == "error" and done[0]["blocked_by"] == "injection_not_delivered"
+
+
+def test_failed_inject_post_is_an_error_trial_without_an_agent_call(tmp_path):
+    h = _bare_harness(tmp_path)
+    # resolvable name, but no stub listens on the port: the POST fails
+    r = asyncio.run(h.run_trial("ap2", 1, 1, _tool_response_payload("T5_sandbox_response")))
+    h.logger.close()
+    assert r.outcome == "error" and r.blocked_by == "injection_not_delivered"
+    assert h.host.calls == []
+    inj = [e for e in _events(h.logger) if e["action"] == "harness_injection"]
+    assert inj[0]["destination"] == "T5_sandbox" and inj[0]["named_tool"] == "T5_sandbox_response"
+    assert inj[0]["queued"] is False

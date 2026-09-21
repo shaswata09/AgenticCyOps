@@ -38,7 +38,7 @@ IDS = [f"{d}/{v['variant_id']}" for d, ap, v in CASES]
 
 @pytest.mark.parametrize("domain,ap,variant", CASES, ids=IDS)
 def test_meta_block_is_well_formed(domain, ap, variant):
-    assert validate_payload(variant) == []
+    assert validate_payload(variant, domain=domain) == []
 
 
 @pytest.mark.parametrize("domain,ap,variant", CASES, ids=IDS)
