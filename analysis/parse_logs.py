@@ -196,7 +196,11 @@ def main() -> None:
         all_rows.extend({**r, "suffix": suffix} for r in rows)
         all_runs.extend(runs)
 
-    if all_rows:
+    if all_rows and (args.group or args.domain):
+        # A filtered parse rebuilds only the selected per-run results; the
+        # aggregate files span every group and are rewritten by a full parse.
+        print(f"filtered parse ({len(all_rows)} rows): all_trials.csv / runs.csv left unchanged")
+    elif all_rows:
         out = args.results_dir / "eval_attacks"
         out.mkdir(parents=True, exist_ok=True)
         with open(out / "all_trials.csv", "w", newline="") as f:
