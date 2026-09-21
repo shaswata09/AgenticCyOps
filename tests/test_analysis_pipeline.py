@@ -88,7 +88,8 @@ def test_parse_logs_roundtrip_and_tables(tmp_path):
     for cfg, execs in (("flat", 1), ("acl_hardened", 1), ("agenticcyops", 0)):
         r = [{"ap": "ap1", "variant": 1, "trial": t, "outcome": "executed" if t <= execs else "blocked",
               "blocked_by": "" if t <= execs else "P2_manifest_enforcement", "collateral_denials": 0,
-              "task_completed": True, "latency_s": 12.5, "primary_tokens": 900, "validator_tokens": 300, "seed": t}
+              "task_completed": True, "latency_s": 12.5, "primary_tokens": 900, "validator_tokens": 300, "seed": t,
+              "exposed": t != 3, "channel": "tool_response"}
              for t in (1, 2, 3)]
         r.append({"ap": "benign", "variant": 1, "trial": 1, "outcome": "benign", "blocked_by": "",
                   "collateral_denials": 1 if cfg == "agenticcyops" else 0, "task_completed": True,
@@ -104,6 +105,14 @@ def test_parse_logs_roundtrip_and_tables(tmp_path):
     runs = discover_runs(logs)
     assert [(d, g, s) for d, g, s, _ in runs] == [("cyberops", "g1", ""), ("cyberops", "g1", "_disabled_P3"),
                                                   ("cyberops", "g1_persistent", "")]
+    # exposed / channel (T2) come from the event; a pre-T2 event (the P3 run
+    # above has neither) gets the payload's channel and an empty exposed
+    main_rows, _, _ = parse_run_dir("cyberops", "g1", "", logs / "cyberops_eval_attacks_g1")
+    flat = [r for r in main_rows if r["config"] == "flat" and r["ap"] == "ap1"]
+    assert [r["exposed"] for r in sorted(flat, key=lambda r: r["trial"])] == [True, True, False]
+    assert all(r["channel"] == "tool_response" for r in flat)
+    p3_rows, _, _ = parse_run_dir("cyberops", "g1", "_disabled_P3", logs / "cyberops_eval_attacks_g1_disabled_P3")
+    assert p3_rows[0]["exposed"] == "" and p3_rows[0]["channel"] == "alert_text"   # cyberops ap1 v1 payload
     _, _, hdr = parse_run_dir("cyberops", "g1_persistent", "", logs / "cyberops_eval_attacks_g1_persistent")
     assert hdr[0]["group"] == "g1_persistent" and hdr[0]["primary_model"] == "Qwen/Qwen3-32B"
     all_rows, all_runs = [], []

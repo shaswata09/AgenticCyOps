@@ -256,6 +256,9 @@ class SOARHost:
                             extra={"channel": "handoff", "phase": phase,
                                    "fields": sorted((spec.get("fields") or {}).keys()),
                                    "append_summary": bool(spec.get("append_summary"))})
+            self.logger.log(source="harness", destination=f"{next_phase}_agent",
+                            action="injection_served",
+                            extra={"channel": "handoff", "phase": phase, "to_phase": next_phase})
         return out
 
     def _inject_proposals(self, phase: str, result) -> None:
@@ -281,6 +284,10 @@ class SOARHost:
                                 action="harness_injection",
                                 extra={"channel": "proposal_justification", "phase": phase,
                                        "arguments": dict(spec.get("arguments") or {})})
+                self.logger.log(source="harness", destination=spec["tool"],
+                                action="injection_served",
+                                extra={"channel": "proposal_justification", "phase": phase,
+                                       "tool": spec["tool"]})
 
     # ---- H6 fault injection (harness only) -------------------------------
 
@@ -913,10 +920,11 @@ class SOARHost:
         _t = _time.perf_counter()
 
         if isinstance(response, dict) and response.pop("_harness_injected", None):
+            # exposure record (T2): the model is about to see the injected response
             if self.logger:
-                self.logger.log(source="harness", destination=tool_id, action="harness_injection",
-                                extra={"channel": "tool_response", "phase": phase,
-                                       **self._args_for_log(tc)})
+                self.logger.log(source="harness", destination=tool_id, action="injection_served",
+                                extra={"channel": "tool_response", "phase": phase, "tool": tool_id,
+                                       "call_id": getattr(tc, "call_id", "")})
 
         # ── Harness fault: forged response (unsigned) ──
         if self.harness_injection:
@@ -1060,9 +1068,22 @@ class SOARHost:
                     else "acl_network_layer" if self.config == "acl_hardened"
                     else "P5_access_control")
             if self.logger:
+                # Exposure evidence (T2): ids of the returned records that carry
+                # a doc_id in their metadata (harness-seeded records always do)
+                # and which of those came back with sanitized text.
+                result_ids, sanitized_ids = [], []
+                for doc, m in zip(docs, metas if isinstance(metas, list) else []):
+                    did = m.get("doc_id") if isinstance(m, dict) else None
+                    if not did:
+                        continue
+                    result_ids.append(str(did))
+                    if m.get("_sanitized") or (isinstance(doc, str) and "[REDACTED" in doc):
+                        sanitized_ids.append(str(did))
                 self.logger.log_memory_read(agent=f"{phase}_agent", store=store,
                                             auth_decision="allow", mechanism=mech,
-                                            num_results=len(docs), extra={"call_id": call_id},
+                                            num_results=len(docs),
+                                            extra={"call_id": call_id, "result_ids": result_ids[:20],
+                                                   "sanitized_ids": sanitized_ids[:20]},
                                             )
                 # P5-L5 sanitisation evidence on the returned entries
                 sanitized = sum(1 for m in metas if isinstance(m, dict) and m.get("_sanitized"))

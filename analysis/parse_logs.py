@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import functools
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -64,9 +65,26 @@ def read_events(path: Path):
                     continue
 
 
+@functools.lru_cache(maxsize=None)
+def _payload_channel(domain: str, ap: str, variant: int) -> str:
+    """``meta.channel`` of a payload variant ("" when unknown / benign)."""
+    if not str(ap).startswith("ap"):
+        return ""
+    from attacks.payload_schema import load_variants, meta_of
+    vs = load_variants(domain, ap)
+    if 0 < variant <= len(vs):
+        return str(meta_of(vs[variant - 1]).get("channel") or "")
+    return ""
+
+
 def parse_run_dir(domain: str, group: str, suffix: str, log_dir: Path,
                   rescore: bool = False) -> tuple[list[dict], list[dict], list[dict]]:
-    """Returns (result rows, trial detail rows, run header rows)."""
+    """Returns (result rows, trial detail rows, run header rows).
+
+    ``exposed`` and ``channel`` (T2) come from the ``trial_complete`` event;
+    logs written before T2 carry neither, so ``channel`` falls back to the
+    payload's ``meta.channel`` and ``exposed`` stays empty.
+    """
     rows: dict[tuple, dict] = {}
     details: dict[tuple, dict] = {}
     runs: list[dict] = []
@@ -84,6 +102,10 @@ def parse_run_dir(domain: str, group: str, suffix: str, log_dir: Path,
                 key = (e.get("ap"), str(e.get("variant")), str(e.get("trial")), e.get("config"))
                 row = {c: e.get(c, "") for c in RESULT_COLUMNS}
                 row.update({"domain": domain, "group": group})
+                if row.get("channel") in ("", None):
+                    row["channel"] = _payload_channel(domain, str(e.get("ap")), int(e.get("variant") or 0))
+                if row.get("exposed") is None:
+                    row["exposed"] = ""
                 rows[key] = row                      # last write wins (resumed runs)
                 details[key] = {**row, "suffix": suffix, "details": e.get("details"),
                                 "error": e.get("error"), "trial_id": tid}
@@ -127,7 +149,9 @@ def parse_run_dir(domain: str, group: str, suffix: str, log_dir: Path,
                    "latency_s": round(lo.get("span_s") or 0.0, 3),
                    "primary_tokens": int(lo.get("primary_tokens") or 0),
                    "validator_tokens": int(lo.get("validator_tokens") or 0),
-                   "seed": header.get("seed", "")}
+                   "seed": header.get("seed", ""),
+                   "exposed": "" if lo.get("exposed") is None else lo.get("exposed"),
+                   "channel": _payload_channel(domain, ap, variant_num)}
             rows[key] = row
             details[key] = {**row, "suffix": suffix, "details": lo.get("details"), "trial_id": tid}
     ordered = sorted(rows.values(), key=lambda r: (str(r["config"]), str(r["ap"]), int(r["variant"] or 0), int(r["trial"] or 0)))

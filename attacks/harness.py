@@ -48,7 +48,8 @@ class InjectionNotDelivered(RuntimeError):
 # Columns of results/eval_attacks/group_<G>/<domain>/results.csv (scoring v3).
 RESULT_COLUMNS = ["domain", "ap", "variant", "trial", "config", "group",
                   "outcome", "blocked_by", "collateral_denials", "task_completed",
-                  "latency_s", "primary_tokens", "validator_tokens", "seed"]
+                  "latency_s", "primary_tokens", "validator_tokens", "seed",
+                  "exposed", "channel"]
 CONFIGS = ["flat", "acl_hardened", "agenticcyops", "llm_judge", "symbolic_only"]
 # configs that share the agenticcyops enforcement stack
 _STACK_CONFIGS = ("agenticcyops", "symbolic_only")
@@ -76,6 +77,8 @@ class TrialResult:
     primary_tokens: int = 0
     validator_tokens: int = 0
     seed: Optional[int] = None
+    exposed: Optional[bool] = None     # model was shown the injected content (T2)
+    channel: str = ""                  # meta.channel of the payload ("" for benign)
     measurable: bool = True
     tool_states: dict = field(default_factory=dict)
     details: dict = field(default_factory=dict)
@@ -99,6 +102,8 @@ class TrialResult:
             "latency_s": round(self.latency_s, 3),
             "primary_tokens": self.primary_tokens, "validator_tokens": self.validator_tokens,
             "seed": "" if self.seed is None else self.seed,
+            "exposed": "" if self.exposed is None else self.exposed,
+            "channel": self.channel,
         }
 
 
@@ -412,11 +417,13 @@ class AttackHarness:
         # What the host (and so the model) sees vs. what only the harness knows
         trigger, meta = split_payload(payload)
         injection = injection_of(payload)
+        channel = "" if ap == "benign" else str(meta.get("channel") or "alert_text")
         start = time.perf_counter()
 
         try:
             try:
-                await self.deliver_injection(meta.get("channel", "alert_text"), injection)
+                if channel:
+                    await self.deliver_injection(channel, injection)
             except InjectionNotDelivered as nd:
                 # loud, not silent: no incident is run for a trial the model
                 # could not have been exposed to (T1)
@@ -424,9 +431,9 @@ class AttackHarness:
                     ap=ap, variant=variant, trial=trial,
                     config=self.config, domain=self.domain, group=self.group,
                     outcome="error", blocked_by="injection_not_delivered",
-                    error=str(nd), measurable=False, seed=seed,
+                    error=str(nd), measurable=False, seed=seed, exposed=False, channel=channel,
                     latency_s=time.perf_counter() - start,
-                    details={"error": str(nd), "channel": meta.get("channel", "alert_text")})
+                    details={"error": str(nd), "channel": channel})
                 self._finish_trial(trial_result, ap, variant, trial)
                 return trial_result
             result = await self.host.run_incident(trigger, harness_injection=injection)
@@ -434,6 +441,10 @@ class AttackHarness:
 
             # Get tool states
             tool_states = await self.get_tool_states()
+
+            # memory channel: which planted records a read returned (T2)
+            if channel == "memory":
+                self._log_memory_exposure(injection)
 
             # Evaluate
             self.evaluate_success(ap, payload, tool_states)
@@ -450,6 +461,8 @@ class AttackHarness:
                 primary_tokens=int(lo.get("primary_tokens") or 0),
                 validator_tokens=int(lo.get("validator_tokens") or 0),
                 seed=seed,
+                exposed=lo.get("exposed"),
+                channel=channel,
                 measurable=lo.get("measurable", True),
                 tool_states=tool_states,
                 details=lo.get("details") or {},
@@ -466,6 +479,7 @@ class AttackHarness:
                 blocked_by="harness_error",
                 measurable=False,
                 seed=seed,
+                channel=channel,
                 latency_s=time.perf_counter() - start,
             )
 
@@ -505,6 +519,12 @@ class AttackHarness:
         ``harness_injection`` argument; ``alert_text`` needs nothing.
         """
         import httpx
+        if channel == "alert_text":
+            # exposure by construction: the content is in the trigger the model reads
+            phase = str(injection.get("attacker_phase") or "monitor")
+            self.logger.log(source="harness", destination=f"{phase}_agent", action="injection_served",
+                            extra={"channel": channel, "phase": phase})
+            return
         if channel == "tool_response" and injection.get("tool"):
             named = injection["tool"]
             tool = resolve_tool(named, self.registry._ports)
@@ -547,6 +567,32 @@ class AttackHarness:
                     raise InjectionNotDelivered(
                         f"memory: seeding {e['doc_id']} into {e['store']} returned {status}")
 
+    def _log_memory_exposure(self, injection: dict) -> None:
+        """``injection_served`` for every planted record a memory read returned.
+
+        Allowed ``memory_read`` events carry ``result_ids`` (T2); a planted
+        ``doc_id`` among them means the reading phase was shown the record.
+        ``sanitized`` says whether P5-L5 rewrote its text on the way out.
+        """
+        planted = {e["doc_id"] for e in memory_seed_entries(injection)}
+        if not planted:
+            return
+        seen: set = set()
+        for e in self._get_trial_events():
+            if e.get("action") != "memory_read" or e.get("auth_decision") != "allow":
+                continue
+            ids = [str(i) for i in (e.get("result_ids") or [])]
+            sanitized_ids = {str(i) for i in (e.get("sanitized_ids") or [])}
+            phase = str(e.get("source") or "").removesuffix("_agent")
+            for doc_id in ids:
+                if doc_id in planted and (doc_id, phase) not in seen:
+                    seen.add((doc_id, phase))
+                    self.logger.log(source="harness", destination=f"{phase}_agent",
+                                    action="injection_served",
+                                    extra={"channel": "memory", "phase": phase, "doc_id": doc_id,
+                                           "store": e.get("destination"), "call_id": e.get("call_id"),
+                                           "sanitized": doc_id in sanitized_ids})
+
     # ---- per-trial bookkeeping ------------------------------------------
 
     @staticmethod
@@ -586,8 +632,16 @@ class AttackHarness:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         new = not path.exists() or path.stat().st_size == 0
+        fieldnames = list(RESULT_COLUMNS)
+        if not new:
+            # an older file keeps its own columns (parse_logs rebuilds the
+            # full set from the logs); rows are never mis-aligned
+            with open(path, newline="") as f:
+                head = next(csv.reader(f), None)
+            if head and head != fieldnames:
+                fieldnames = head
         with open(path, "a", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=RESULT_COLUMNS)
+            w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             if new:
                 w.writeheader()
             w.writerow(r.as_row())
