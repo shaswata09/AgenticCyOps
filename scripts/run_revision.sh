@@ -20,6 +20,9 @@
 #   scripts/run_revision.sh asb-replay <panel>    # div4 | div3 | lin3 | single
 #   scripts/run_revision.sh tables                # make paper-tables
 #   scripts/run_revision.sh reports               # make paper-reports (PDFs)
+#   scripts/run_revision.sh e2b-main              # T8: q235_div4, 4 domains, 3 configs, AP-2/3/4/14 (profile q235)
+#   scripts/run_revision.sh e3b                   # T8: q235_div4 CyberOps -P5 -P4 llm_judge symbolic_only, same APs
+#   scripts/run_revision.sh e2b-others            # T8: scout/mistral/llama8b, CyberOps+finance, same APs (profile mid)
 #
 # Environment (all optional):  TRIALS=3  SEED=20260919  TEMPERATURE=0.7
 #   RESUME=1 (default)  REQUIRE_FREEZE=1 (default)  DOMAINS="cyberops finance"
@@ -194,6 +197,49 @@ e1b() {
     done
     stamp "E1b done"
 }
+# E2b / E3b: the reworked attack paths only (T8) --------------------------
+REWORKED_APS="ap2,ap3,ap4,ap14"
+# E2b-main: q235_div4, four domains, three configs, AP-2/3/4/14
+e2b_main() {
+    stamp "E2b-main ${MAIN_GROUP}: ${ALL_DOMAINS} [${REWORKED_APS}]"
+    parallel_domains "$MAIN_GROUP" "$REWORKED_APS" all $ALL_DOMAINS
+    stamp "E2b-main done"
+}
+# E2b-others: scout / mistral / llama8b, CyberOps + finance, three configs
+e2b_others() {
+    local doms="${DOMAINS:-cyberops finance}"
+    local groups="scout_div4 mistral_div3p"
+    [ "$(a51_status)" = "200" ] && groups="$groups llama8b_div4" \
+        || stamp "llama8b_div4 skipped: RTX 5090 node not reachable (HTTP $(a51_status))"
+    stamp "E2b-others: ${groups} / ${doms} [${REWORKED_APS}]"
+    local pids=()
+    for g in $groups; do
+        ( parallel_domains "$g" "$REWORKED_APS" all $doms ) > "logs/stage_${g}_e2b-others.log" 2>&1 &
+        pids+=($!)
+    done
+    local rc=0; for p in "${pids[@]}"; do wait "$p" || rc=1; done
+    stamp "E2b-others done"; return $rc
+}
+# E3b: q235_div4 CyberOps, minus P5 / minus P4 / llm_judge / symbolic_only, AP-2/3/4/14
+e3b() {
+    local g="${1:-$MAIN_GROUP}"
+    stamp "E3b ablations ${g} cyberops [${REWORKED_APS}]: -P5 -P4 llm_judge symbolic_only"
+    local pids=() slot=0
+    for p in P5 P4; do
+        ( SLOT="$slot" DISABLE_PRINCIPLES="$p" attack "$g" cyberops "$REWORKED_APS" agenticcyops
+        ) > "logs/stage_${g}_cyberops_e3b_minus${p}.log" 2>&1 &
+        pids+=($!); slot=$((slot + 1)); sleep 20
+    done
+    for cfg in llm_judge symbolic_only; do
+        ( SLOT="$slot" attack "$g" cyberops "$REWORKED_APS" "$cfg"
+        ) > "logs/stage_${g}_cyberops_e3b_${cfg}.log" 2>&1 &
+        pids+=($!); slot=$((slot + 1)); sleep 20
+    done
+    local rc=0; for p in "${pids[@]}"; do wait "$p" || rc=1; done
+    run_py -m analysis.parse_logs --group "$g" > /dev/null 2>&1 || true
+    stamp "E3b done"; return $rc
+}
+
 # E6: ASB paired panel replay ------------------------------------------------
 asb_replay() {
     local panel="$1"
@@ -237,6 +283,9 @@ case "$cmd" in
     asb-live)  asb_live ;;
     tables)    tables ;;
     reports)   reports ;;
+    e2b-main)  e2b_main ;;
+    e2b-others) e2b_others ;;
+    e3b)       e3b "${1:-$MAIN_GROUP}" ;;
     q235-main)
         # profile q235 must be up (scripts/run_revision.sh serve q235)
         e1 "$MAIN_GROUP" $ALL_DOMAINS
