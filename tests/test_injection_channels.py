@@ -394,3 +394,18 @@ def test_results_csv_keeps_an_older_files_columns(tmp_path):
                                  group="t", outcome="blocked", exposed=True, channel="tool_response"))
     rows = list(csv.DictReader(open(tmp_path / "new.csv")))
     assert rows[0]["exposed"] == "True" and rows[0]["channel"] == "tool_response"
+
+
+# ---- T7: dirty-tree guard ----------------------------------------------
+
+
+def test_dirty_tree_refuses_main_runs_but_allows_smoke():
+    from attacks.harness import DirtyTreeRefused, refuse_if_dirty
+    refuse_if_dirty({"git_dirty": False}, "")            # clean: fine
+    refuse_if_dirty({"git_dirty": True}, "t6smoke")      # smoke exempt
+    refuse_if_dirty({"git_dirty": True}, "SMOKE_x")
+    refuse_if_dirty({"git_dirty": None}, "")             # unknown (no git): fine
+    with pytest.raises(DirtyTreeRefused):
+        refuse_if_dirty({"git_dirty": True}, "")
+    with pytest.raises(DirtyTreeRefused):
+        refuse_if_dirty({"git_dirty": True}, "persistent")

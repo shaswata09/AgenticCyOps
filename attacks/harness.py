@@ -37,6 +37,23 @@ from attacks.payload_schema import (injection_of, memory_seed_entries, meta_of, 
 CYBEROPS_APS = ["ap1", "ap2", "ap3", "ap4", "ap5", "ap6"]
 
 
+class DirtyTreeRefused(RuntimeError):
+    """A non-smoke run was requested from a tree with uncommitted tracked changes."""
+
+
+def refuse_if_dirty(header: dict, run_tag: str = "") -> None:
+    """T7 guard: main runs must start from a committed tree.
+
+    ``git_dirty`` (tracked changes only) is recorded in every run header;
+    the last v2.1 runs were launched dirty, so their headers cannot be tied
+    to one commit.  Smoke runs (``run_tag`` containing ``smoke``) are exempt.
+    """
+    if header.get("git_dirty") and "smoke" not in (run_tag or "").lower():
+        raise DirtyTreeRefused(
+            "refusing to start a non-smoke run from a dirty tree (git_dirty=true): "
+            "commit or stash tracked changes, or pass --run-tag <name>smoke for a smoke run")
+
+
 class InjectionNotDelivered(RuntimeError):
     """The payload's adversarial content could not be placed in its channel.
 
@@ -218,6 +235,7 @@ class AttackHarness:
             primary_temperature=self.temperature,
             seed=base_seed,
         )
+        refuse_if_dirty(header, run_tag)
         if require_freeze:
             from logging_utils.run_metadata import assert_frozen
             assert_frozen(header)
