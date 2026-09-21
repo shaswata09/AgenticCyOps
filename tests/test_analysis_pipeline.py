@@ -55,6 +55,21 @@ def test_compute_stats_has_holm_per_family():
     assert all(r["flat_minus_aco_p_holm"] >= r["flat_minus_aco_p"] for r in ap_rows)
 
 
+def test_compute_stats_pools_attack_paths_over_domains():
+    """T2a: per-AP rows with domain == "all" pool every domain and keep
+    (domain, ap, variant) clusters distinct."""
+    trials = []
+    for dom in ("cyberops", "finance"):
+        for cfg, execs in (("flat", [3, 3, 3]), ("acl_hardened", [1, 1, 1]), ("agenticcyops", [0, 0, 0])):
+            for t in _trials(cfg, execs):
+                trials.append({**t, "domain": dom})
+    rows = compute_stats(trials, B=200, seed=3)
+    pooled = [r for r in rows if r["domain"] == "all" and r["ap"] == "ap1"]
+    assert len(pooled) == 1
+    assert pooled[0]["flat_n"] == 18 and pooled[0]["flat_minus_aco_clusters"] == 6
+    assert "flat_minus_aco_p_holm" in pooled[0]
+
+
 def _write_log(dirpath: Path, config: str, rows: list[dict]):
     dirpath.mkdir(parents=True, exist_ok=True)
     with open(dirpath / f"{config}_20260919_000000.jsonl", "w") as f:

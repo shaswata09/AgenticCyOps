@@ -146,11 +146,16 @@ def compute_stats(trials: list[dict], B: int = 10000, seed: int = 0) -> list[dic
     trials = [t for t in trials if t.get("outcome") in MEASURABLE and not t.get("suffix")]
     by_group: dict[str, list[dict]] = _clusters(trials, lambda t: t["group"])
     for group, gt in sorted(by_group.items()):
+        def _ap_order(kv):
+            return int(kv[0].replace("ap", "") or 0) if kv[0].startswith("ap") else 99
+
         scopes: list[tuple[str, str, list[dict]]] = [("all", "all", gt)]
+        # per attack path pooled over domains (T2a), Holm family ("all", cmp)
+        for ap, at in sorted(_clusters(gt, lambda t: t["ap"]).items(), key=_ap_order):
+            scopes.append(("all", ap, at))
         for dom, dt in sorted(_clusters(gt, lambda t: t["domain"]).items()):
             scopes.append((dom, "all", dt))
-            for ap, at in sorted(_clusters(dt, lambda t: t["ap"]).items(),
-                                 key=lambda kv: int(kv[0].replace("ap", "") or 0) if kv[0].startswith("ap") else 99):
+            for ap, at in sorted(_clusters(dt, lambda t: t["ap"]).items(), key=_ap_order):
                 scopes.append((dom, ap, at))
         family: dict[tuple, list[tuple[int, str]]] = defaultdict(list)   # (domain, comparison) -> row indices
         for dom, ap, st in scopes:
