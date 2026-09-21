@@ -48,13 +48,25 @@ def _git(*args: str) -> Optional[str]:
     return out.stdout.strip()
 
 
+# Run outputs live under the tree but a run writing them does not make the
+# source "dirty"; the dirty flag is about code / payloads / configs.
+_OUTPUT_DIRS = ("results/", "logs/", "data/")
+
+
 def git_state() -> dict[str, Any]:
-    """Current commit, whether the tree is dirty, and the freeze tag (if any)."""
+    """Current commit, whether the *source* tree is dirty, and the freeze tag.
+
+    ``git_dirty`` ignores tracked changes under results/ logs/ data/ (a run
+    rewrites those), so a run launched from committed source records
+    ``git_dirty=false`` even while it is producing output.
+    """
     sha = _git("rev-parse", "HEAD")
     dirty = None
     if sha:
-        status = _git("status", "--porcelain", "--untracked-files=no")
-        dirty = bool(status)
+        status = _git("status", "--porcelain", "--untracked-files=no") or ""
+        src = [ln for ln in status.splitlines()
+               if not any(ln[3:].startswith(d) for d in _OUTPUT_DIRS)]
+        dirty = bool(src)
     # The freeze tag is the most recent defense-freeze-* tag reachable from
     # HEAD.  ``git describe --exact-match`` reports whether HEAD *is* the
     # frozen commit; otherwise we record the nearest one with a distance.

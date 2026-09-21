@@ -20,8 +20,12 @@ The diff in the decision directories is **empty**:
 git diff defense-freeze-v2.1 defense-freeze-v2.2 -- consensus memory configs domains/*/configs
 ```
 
-`mcp_servers/`, `agents/`, and `logging_utils/` are also unchanged. The only
-frozen paths that differ are:
+`mcp_servers/` and `agents/` are unchanged. `logging_utils/run_metadata.py`
+changed in one provenance-only way: `git_dirty` now ignores tracked changes
+under `results/`, `logs/`, `data/` (a run writing its own output does not make
+the source "dirty"), so a run launched from committed source records
+`git_dirty=false`. No decision depends on it. The other frozen paths that
+differ are:
 
 | Path | Change | Decision impact |
 |---|---|---|

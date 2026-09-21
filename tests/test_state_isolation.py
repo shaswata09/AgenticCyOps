@@ -167,3 +167,18 @@ def test_l0_scope_expansion_counts_claims_not_tool_evidence():
                 "tool_results": telemetry}
     ok, reason, _ = hv._check_scope_expansion(inflated, incident)
     assert not ok and reason == "P3_scope_expansion"
+
+
+def test_git_state_ignores_run_outputs_for_dirty(tmp_path, monkeypatch):
+    """git_dirty reflects source, not results/logs/data written by a run."""
+    import logging_utils.run_metadata as rm
+    # only output-dir changes -> not dirty
+    monkeypatch.setattr(rm, "_git", lambda *a: (
+        " M results/eval_attacks/all_trials.csv\n M logs/x.jsonl\n M data/chromadb/y"
+        if a[:1] == ("status",) else "abc123" if a[:2] == ("rev-parse", "HEAD") else None))
+    assert rm.git_state()["git_dirty"] is False
+    # a source change -> dirty
+    monkeypatch.setattr(rm, "_git", lambda *a: (
+        " M results/eval_attacks/all_trials.csv\n M attacks/harness.py"
+        if a[:1] == ("status",) else "abc123" if a[:2] == ("rev-parse", "HEAD") else None))
+    assert rm.git_state()["git_dirty"] is True
