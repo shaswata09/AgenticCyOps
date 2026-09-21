@@ -286,7 +286,7 @@ else
     elif [ "$AP_ARG" = "auto" ]; then
         AP_MODE="auto"
     else
-        SELECTED_APS=("$AP_ARG")
+        IFS=',' read -r -a SELECTED_APS <<< "$AP_ARG"   # "ap2" or "ap2,ap3,ap4,ap14"
     fi
 
     # Parse configs

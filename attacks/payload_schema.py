@@ -194,6 +194,22 @@ def validate_all(domains=PHASES) -> int:      # noqa: ARG001 (domains overwritte
     return total
 
 
+def assert_measurable() -> int:
+    """Count payloads that can only ever score not_measurable (T5 gate)."""
+    from attacks.effects import evaluate_effects, OUTCOME_NOT_MEASURABLE
+    doms = ("cyberops", "healthcare", "finance", "legal")
+    bad = 0
+    for domain in doms:
+        for ap in range(1, 16):
+            for v in load_variants(domain, f"ap{ap}"):
+                verdict = evaluate_effects(v, [], config="flat")
+                if verdict.outcome == OUTCOME_NOT_MEASURABLE:
+                    bad += 1
+                    print(f"  [{domain}/{v.get('variant_id', 'ap%d' % ap)}] not_measurable: {verdict.blocked_by}")
+    print(f"assert-measurable: {bad} payloads can only score not_measurable")
+    return bad
+
+
 def memory_seed_entries(injection: dict) -> list[dict]:
     """Normalised list of ``{store, content, doc_id, metadata}`` to pre-seed."""
     out = []
@@ -219,4 +235,6 @@ if __name__ == "__main__":       # python -m attacks.payload_schema --validate-a
     import sys as _sys
     if "--validate-all" in _sys.argv:
         raise SystemExit(1 if validate_all() else 0)
-    print("usage: python -m attacks.payload_schema --validate-all")
+    if "--assert-measurable" in _sys.argv:
+        raise SystemExit(1 if assert_measurable() else 0)
+    print("usage: python -m attacks.payload_schema --validate-all | --assert-measurable")

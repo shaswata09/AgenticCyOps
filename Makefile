@@ -1,7 +1,7 @@
 # AgenticCyOps revision-v2 -- analysis targets (no LLM calls)
 PY ?= python
 
-.PHONY: paper-tables paper-reports parse stats tables reports asb-reports test freeze-check
+.PHONY: paper-tables paper-reports parse stats tables reports asb-reports test freeze-check check-payloads
 
 paper-tables: parse stats tables
 
@@ -24,6 +24,11 @@ ASB_PANELS ?= q235_div4_div4,q235_div4_div3,q235_div4_single,q235_div4_lin3
 asb-reports:
 	for g in $$(echo $(ASB_PANELS) | tr ',' ' '); do $(PY) -m analysis.asb_analytics --groups $$g; done
 	$(PY) -m analysis.asb_analytics --groups $(ASB_PANELS) --out-dir results/asb/asb_analytics_panels
+
+check-payloads:
+	$(PY) -m attacks.payload_schema --validate-all
+	$(PY) -m attacks.payload_schema --assert-measurable
+	$(PY) -m pytest -q -p no:cacheprovider tests/test_payload_hygiene.py
 
 test:
 	$(PY) -m pytest -q

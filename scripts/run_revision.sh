@@ -207,11 +207,23 @@ asb_live() {
     run_py -m benchmarks.asb.run_e2e --group "$MAIN_GROUP" --configs flat,agenticcyops --trials 5 --concurrency 4
 }
 
+# Payload gate (T5): validate-all + measurability + hygiene, before any run.
+check_payloads() {
+    stamp "check-payloads (validate-all, measurability, hygiene)"
+    make check-payloads PY="conda run --no-capture-output -n $CONDA_ENV python3" \
+        || { stamp "check-payloads FAILED -- fix payloads before running"; exit 1; }
+}
+
 tables() { stamp "tables"; make paper-tables; stamp "tables written to results/paper_tables.md"; }
 reports() { stamp "reports"; make paper-reports; stamp "reports written: results/revision_report.pdf + per-run attack_report.pdf + ASB asb_analytics.pdf"; }
 
 # ------------------------------------------------------------
 cmd="${1:-}"; shift || true
+# T5 gate: any stage that runs trials validates the payloads first.
+case "$cmd" in
+    e0|smoke-aco|e1|e2|e3|e1b|e2-rev|e3-rev|q235-main|mid-main|llama8b-main|e2b-main|e2b-others|e3b)
+        check_payloads ;;
+esac
 case "$cmd" in
     preflight) preflight ;;
     serve)     serve "${1:?profile}" ;;
