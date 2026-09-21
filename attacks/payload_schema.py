@@ -150,8 +150,8 @@ def validate_payload(payload: dict, domain: Optional[str] = None) -> list[str]:
             resolved = resolve_tool(inj.get("tool"), known)
             problems.append(f"tool_response tool {inj.get('tool')!r} is not a registered {domain} tool"
                             + (f" (alias of {resolved!r}: name it directly)" if resolved else ""))
-    if ch == "memory" and not (inj.get("entries") or (inj.get("store") and inj.get("content"))):
-        problems.append("memory channel needs injection.store+content or injection.entries")
+    if ch == "memory" and not inj.get("entries"):
+        problems.append("memory channel needs injection.entries")
     if ch == "handoff" and not isinstance(inj.get("handoff"), dict):
         problems.append("handoff channel needs injection.handoff")
     if ch == "proposal_justification" and not (inj.get("proposal") or inj.get("proposals")):
@@ -159,7 +159,39 @@ def validate_payload(payload: dict, domain: Optional[str] = None) -> list[str]:
     sc = payload.get("success_criteria")
     if not isinstance(sc, dict) or "effects" not in sc:
         problems.append("success_criteria.effects missing")
+        return problems
+    # Every canary must actually occur in the adversarial content the trial
+    # delivers (seeded record, injected tool response, or the alert text),
+    # otherwise the harmful action can never carry it (T3).
+    canaries = [str(c) for c in (meta.get("canaries") or []) if c]
+    if canaries:
+        content = json.dumps(inj, default=str) + json.dumps(payload.get("trigger", {}), default=str)
+        for c in canaries:
+            if c not in content:
+                problems.append(f"canary {c!r} does not occur in the payload's adversarial content")
+    # An effect whose kind is scored by a canary must name one (T3).
+    for e in (sc.get("effects") or []):
+        if not isinstance(e, dict):
+            continue
+        if e.get("kind") in ("mem_read_leak", "exfil"):
+            if not (e.get("canary") or e.get("canaries")):
+                problems.append(f"{e.get('kind')} effect has no canary")
     return problems
+
+
+def validate_all(domains=PHASES) -> int:      # noqa: ARG001 (domains overwritten below)
+    """Validate every payload of every domain; return the problem count."""
+    doms = ("cyberops", "healthcare", "finance", "legal")
+    total = 0
+    for domain in doms:
+        for ap in range(1, 16):
+            for v in load_variants(domain, f"ap{ap}"):
+                errs = validate_payload(v, domain=domain)
+                if errs:
+                    total += len(errs)
+                    print(f"  [{domain}/{v.get('variant_id', 'ap%d' % ap)}] {errs}")
+    print(f"validate-all: {total} problems across {len(doms)} domains")
+    return total
 
 
 def memory_seed_entries(injection: dict) -> list[dict]:
@@ -181,3 +213,10 @@ def memory_seed_entries(injection: dict) -> list[dict]:
             "phase": str(e.get("phase") or "analyze"),
         })
     return norm
+
+
+if __name__ == "__main__":       # python -m attacks.payload_schema --validate-all
+    import sys as _sys
+    if "--validate-all" in _sys.argv:
+        raise SystemExit(1 if validate_all() else 0)
+    print("usage: python -m attacks.payload_schema --validate-all")
