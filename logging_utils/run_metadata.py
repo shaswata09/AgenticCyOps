@@ -84,11 +84,37 @@ def git_state() -> dict[str, Any]:
     return {"git_sha": sha, "git_dirty": dirty, "freeze_tag": tag}
 
 
+def _env_redactions() -> list[tuple[str, str]]:
+    """``(secret_value, "<ENV_NAME>")`` pairs for sensitive environment values.
+
+    Covers API keys / tokens / secrets and remote (non-localhost) endpoint URLs
+    such as ``REMOTE_5090_URL`` -- these reach ``sys.argv`` when a run is invoked
+    with ``--model-url $REMOTE_5090_URL`` / ``--api-key ...`` and must never land
+    in a committed log. Longest values first so a value that is a substring of
+    another is not clobbered.
+    """
+    reds: dict[str, str] = {}
+    for name, val in os.environ.items():
+        v = (val or "").strip()
+        if len(v) < 6:                       # too short to be a real secret / URL
+            continue
+        upper = name.upper()
+        if upper.endswith(("KEY", "TOKEN", "SECRET", "PASSWORD")):
+            reds[v] = f"<{name}>"
+        elif "://" in v and not re.search(r"://(localhost|127\.0\.0\.1)\b", v):
+            reds[v] = f"<{name}>"            # remote endpoint (localhost is not secret)
+    return sorted(reds.items(), key=lambda kv: -len(kv[0]))
+
+
 def _scrubbed_command() -> str:
-    """``sys.argv`` with the repo root replaced by ``<repo>`` so the header
-    never records an absolute host path."""
+    """``sys.argv`` with the repo root replaced by ``<repo>`` and any sensitive
+    environment values (keys, remote endpoint URLs) redacted, so the header
+    never records an absolute host path or a secret."""
     root = str(BASE_DIR)
-    return " ".join(a.replace(root, "<repo>") for a in sys.argv)
+    args = [a.replace(root, "<repo>") for a in sys.argv]
+    for secret, placeholder in _env_redactions():
+        args = [a.replace(secret, placeholder) for a in args]
+    return " ".join(args)
 
 
 def quantization_from_model_id(model_id: Optional[str]) -> Optional[str]:

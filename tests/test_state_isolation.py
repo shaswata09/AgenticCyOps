@@ -184,3 +184,23 @@ def test_git_state_ignores_run_outputs_for_dirty(tmp_path, monkeypatch):
         " M results/eval_attacks/all_trials.csv\n M attacks/harness.py"
         if a[:1] == ("status",) else "abc123" if a[:2] == ("rev-parse", "HEAD") else None))
     assert rm.git_state()["git_dirty"] is True
+
+
+def test_scrubbed_command_redacts_secrets_and_repo_path(monkeypatch):
+    """The logged command must never carry a remote endpoint, an API key, or an
+    absolute repo path (regression: REMOTE_5090_URL leaked via --model-url)."""
+    import logging_utils.run_metadata as rm
+    monkeypatch.setenv("REMOTE_5090_URL", "http://10.9.8.7:8008/v1")
+    monkeypatch.setenv("REMOTE_5090_API_KEY", "sk-super-secret-key-value")
+    monkeypatch.setenv("VALIDATOR_URL_V1", "http://localhost:8002/v1")   # not secret
+    monkeypatch.setattr(rm.sys, "argv", [
+        f"{rm.BASE_DIR}/attacks/harness.py",
+        "--model-url", "http://10.9.8.7:8008/v1",
+        "--api-key", "sk-super-secret-key-value",
+        "--validator-url", "http://localhost:8002/v1",
+    ])
+    out = rm._scrubbed_command()
+    assert "10.9.8.7" not in out and "sk-super-secret-key-value" not in out
+    assert "<REMOTE_5090_URL>" in out and "<REMOTE_5090_API_KEY>" in out
+    assert str(rm.BASE_DIR) not in out and "<repo>" in out
+    assert "http://localhost:8002/v1" in out          # localhost URL kept as-is
