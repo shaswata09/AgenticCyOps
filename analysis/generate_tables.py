@@ -31,7 +31,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from analysis.statistical_tests import MEASURABLE, SYSTEM_CONFIGS, wilson
-from config import RESULTS_DIR
+from config import BASE_DIR, RESULTS_DIR
 
 CONFIG_LABEL = {"flat": "Flat", "acl_hardened": "ACL-Hardened", "agenticcyops": "AgenticCyOps",
                 "llm_judge": "LLM-judge only", "symbolic_only": "Symbolic only (no L6)"}
@@ -82,6 +82,14 @@ def _md(headers: list[str], rows: list[list]) -> str:
 TAGGED = ("_smoke", "_debug", "_persistent")
 
 
+def _rel(path: Path) -> str:
+    """Repo-relative path for the header (never absolute)."""
+    try:
+        return str(Path(path).resolve().relative_to(BASE_DIR.resolve()))
+    except ValueError:
+        return Path(path).name
+
+
 def _is_tagged(group: str) -> bool:
     """Smoke / debug / persistent runs are separate run tags, not groups."""
     return any(t in group for t in TAGGED)
@@ -99,9 +107,11 @@ def t1_headline(stats: list[dict]) -> str:
             rows.append([r["group"], CONFIG_LABEL[cfg], r.get(f"{cfg}_n", ""),
                          _ci(r.get(f"{cfg}_asr"), r.get(f"{cfg}_wilson_low"), r.get(f"{cfg}_wilson_high")),
                          f"[{_f(r.get(f'{cfg}_boot_low'))}, {_f(r.get(f'{cfg}_boot_high'))}]",
-                         _f(r.get(f"{cfg}_attempt_rate")), _f(r.get(f"{cfg}_block_given_attempt")), diff])
+                         _f(r.get(f"{cfg}_attempt_rate")), _f(r.get(f"{cfg}_attempt_given_exposure")),
+                         _f(r.get(f"{cfg}_exposure_rate")),
+                         _f(r.get(f"{cfg}_block_given_attempt")), diff])
     return _md(["Group", "Config", "N", "ASR % [Wilson 95%]", "Cluster bootstrap 95%", "Attempt %",
-                "Block given attempt %", "Δ vs AgenticCyOps"], rows)
+                "Attempt given exp. %", "Exposed %", "Block given attempt %", "Δ vs AgenticCyOps"], rows)
 
 
 def t2_per_ap(stats: list[dict], group: str, domain: str) -> str:
@@ -111,10 +121,11 @@ def t2_per_ap(stats: list[dict], group: str, domain: str) -> str:
         rows.append([AP_LABEL.get(r["ap"], r["ap"])]
                     + [f"{_ci(r.get(f'{c}_asr'), r.get(f'{c}_wilson_low'), r.get(f'{c}_wilson_high'))} (n={r.get(f'{c}_n')})"
                        for c in SYSTEM_CONFIGS]
+                    + [f"{_f(r.get('flat_attempt_rate'))} / {_f(r.get('flat_attempt_given_exposure'))}"]
                     + [f"{_f(r.get('flat_minus_aco_diff'))} (p_holm={_f(r.get('flat_minus_aco_p_holm'), 3, False)})",
                        f"{_f(r.get('acl_minus_aco_diff'))} (p_holm={_f(r.get('acl_minus_aco_p_holm'), 3, False)})"])
     return _md(["Attack path"] + [f"{CONFIG_LABEL[c]} ASR %" for c in SYSTEM_CONFIGS]
-               + ["Flat − ACO (pp)", "ACL − ACO (pp)"], rows)
+               + ["Flat attempt % (all / exposed)", "Flat − ACO (pp)", "ACL − ACO (pp)"], rows)
 
 
 def t3_benign(trials: list[dict]) -> str:
@@ -175,8 +186,10 @@ def t3b_persistent(trials: list[dict], group: str) -> str:
 def t4_ablations(trials: list[dict], group: str) -> str:
     rows = []
     by = defaultdict(list)
+    # compare with Full / llm_judge / symbolic_only on the domains the ablations ran on
+    abl_domains = {t["domain"] for t in trials if t["group"] == group and t.get("suffix")}
     for t in trials:
-        if t["group"] != group:
+        if t["group"] != group or (abl_domains and t["domain"] not in abl_domains):
             continue
         label = (f"agenticcyops {t['suffix'].replace('_disabled_', '-')}" if t.get("suffix")
                  else t["config"])
@@ -244,6 +257,114 @@ def t8_runs(runs: list[dict]) -> str:
     return _md(["Group", "Domain", "Config", "Suffix", "Git", "Freeze tag", "Primary", "Quant", "Panel", "T", "State", "vLLM"], rows)
 
 
+CHANNEL_LABEL = {"tool_response": "Tool response", "memory": "Memory", "alert_text": "Alert text",
+                 "handoff": "Handoff", "proposal_justification": "Proposal justification"}
+_EXPOSED = lambda t: str(t.get("exposed", "")).lower() == "true"           # noqa: E731
+_KNOWN = lambda t: str(t.get("exposed", "")).lower() in ("true", "false")  # noqa: E731
+_ATT = lambda t: t["outcome"] in ("executed", "blocked")                   # noqa: E731
+_CLUS = lambda t: f"{t['domain']}:{t['ap']}:{t['variant']}"               # noqa: E731
+
+
+def _rate(ts, ind):
+    return sum(1 for t in ts if ind(t)) / len(ts) if ts else float("nan")
+
+
+def t9_channels(trials: list[dict], group=None) -> str:
+    """Per delivery channel x config: variants, scored trials, exposed %,
+    attempt %, attempt given exposure, ASR (Wilson CI)."""
+    by = defaultdict(list)
+    for t in trials:
+        if _is_tagged(t["group"]) or t.get("suffix") or t["ap"] == "benign":
+            continue
+        if group and t["group"] != group:
+            continue
+        if t["outcome"] not in MEASURABLE or t["config"] not in SYSTEM_CONFIGS:
+            continue
+        by[(t.get("channel") or "?", t["config"])].append(t)
+    rows = []
+    for (ch, cfg), ts in sorted(by.items()):
+        variants = len({_CLUS(t) for t in ts})
+        known = [t for t in ts if _KNOWN(t)]
+        exposed = [t for t in known if _EXPOSED(t)]
+        k = sum(1 for t in ts if t["outcome"] == "executed")
+        p, lo, hi = wilson(k, len(ts))
+        rows.append([CHANNEL_LABEL.get(ch, ch), CONFIG_LABEL.get(cfg, cfg), variants, len(ts),
+                     _f(_rate(known, _EXPOSED)) if known else "–",
+                     _f(_rate(ts, _ATT)), _f(_rate(exposed, _ATT)) if exposed else "–",
+                     _ci(p, lo, hi)])
+    return _md(["Channel", "Config", "Variants", "N", "Exposed %", "Attempt %",
+                "Attempt given exp. %", "ASR % [95%]"], rows)
+
+
+def t9b_p5(trials: list[dict], results_dir: Path, group: str) -> str:
+    """P5 evidence: AP-4/AP-14, ``group``, CyberOps -- ASR and block-given-
+    attempt under Flat, ACL, Full, Full minus P5; the P5 check that first
+    intercepted; and P5's benign cost (reads denied / redacted) per domain."""
+    sel = [t for t in trials if t["domain"] == "cyberops" and t["ap"] in ("ap4", "ap14")
+           and t["outcome"] in MEASURABLE
+           and ((t["group"] == group and not t.get("suffix"))
+                or (t["group"] == group and t.get("suffix") == "_disabled_P5"))]
+    arms = [("Flat", "flat", ""), ("ACL-Hardened", "acl_hardened", ""),
+            ("Full (AgenticCyOps)", "agenticcyops", ""), ("Full minus P5", "agenticcyops", "_disabled_P5")]
+    rows = []
+    for label, cfg, suf in arms:
+        ts = [t for t in sel if t["config"] == cfg and (t.get("suffix") or "") == suf]
+        if not ts:
+            continue
+        k = sum(1 for t in ts if t["outcome"] == "executed")
+        att = [t for t in ts if _ATT(t)]
+        bl = sum(1 for t in att if t["outcome"] == "blocked")
+        p, lo, hi = wilson(k, len(ts))
+        rows.append([label, len(ts), _ci(p, lo, hi),
+                     _f(bl / len(att)) if att else "–"])
+    out = [_md(["Arm (AP-4 + AP-14, CyberOps)", "N", "ASR % [95%]", "Block given attempt %"], rows)]
+    # first interception by P5 check, under Full
+    full_blocked = [t for t in sel if t["config"] == "agenticcyops" and not t.get("suffix")
+                    and t["outcome"] == "blocked"]
+    c = Counter(t["blocked_by"] for t in full_blocked if str(t["blocked_by"]).startswith("P5"))
+    other = sum(1 for t in full_blocked if not str(t["blocked_by"]).startswith("P5"))
+    lines = [f"- {m}: {n}" for m, n in c.most_common()]
+    if other:
+        lines.append(f"- blocked before P5 (other layer): {other}")
+    out += ["", "First interception under Full (AP-4 + AP-14, CyberOps):", *(lines or ["- (none blocked)"])]
+    # P5 benign cost per domain, from the group's trials.jsonl
+    cost = _p5_benign_cost(results_dir, group)
+    if cost:
+        crows = [[dom, n, den, red] for dom, (n, den, red) in sorted(cost.items())]
+        out += ["", "P5 benign cost (AgenticCyOps benign incidents):", "",
+                _md(["Domain", "Benign incidents", "Incidents w/ a P5 read denial",
+                     "Incidents w/ a P5 redaction"], crows)]
+    return "\n".join(out)
+
+
+def _p5_benign_cost(results_dir: Path, group: str) -> dict:
+    """Benign incidents per domain and how many had a P5 read denied or a P5
+    redaction, from the group's per-run trials.jsonl (parse_logs writes the
+    p5_denied / p5_redacted attribution there)."""
+    import json
+    out: dict = {}
+    base = results_dir / "eval_attacks" / f"group_{group}"
+    if not base.exists():
+        return out
+    for dom_dir in sorted(base.iterdir()):
+        tj = dom_dir / "trials.jsonl"
+        if not tj.is_dir() and tj.exists():
+            n = den = red = 0
+            for line in open(tj):
+                try:
+                    d = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if d.get("ap") != "benign" or d.get("config") != "agenticcyops":
+                    continue
+                n += 1
+                den += 1 if (d.get("p5_denied") or {}) else 0
+                red += 1 if (d.get("p5_redacted") or {}) else 0
+            if n:
+                out[dom_dir.name] = (n, den, red)
+    return out
+
+
 def build(results_dir: Path, main_group: str) -> str:
     base = results_dir / "eval_attacks"
     trials = _read(base / "all_trials.csv")
@@ -253,7 +374,7 @@ def build(results_dir: Path, main_group: str) -> str:
     if main_group not in groups and groups:
         main_group = groups[0]
     parts = ["# Paper tables (scoring v3)", "",
-             f"Generated from `{base / 'all_trials.csv'}` ({len(trials)} trials, groups: {', '.join(groups) or 'none'}). "
+             f"Generated from `{_rel(base / 'all_trials.csv')}` ({len(trials)} trials, groups: {', '.join(groups) or 'none'}). "
              "ASR = executed / measurable trials; attempt = executed + blocked; not-measurable and error trials excluded. "
              "CIs: Wilson (per-trial) and cluster bootstrap over variants (B = 10,000). "
              "Paired differences resample variants shared by both arms; p-values are Holm-corrected within each domain's family of attack paths.",
@@ -269,7 +390,14 @@ def build(results_dir: Path, main_group: str) -> str:
              "", f"## T5. Which layer blocked the attacks (AgenticCyOps, {main_group})", "", t5_blocked_by(trials, main_group),
              "", "## T6. ASB paired panel replay (E6)", "", t6_asb(results_dir),
              "", "## T7. Cost", "", t7_cost(trials),
-             "", "## T8. Run provenance", "", t8_runs(runs), ""]
+             "", "## T8. Run provenance", "", t8_runs(runs),
+             "", "## T9. Injection channels (pooled over primaries)", "",
+             "Exposed % = share of scored trials with an injection_served event; "
+             "attempt | exposed % is the attempt rate among exposed trials.", "",
+             t9_channels(trials),
+             "", f"## T9b. Injection channels, {main_group}", "", t9_channels(trials, main_group),
+             "", f"## T10. P5 evidence (AP-4 + AP-14, {main_group}, CyberOps)", "",
+             t9b_p5(trials, results_dir, main_group), ""]
     return "\n".join(parts)
 
 

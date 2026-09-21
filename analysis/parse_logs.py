@@ -77,6 +77,24 @@ def _payload_channel(domain: str, ap: str, variant: int) -> str:
     return ""
 
 
+def _p5_attribution(events: list[dict]) -> dict:
+    """P5 activity of one trial (T9 P5 table): memory reads a P5 check denied,
+    and reads returned with P5 field redaction / sanitization, by mechanism."""
+    denied: dict[str, int] = {}
+    redacted: dict[str, int] = {}
+    for e in events:
+        if e.get("action") != "memory_read":
+            continue
+        mech = str(e.get("mechanism") or "")
+        if not mech.startswith("P5_"):
+            continue
+        if e.get("auth_decision") in ("deny", "escalate"):
+            denied[mech] = denied.get(mech, 0) + 1
+        elif mech in ("P5_field_filtering", "P5_injection_sanitization"):
+            redacted[mech] = redacted.get(mech, 0) + 1
+    return {"p5_denied": denied, "p5_redacted": redacted}
+
+
 def parse_run_dir(domain: str, group: str, suffix: str, log_dir: Path,
                   rescore: bool = False) -> tuple[list[dict], list[dict], list[dict]]:
     """Returns (result rows, trial detail rows, run header rows).
@@ -108,7 +126,8 @@ def parse_run_dir(domain: str, group: str, suffix: str, log_dir: Path,
                     row["exposed"] = ""
                 rows[key] = row                      # last write wins (resumed runs)
                 details[key] = {**row, "suffix": suffix, "details": e.get("details"),
-                                "error": e.get("error"), "trial_id": tid}
+                                "error": e.get("error"), "trial_id": tid,
+                                **_p5_attribution(events_by_trial.get(tid, []))}
     if rescore:
         from analysis.reevaluate_logs import OfflineHarness, _load_payloads, _parse_trial_id
         from attacks.effects import evaluate_benign, trial_costs
