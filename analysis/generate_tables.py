@@ -90,7 +90,7 @@ def _is_tagged(group: str) -> bool:
 def t1_headline(stats: list[dict]) -> str:
     rows = []
     for r in stats:
-        if r["domain"] != "all" or _is_tagged(r["group"]):
+        if r["domain"] != "all" or r["ap"] != "all" or _is_tagged(r["group"]):
             continue
         for cfg in SYSTEM_CONFIGS:
             cmp_key = {"flat": "flat_minus_aco", "acl_hardened": "acl_minus_aco"}.get(cfg)
@@ -233,6 +233,8 @@ def t7_cost(trials: list[dict]) -> str:
 def t8_runs(runs: list[dict]) -> str:
     seen = {}
     for r in runs:
+        if any(t in r["group"] for t in ("_smoke", "_debug")):     # not experiments
+            continue
         key = (r["group"], r["domain"], r["config"], r.get("suffix", ""))
         seen[key] = r
     rows = [[r["group"], r["domain"], r["config"], r.get("suffix") or "", (r.get("git_sha") or "")[:10],

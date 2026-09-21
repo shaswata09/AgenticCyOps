@@ -19,6 +19,7 @@
 #   scripts/run_revision.sh e1|e2|e3|e1b <group> [domains]   # single stage
 #   scripts/run_revision.sh asb-replay <panel>    # div4 | div3 | lin3 | single
 #   scripts/run_revision.sh tables                # make paper-tables
+#   scripts/run_revision.sh reports               # make paper-reports (PDFs)
 #
 # Environment (all optional):  TRIALS=3  SEED=20260919  TEMPERATURE=0.7
 #   RESUME=1 (default)  REQUIRE_FREEZE=1 (default)  DOMAINS="cyberops finance"
@@ -207,6 +208,7 @@ asb_live() {
 }
 
 tables() { stamp "tables"; make paper-tables; stamp "tables written to results/paper_tables.md"; }
+reports() { stamp "reports"; make paper-reports; stamp "reports written: results/revision_report.pdf + per-run attack_report.pdf + ASB asb_analytics.pdf"; }
 
 # ------------------------------------------------------------
 cmd="${1:-}"; shift || true
@@ -222,6 +224,7 @@ case "$cmd" in
     asb-replay) asb_replay "${1:?panel}" ;;
     asb-live)  asb_live ;;
     tables)    tables ;;
+    reports)   reports ;;
     q235-main)
         # profile q235 must be up (scripts/run_revision.sh serve q235)
         e1 "$MAIN_GROUP" $ALL_DOMAINS

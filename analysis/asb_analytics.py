@@ -62,6 +62,15 @@ def load_group_csv(group: str) -> pd.DataFrame:
     # normalise PoT vs POT
     df["attack_type"] = df["attack_type"].replace({"POT": "PoT"})
     df["group"] = group
+    if "flat" not in set(df.config):
+        # paired panel replays only re-run the defense; the flat arm is the
+        # primary output itself (attack_succeeded_llm), as in the live runs
+        flat = df[df.config == "agenticcyops"].copy()
+        flat["config"] = "flat"
+        flat["attack_succeeded_end_to_end"] = flat["attack_succeeded_llm"]
+        flat[["defense_evaluated", "defense_blocked"]] = False
+        flat[["defense_mechanism", "defense_stage"]] = ""
+        df = pd.concat([flat, df], ignore_index=True)
     return df
 
 
@@ -94,7 +103,7 @@ def by_scenario(df: pd.DataFrame) -> pd.DataFrame:
 
 def mech_table(df: pd.DataFrame) -> pd.DataFrame:
     acy = df[df.config == "agenticcyops"].copy()
-    acy["bucket"] = "succeeded (none)"
+    acy["bucket"] = "not blocked (no mechanism)"
     blocked = acy.defense_blocked.fillna(False).astype(bool)
     acy.loc[blocked, "bucket"] = acy.loc[blocked, "defense_mechanism"].fillna("blocked_unknown")
     refused = acy.refused_with_final_answer.fillna(False).astype(bool) & ~blocked
@@ -142,16 +151,17 @@ def _draw_attack_bars(pdf, df):
     fig, ax = plt.subplots(figsize=(10, 5.5))
     h = headline_table(df)
     pivot = h.pivot(index="attack_type", columns="config", values="asr_pct").reindex(ATTACK_ORDER)
-    pivot = pivot[CONFIG_ORDER]
+    pivot = pivot.reindex(columns=CONFIG_ORDER).dropna(axis=0, how="all")
     x = np.arange(len(pivot)); w = 0.27
     for i, c in enumerate(CONFIG_ORDER):
-        ax.bar(x + (i-1)*w, pivot[c].values, w, label=CONFIG_LABEL[c], color=CONFIG_COLOR[c])
+        ax.bar(x + (i-1)*w, pivot[c].fillna(0).values, w, label=CONFIG_LABEL[c], color=CONFIG_COLOR[c])
     ax.set_xticks(x); ax.set_xticklabels([ATTACK_LABEL[a] for a in pivot.index], rotation=20, ha="right")
     ax.set_ylabel("ASR (%)"); ax.set_title("ASR by attack family")
     ax.legend(loc="upper right")
     for i, c in enumerate(CONFIG_ORDER):
         for j, v in enumerate(pivot[c].values):
-            ax.text(j + (i-1)*w, v + 0.5, f"{v:.1f}", ha="center", fontsize=8)
+            if not np.isnan(v):
+                ax.text(j + (i-1)*w, v + 0.5, f"{v:.1f}", ha="center", fontsize=8)
     pdf.savefig(fig, bbox_inches="tight"); plt.close(fig)
 
 
@@ -176,20 +186,22 @@ def _draw_subtype_table(pdf, df):
 
 def _draw_scenario_heatmap(pdf, df):
     sc = by_scenario(df)
-    pivot = sc.pivot(index="scenario", columns="config", values="asr_pct")[CONFIG_ORDER]
+    pivot = sc.pivot(index="scenario", columns="config", values="asr_pct")
+    present = [c for c in CONFIG_ORDER if c in pivot.columns]
+    pivot = pivot[present]
     fig, ax = plt.subplots(figsize=(8.5, 6))
     sns.heatmap(pivot, annot=True, fmt=".1f", cmap="RdYlGn_r",
                 vmin=0, vmax=max(60, pivot.values.max()), ax=ax,
                 cbar_kws={"label":"ASR (%)"})
     ax.set_title("ASR by scenario × config")
-    ax.set_xticklabels([CONFIG_LABEL[c] for c in CONFIG_ORDER], rotation=15, ha="right")
+    ax.set_xticklabels([CONFIG_LABEL[c] for c in present], rotation=15, ha="right")
     pdf.savefig(fig, bbox_inches="tight"); plt.close(fig)
 
 
 def _draw_mechanism_bars(pdf, df):
     mt = mech_table(df).head(12)
     fig, ax = plt.subplots(figsize=(10, 5.5))
-    colors = ["#27ae60" if not r.startswith(("succeeded","blocked_unknown")) else "#7f8c8d" for r in mt.mechanism]
+    colors = ["#27ae60" if not r.startswith(("not blocked", "succeeded", "blocked_unknown")) else "#7f8c8d" for r in mt.mechanism]
     ax.barh(mt.mechanism[::-1], mt["count"][::-1], color=colors[::-1])
     ax.set_xlabel("count")
     ax.set_title("AgenticCyOps mechanism distribution (top 12)")
@@ -206,11 +218,14 @@ def _draw_per_group_bars(pdf, df):
         succ=("attack_succeeded_end_to_end", "sum"),
     )
     g["asr_pct"] = 100 * g["succ"] / g["n"]
-    pivot = g.reset_index().pivot(index="group", columns="config", values="asr_pct")[CONFIG_ORDER]
+    pivot = g.reset_index().pivot(index="group", columns="config", values="asr_pct").reindex(columns=CONFIG_ORDER)
     fig, ax = plt.subplots(figsize=(9, 5))
     x = np.arange(len(pivot)); w = 0.27
     for i, c in enumerate(CONFIG_ORDER):
-        ax.bar(x + (i-1)*w, pivot[c].values, w, label=CONFIG_LABEL[c], color=CONFIG_COLOR[c])
+        ax.bar(x + (i-1)*w, pivot[c].fillna(0).values, w, label=CONFIG_LABEL[c], color=CONFIG_COLOR[c])
+        for j, v in enumerate(pivot[c].values):
+            if not np.isnan(v):
+                ax.text(j + (i-1)*w, v + 0.5, f"{v:.2f}", ha="center", fontsize=8)
     ax.set_xticks(x); ax.set_xticklabels(pivot.index)
     ax.set_ylabel("ASR (%)"); ax.set_title("Overall ASR by validator group")
     ax.legend(loc="upper right")
@@ -267,14 +282,16 @@ def generate(groups: list[str], out_dir: Path) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--groups", default="A",
-                    help="Comma-separated subset of {A,B,C,D,E,F}")
+                    help="Comma-separated groups: legacy letters (A..F) or replay "
+                         "panels such as q235_div4_div4,q235_div4_lin3")
     ap.add_argument("--out-dir", default=None,
                     help="Output dir. Default = "
                          "results/asb/e2e_validator_group_<G>/asb_analytics/ "
                          "for a single group, or results/asb/asb_analytics/ "
                          "when multiple groups are requested.")
     args = ap.parse_args()
-    groups = [g.strip().upper() for g in args.groups.split(",") if g.strip()]
+    groups = [g.strip().upper() if len(g.strip()) == 1 else g.strip()
+              for g in args.groups.split(",") if g.strip()]
     if args.out_dir:
         out_dir = Path(args.out_dir)
     elif len(groups) == 1:

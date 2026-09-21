@@ -35,7 +35,10 @@ from logging_utils.run_metadata import HEADER_FIELDS
 
 DOMAINS = ("cyberops", "healthcare", "finance", "legal")
 _DIR_RE = re.compile(r"^(cyberops|healthcare|finance|legal)_eval_attacks_(.+?)(_disabled_[A-Z0-9]+)?$")
-RUN_COLUMNS = ["log_file", "domain", "group", "suffix", "config"] + list(HEADER_FIELDS)
+# the run directory names the run (group carries the run tag, e.g. _persistent);
+# the header's own group/config/domain are the same except for the tag
+RUN_COLUMNS = ["log_file", "domain", "group", "suffix", "config"] + [
+    k for k in HEADER_FIELDS if k not in ("domain", "group", "config")]
 
 
 def discover_runs(logs_dir: Path = LOGS_DIR) -> list[tuple[str, str, str, Path]]:
@@ -71,8 +74,8 @@ def parse_run_dir(domain: str, group: str, suffix: str, log_dir: Path,
     for path in sorted(log_dir.glob("*.jsonl")):
         for e in read_events(path):
             if e.get("action") == "run_header":
-                runs.append({"log_file": path.name, "domain": domain, "group": group,
-                             "suffix": suffix, **{k: e.get(k) for k in HEADER_FIELDS}})
+                runs.append({**{k: e.get(k) for k in HEADER_FIELDS}, "log_file": path.name,
+                             "domain": domain, "group": group, "suffix": suffix})
                 continue
             tid = e.get("trial_id")
             if tid:

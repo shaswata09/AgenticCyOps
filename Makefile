@@ -1,9 +1,12 @@
 # AgenticCyOps revision-v2 -- analysis targets (no LLM calls)
 PY ?= python
 
-.PHONY: paper-tables parse stats tables test freeze-check
+.PHONY: paper-tables paper-reports parse stats tables reports asb-reports test freeze-check
 
 paper-tables: parse stats tables
+
+# PDF reports from the generated tables (per run, consolidated, ASB panels)
+paper-reports: reports asb-reports
 
 parse:
 	$(PY) -m analysis.parse_logs
@@ -13,6 +16,14 @@ stats:
 
 tables:
 	$(PY) -m analysis.generate_tables
+
+reports:
+	$(PY) -m analysis.generate_reports
+
+ASB_PANELS ?= q235_div4_div4,q235_div4_div3,q235_div4_single,q235_div4_lin3
+asb-reports:
+	for g in $$(echo $(ASB_PANELS) | tr ',' ' '); do $(PY) -m analysis.asb_analytics --groups $$g; done
+	$(PY) -m analysis.asb_analytics --groups $(ASB_PANELS) --out-dir results/asb/asb_analytics_panels
 
 test:
 	$(PY) -m pytest -q

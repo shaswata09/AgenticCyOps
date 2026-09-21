@@ -97,8 +97,15 @@ def test_parse_logs_roundtrip_and_tables(tmp_path):
     _write_log(logs / "cyberops_eval_attacks_g1_disabled_P3", "agenticcyops",
                [{"ap": "ap1", "variant": 1, "trial": 1, "outcome": "executed", "blocked_by": "", "collateral_denials": 0,
                  "task_completed": True, "latency_s": 1, "primary_tokens": 1, "validator_tokens": 0, "seed": 1}])
+    # a run-tagged directory (E1b persistent) whose header still says group g1
+    _write_log(logs / "cyberops_eval_attacks_g1_persistent", "agenticcyops",
+               [{"ap": "benign", "variant": 1, "trial": 1, "outcome": "benign", "blocked_by": "", "collateral_denials": 2,
+                 "task_completed": False, "latency_s": 1, "primary_tokens": 1, "validator_tokens": 0, "seed": 1}])
     runs = discover_runs(logs)
-    assert [(d, g, s) for d, g, s, _ in runs] == [("cyberops", "g1", ""), ("cyberops", "g1", "_disabled_P3")]
+    assert [(d, g, s) for d, g, s, _ in runs] == [("cyberops", "g1", ""), ("cyberops", "g1", "_disabled_P3"),
+                                                  ("cyberops", "g1_persistent", "")]
+    _, _, hdr = parse_run_dir("cyberops", "g1_persistent", "", logs / "cyberops_eval_attacks_g1_persistent")
+    assert hdr[0]["group"] == "g1_persistent" and hdr[0]["primary_model"] == "Qwen/Qwen3-32B"
     all_rows, all_runs = [], []
     for domain, group, suffix, d in runs:
         r, details, hdr = parse_run_dir(domain, group, suffix, d)
@@ -122,3 +129,21 @@ def test_parse_logs_roundtrip_and_tables(tmp_path):
     assert "T3. Benign utility" in md and "T4. Ablations" in md and "-P3" in md
     assert "P2_manifest_enforcement" in md
     assert "defense-freeze-v2" in md
+    # T1 is one row per (group, config): the pooled per-AP rows (T2a) stay out of it
+    t1 = md.split("## T1.")[1].split("## T2a.")[0]
+    assert sum(1 for l in t1.splitlines() if l.startswith("| g1 |")) == 3
+    assert "| AP-1" in md.split("## T2a.")[1].split("## T2b.")[0]
+
+    # PDF reports from the same files: one per run directory plus the consolidated one
+    from analysis.generate_reports import consolidated_report, parse_paper_tables, per_run_reports
+    (res / "paper_tables.md").write_text(md)
+    sections = {s[0]: s for s in parse_paper_tables(res / "paper_tables.md")}
+    assert len(sections["T1"][3]) == 3 and sections["T1"][2][0] == "Group"
+    written = per_run_reports(base, all_runs)
+    assert sorted(p.parent.parent.name for p in written) == ["group_g1", "group_g1_disabled_P3", "group_g1_persistent"]
+    names = {p.parent.parent.name: p.name for p in written}
+    assert names["group_g1"] == "attack_report.pdf" and names["group_g1_persistent"] == "benign_report.pdf"
+    assert all(p.stat().st_size > 1000 for p in written)
+    assert (base / "group_g1" / "cyberops" / "asr_by_ap.png").exists()
+    pdf = consolidated_report(res, "g1")
+    assert pdf.exists() and pdf.stat().st_size > 10000
