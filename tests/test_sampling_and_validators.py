@@ -100,3 +100,14 @@ def test_every_agent_class_constructs_for_real(provider, monkeypatch):
         assert a.temperature == 0.7 and a.seed is None
         a.set_seed(5); a.set_temperature(0.2)
         assert a.seed == 5 and a.temperature == 0.2
+
+
+@pytest.mark.parametrize("content", ['["a", "b"]', "42", '"just a string"', "null", "not json"])
+def test_non_object_json_content_does_not_void_the_trial(content):
+    """Found in the Scout run: a JSON array answer raised AttributeError in
+    _parse_response, which the host recorded as agent_error (39 trials)."""
+    a = BaseAgent.__new__(BaseAgent)
+    a.phase = "admin"
+    resp = _Resp(content)
+    result = a._parse_response(resp)
+    assert result.summary and result.proposed_tool_calls == [] and result.memory_writes == []

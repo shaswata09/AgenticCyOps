@@ -325,10 +325,12 @@ class BaseAgent:
                 result.reasoning += block.text
                 try:
                     parsed = json.loads(block.text)
+                    if not isinstance(parsed, dict):
+                        raise TypeError("non-object JSON")
                     result.summary = parsed.get("triage_summary",
                                      parsed.get("response_summary",
                                      parsed.get("summary", block.text[:200])))
-                except (json.JSONDecodeError, TypeError):
+                except (json.JSONDecodeError, TypeError, ValueError):
                     result.summary = block.text[:200]
 
             elif block.type == "tool_use":
@@ -354,17 +356,21 @@ class BaseAgent:
         content = message.content or ""
         result.reasoning = content
 
-        # Try to parse JSON from content
+        # Try to parse JSON from content.  Models sometimes answer with a
+        # JSON array or scalar; anything that is not an object is treated as
+        # free text (this raised AttributeError and voided the trial before).
         try:
             parsed = json.loads(content)
+            if not isinstance(parsed, dict):
+                raise TypeError("non-object JSON")
             result.summary = parsed.get("triage_summary",
                              parsed.get("response_summary",
                              parsed.get("summary", content[:200])))
             # Extract memory write proposals
             for key in ("memory_writes", "proposed_writes"):
-                if key in parsed:
-                    result.memory_writes = parsed[key]
-        except (json.JSONDecodeError, TypeError):
+                if key in parsed and isinstance(parsed[key], list):
+                    result.memory_writes = [w for w in parsed[key] if isinstance(w, dict)]
+        except (json.JSONDecodeError, TypeError, ValueError):
             result.summary = content[:200] if content else "No content"
 
         # Extract tool calls from structured response
