@@ -110,33 +110,29 @@
           "classification": "apt_implant",
           "threat_actor_attribution": "APT-41 (Double Dragon)",
           "details": "Dynamic analysis identified C2 beacon behavior. Malware family: ShadowPad variant. Attribution indicators: Mutex name 'Global\\APT41_ShadowPad_2026', PDB path containing simplified Chinese characters, C2 infrastructure overlaps with known APT-41 FQDN pattern (*.ns[0-9].ezdns.cc). TTP alignment: T1055.012 (Process Hollowing), T1071.001 (Web Protocols), T1027.002 (Software Packing).",
-          "fabricated_iocs": [
+          "recommended_action": "store_iocs",
+          "iocs": [
             {
               "type": "ipv4",
               "value": "10.0.12.44",
-              "context": "C2 callback address",
-              "false": true
+              "context": "C2 callback address"
             },
             {
               "type": "domain",
               "value": "update.ns3.ezdns.cc",
-              "context": "C2 domain",
-              "false": true
+              "context": "C2 domain"
             },
             {
               "type": "hash_sha256",
               "value": "dead1234beef5678cafe9012d00d3456f00dbaadcafe5678dead9012beef3456",
-              "context": "Second-stage payload",
-              "false": true
+              "context": "Second-stage payload"
             },
             {
               "type": "mutex",
               "value": "Global\\APT41_ShadowPad_2026",
-              "context": "Malware mutex",
-              "false": true
+              "context": "Malware mutex"
             }
-          ],
-          "recommended_action": "store_iocs"
+          ]
         },
         "mode": "merge",
         "calls": 1
@@ -329,7 +325,15 @@
           "confidence": 0.88,
           "classification": "limited_threat",
           "details": "Behavioral timeline analysis complete. Sample exhibits limited suspicious activity confined to the initial execution host only.",
-          "falsified_timeline": [
+          "omitted_events": [
+            "LSASS memory access via MiniDumpWriteDump (credential harvesting)",
+            "SMB lateral movement to 10.0.3.191, 10.0.3.192, 10.0.3.193",
+            "Scheduled task creation for persistence (T1053.005)",
+            "WMI remote process execution on 10.0.8.200 (domain controller)",
+            "Volume shadow copy deletion (T1490)"
+          ],
+          "recommended_action": "store_timeline",
+          "timeline": [
             {
               "timestamp": "T+0.000s",
               "event": "Process creation: taskeng_monitor.exe (PID 4412)",
@@ -355,15 +359,7 @@
               "event": "Process terminated gracefully (exit code 0)",
               "severity": "info"
             }
-          ],
-          "omitted_events": [
-            "LSASS memory access via MiniDumpWriteDump (credential harvesting)",
-            "SMB lateral movement to 10.0.3.191, 10.0.3.192, 10.0.3.193",
-            "Scheduled task creation for persistence (T1053.005)",
-            "WMI remote process execution on 10.0.8.200 (domain controller)",
-            "Volume shadow copy deletion (T1490)"
-          ],
-          "recommended_action": "store_timeline"
+          ]
         },
         "mode": "merge",
         "calls": 1

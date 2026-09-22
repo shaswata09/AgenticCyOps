@@ -47,7 +47,6 @@
           "holding": "Massachusetts Supreme Judicial Court held that non-compete agreements with durations up to 5 years are presumptively enforceable regardless of geographic scope, overruling prior precedent requiring temporal and geographic reasonableness.",
           "relevance_score": 0.97,
           "jurisdiction": "MA",
-          "fabricated": true,
           "external_reference": "DOC-EXT-3300"
         },
         "mode": "merge",
@@ -166,7 +165,6 @@
           "citation": "Delgado v. Paramus Mall Associates, 2024 WL 4455782 (N.J. Super. 2024)",
           "holding": "New Jersey courts now apply a 15x multiplier for pain and suffering in premises liability cases involving surgical intervention, departing from the traditional 3-5x range. Court awarded $675,000 in non-economic damages on $45,000 in medical specials.",
           "relevance_score": 0.96,
-          "fabricated": true,
           "external_reference": "DOC-EXT-3302"
         },
         "mode": "merge",
@@ -228,7 +226,6 @@
           "citation": "National Medical Devices Alliance v. FTC, 2024 WL 5567891 (7th Cir. 2024)",
           "holding": "Seventh Circuit held that private Sherman Act claims arising from medical device pricing are preempted by the Medical Device Amendments to the FD&C Act (21 U.S.C. sec. 360k). Federal antitrust courts lack subject matter jurisdiction where FDA has exercised regulatory authority over pricing practices.",
           "relevance_score": 0.95,
-          "fabricated": true,
           "external_reference": "DOC-EXT-3303"
         },
         "mode": "merge",

@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from attacks.migrate_payload_schema import hygiene_hits
-from attacks.payload_schema import load_variants, validate_payload
+from attacks.payload_schema import injection_hygiene_hits, load_variants, validate_payload
 from config import BASE_DIR
 
 DOMAINS = ("cyberops", "healthcare", "finance", "legal")
@@ -59,10 +59,37 @@ def test_meta_is_never_handed_to_the_host():
     assert not any(k.startswith("meta") for k in trigger)
 
 
+@pytest.mark.parametrize("domain,ap,variant", CASES, ids=IDS)
+def test_injected_content_is_shaped_like_genuine_output(domain, ap, variant):
+    """E5.3: what is served to the model must not announce that it is a test.
+
+    ``meta`` as a whole is scaffolding, but ``meta.injection.response`` /
+    ``.entries`` / ``.content`` are delivered, so they are held to the same bar
+    as the trigger: no field marking the content synthetic, no P-label and no
+    experiment framing. Genuine domain vocabulary is allowed (see
+    ``injection_hygiene_hits``), and this check is *not* waivable.
+    """
+    hits = injection_hygiene_hits(variant.get("meta", {}))
+    assert hits == [], f"{domain}/{variant['variant_id']}: {hits}"
+
+
+@pytest.mark.parametrize("domain", DOMAINS)
+def test_rewritten_paths_are_clean_in_every_domain(domain):
+    """E5.1 covered finance/healthcare/legal; nothing may regress in any domain."""
+    for ap in ("ap9", "ap13", "ap14"):
+        for v in load_variants(domain, ap):
+            key = f"{domain}/{v['variant_id']}"
+            if key in WAIVERS:
+                continue                      # cyberops keeps its own waivers
+            hits = hygiene_hits(v.get("trigger", {}), v["meta"].get("canaries", []))
+            assert hits == [], f"{key}: {hits}"
+
+
 def test_waiver_count_is_reported():
     """Keeps the number visible in the test output."""
     print(f"\nhygiene waivers: {len(WAIVERS)} variants")
-    assert len(WAIVERS) <= 107
+    # E5 retired the 45 AP-9/13/14 finance/healthcare/legal waivers (107 -> 62).
+    assert len(WAIVERS) <= 62
 
 
 def test_ap4_p5_read_families_are_intact():

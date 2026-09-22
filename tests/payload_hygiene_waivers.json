@@ -1,386 +1,67 @@
 {
- "_note": "Variants whose trigger still contains a tell-tale key or word after the mechanical H5 migration. Each entry lists the field paths; remove the entry once the payload is rewritten.",
- "waivers": {
-  "cyberops/ap10_v1": [
-   "value:description"
-  ],
-  "cyberops/ap10_v2": [
-   "value:description"
-  ],
-  "cyberops/ap10_v3": [
-   "value:description"
-  ],
-  "cyberops/ap10_v5": [
-   "value:description"
-  ],
-  "cyberops/ap11_v2": [
-   "value:description"
-  ],
-  "cyberops/ap11_v4": [
-   "value:description"
-  ],
-  "cyberops/ap11_v5": [
-   "value:description"
-  ],
-  "cyberops/ap12_v5": [
-   "value:incident_a.description"
-  ],
-  "cyberops/ap1_v1": [
-   "value:description"
-  ],
-  "cyberops/ap1_v5": [
-   "value:description"
-  ],
-  "cyberops/ap5_v4": [
-   "value:incident_context.incident_type"
-  ],
-  "cyberops/ap8_v1": [
-   "value:description"
-  ],
-  "cyberops/ap8_v2": [
-   "value:description"
-  ],
-  "cyberops/ap8_v5": [
-   "value:description"
-  ],
-  "finance/ap10_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap10_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap10_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap10_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap10_v5": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap13_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap13_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap13_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap13_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap13_v5": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap14_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap14_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap14_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap14_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap14_v5": [
-   "value:description"
-  ],
-  "finance/ap3_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap3_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap3_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap3_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap3_v5": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap6_v1": [
-   "value:description"
-  ],
-  "finance/ap6_v2": [
-   "value:description"
-  ],
-  "finance/ap6_v3": [
-   "value:description"
-  ],
-  "finance/ap6_v4": [
-   "value:description"
-  ],
-  "finance/ap6_v5": [
-   "value:description"
-  ],
-  "finance/ap7_v4": [
-   "value:description"
-  ],
-  "finance/ap7_v5": [
-   "value:description"
-  ],
-  "finance/ap8_v2": [
-   "value:description"
-  ],
-  "finance/ap9_v1": [
-   "value:alert_type"
-  ],
-  "finance/ap9_v2": [
-   "value:alert_type"
-  ],
-  "finance/ap9_v3": [
-   "value:alert_type"
-  ],
-  "finance/ap9_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "finance/ap9_v5": [
-   "value:alert_type"
-  ],
-  "healthcare/ap10_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap10_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap10_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap10_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap10_v5": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap13_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap13_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap13_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap13_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap13_v5": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap14_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap14_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap14_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap14_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap14_v5": [
-   "value:description"
-  ],
-  "healthcare/ap3_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap3_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap3_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap3_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap3_v5": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap6_v1": [
-   "value:description"
-  ],
-  "healthcare/ap6_v2": [
-   "value:description"
-  ],
-  "healthcare/ap6_v3": [
-   "value:description"
-  ],
-  "healthcare/ap6_v4": [
-   "value:description"
-  ],
-  "healthcare/ap6_v5": [
-   "value:description"
-  ],
-  "healthcare/ap9_v1": [
-   "value:alert_type"
-  ],
-  "healthcare/ap9_v2": [
-   "value:alert_type"
-  ],
-  "healthcare/ap9_v3": [
-   "value:alert_type"
-  ],
-  "healthcare/ap9_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "healthcare/ap9_v5": [
-   "value:alert_type"
-  ],
-  "legal/ap10_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap10_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap10_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap10_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap10_v5": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap13_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap13_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap13_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap13_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap13_v5": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap14_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap14_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap14_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap14_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap14_v5": [
-   "value:description"
-  ],
-  "legal/ap3_v1": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap3_v2": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap3_v3": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap3_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap3_v5": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap6_v1": [
-   "value:description"
-  ],
-  "legal/ap6_v2": [
-   "value:description"
-  ],
-  "legal/ap6_v3": [
-   "value:description"
-  ],
-  "legal/ap6_v4": [
-   "value:description"
-  ],
-  "legal/ap6_v5": [
-   "value:description"
-  ],
-  "legal/ap9_v1": [
-   "value:alert_type"
-  ],
-  "legal/ap9_v2": [
-   "value:alert_type"
-  ],
-  "legal/ap9_v3": [
-   "value:alert_type"
-  ],
-  "legal/ap9_v4": [
-   "value:alert_type",
-   "value:description"
-  ],
-  "legal/ap9_v5": [
-   "value:alert_type"
+  "_note": "Variants whose trigger still contains a tell-tale key or word after the mechanical H5 migration. Each entry lists the field paths; remove the entry once the payload is rewritten. E5 (external review concern 5): the 45 AP-9/AP-13/AP-14 variants in finance, healthcare and legal were rewritten so the trigger reads as a real alert, and were removed from this list.",
+  "waivers": [
+    "cyberops/ap10_v1",
+    "cyberops/ap10_v2",
+    "cyberops/ap10_v3",
+    "cyberops/ap10_v5",
+    "cyberops/ap11_v2",
+    "cyberops/ap11_v4",
+    "cyberops/ap11_v5",
+    "cyberops/ap12_v5",
+    "cyberops/ap1_v1",
+    "cyberops/ap1_v5",
+    "cyberops/ap5_v4",
+    "cyberops/ap8_v1",
+    "cyberops/ap8_v2",
+    "cyberops/ap8_v5",
+    "finance/ap10_v1",
+    "finance/ap10_v2",
+    "finance/ap10_v3",
+    "finance/ap10_v4",
+    "finance/ap10_v5",
+    "finance/ap3_v1",
+    "finance/ap3_v2",
+    "finance/ap3_v3",
+    "finance/ap3_v4",
+    "finance/ap3_v5",
+    "finance/ap6_v1",
+    "finance/ap6_v2",
+    "finance/ap6_v3",
+    "finance/ap6_v4",
+    "finance/ap6_v5",
+    "finance/ap7_v4",
+    "finance/ap7_v5",
+    "finance/ap8_v2",
+    "healthcare/ap10_v1",
+    "healthcare/ap10_v2",
+    "healthcare/ap10_v3",
+    "healthcare/ap10_v4",
+    "healthcare/ap10_v5",
+    "healthcare/ap3_v1",
+    "healthcare/ap3_v2",
+    "healthcare/ap3_v3",
+    "healthcare/ap3_v4",
+    "healthcare/ap3_v5",
+    "healthcare/ap6_v1",
+    "healthcare/ap6_v2",
+    "healthcare/ap6_v3",
+    "healthcare/ap6_v4",
+    "healthcare/ap6_v5",
+    "legal/ap10_v1",
+    "legal/ap10_v2",
+    "legal/ap10_v3",
+    "legal/ap10_v4",
+    "legal/ap10_v5",
+    "legal/ap3_v1",
+    "legal/ap3_v2",
+    "legal/ap3_v3",
+    "legal/ap3_v4",
+    "legal/ap3_v5",
+    "legal/ap6_v1",
+    "legal/ap6_v2",
+    "legal/ap6_v3",
+    "legal/ap6_v4",
+    "legal/ap6_v5"
   ]
- }
 }
