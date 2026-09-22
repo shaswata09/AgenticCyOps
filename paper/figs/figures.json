@@ -28,7 +28,7 @@
         "Flat": 0.0,
         "ACL": 0.0,
         "NoJudge": 0.0,
-        "DEFER": 34.3,
+        "DEFER": 33.4,
         "JudgeOnly": 99.9
       },
       "benign_denied_pct": {
@@ -57,19 +57,19 @@
       "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"
     ],
     "n": {
-      "Development": 64,
-      "Transfer (3 domains)": 205,
+      "Development": 67,
+      "Transfer (3 domains)": 195,
       "ASB replay": 405,
       "ASB live": 1606,
       "Development tier %": {
-        "rule": 71.9,
-        "similarity": 4.7,
-        "llm": 23.4
+        "rule": 73.1,
+        "similarity": 4.5,
+        "llm": 22.4
       },
       "Transfer (3 domains) tier %": {
-        "rule": 74.1,
+        "rule": 71.8,
         "similarity": 0.0,
-        "llm": 25.9
+        "llm": 28.2
       },
       "ASB replay tier %": {
         "rule": 38.3,
@@ -144,14 +144,14 @@
       "results/eval_attacks/all_trials.csv"
     ],
     "n": {
-      "shared_variants": 53,
+      "shared_variants": 68,
       "asr_pct": {
-        "DEFER (subset)": 5.7,
-        "minus P1": 6.9,
-        "minus P2": 12.6,
-        "minus P3": 21.4,
-        "minus P4": 12.6,
-        "minus P5": 4.4
+        "DEFER (subset)": 4.4,
+        "minus P1": 5.4,
+        "minus P2": 9.8,
+        "minus P3": 19.1,
+        "minus P4": 9.8,
+        "minus P5": 3.4
       },
       "benign_any_denial_pct": {
         "DEFER (subset)": 80.0,
@@ -233,7 +233,7 @@
       "logs/*_eval_attacks_q235_div4/agenticcyops_*.jsonl"
     ],
     "n": {
-      "rounds": 4030,
+      "rounds": 4101,
       "panel": [
         "V1_qwen",
         "V5_mistral",
@@ -241,16 +241,16 @@
         "V6_gpt4o"
       ],
       "reject_rate_pct": {
-        "V1_qwen": 40.8,
-        "V5_mistral": 42.2,
-        "V4_claude": 73.5,
-        "V6_gpt4o": 63.5
+        "V1_qwen": 38.8,
+        "V5_mistral": 38.9,
+        "V4_claude": 77.3,
+        "V6_gpt4o": 66.4
       },
       "approved_pct_by_quorum": {
-        "1": 69.1,
-        "2": 54.9,
-        "3": 38.3,
-        "4": 17.5
+        "1": 72.4,
+        "2": 56.5,
+        "3": 33.8,
+        "4": 15.8
       }
     }
   },
@@ -370,27 +370,27 @@
     ],
     "n": {
       "Qwen3-235B / cyberops": {
-        "Flat": 36.0,
+        "Flat": 36.4,
         "ACL": 24.0,
         "DEFER": 4.0,
         "benign any-denial": 80.0
       },
       "Qwen3-235B / finance": {
-        "Flat": 35.6,
-        "ACL": 28.4,
-        "DEFER": 2.2,
+        "Flat": 32.0,
+        "ACL": 26.2,
+        "DEFER": 4.4,
         "benign any-denial": 100.0
       },
       "Qwen3-235B / healthcare": {
-        "Flat": 21.8,
+        "Flat": 21.3,
         "ACL": 17.8,
-        "DEFER": 0.4,
+        "DEFER": 0.0,
         "benign any-denial": 100.0
       },
       "Qwen3-235B / legal": {
-        "Flat": 31.6,
-        "ACL": 31.6,
-        "DEFER": 9.8,
+        "Flat": 34.2,
+        "ACL": 32.4,
+        "DEFER": 8.0,
         "benign any-denial": 100.0
       },
       "Llama-4-Scout / cyberops": {
@@ -423,20 +423,20 @@
     "n": {
       "Flat": {
         "C1 task input": {
-          "asr_pct": 26.3,
+          "asr_pct": 26.7,
           "exposure_pct": 100.0
         },
         "C2 tool response": {
           "asr_pct": 9.1,
-          "exposure_pct": 97.0
+          "exposure_pct": 92.9
         },
         "C3 memory": {
-          "asr_pct": 19.0,
-          "exposure_pct": 88.6
+          "asr_pct": 18.1,
+          "exposure_pct": 97.1
         },
         "C4 handoff": {
-          "asr_pct": 50.0,
-          "exposure_pct": null
+          "asr_pct": 46.7,
+          "exposure_pct": 100.0
         },
         "C5 rationale": {
           "asr_pct": 76.0,
@@ -445,20 +445,20 @@
       },
       "DEFER": {
         "C1 task input": {
-          "asr_pct": 3.3,
+          "asr_pct": 3.1,
           "exposure_pct": 100.0
         },
         "C2 tool response": {
-          "asr_pct": 9.2,
-          "exposure_pct": 72.4
+          "asr_pct": 9.1,
+          "exposure_pct": 77.8
         },
         "C3 memory": {
-          "asr_pct": 3.8,
+          "asr_pct": 1.0,
           "exposure_pct": 62.9
         },
         "C4 handoff": {
-          "asr_pct": 3.3,
-          "exposure_pct": null
+          "asr_pct": 7.8,
+          "exposure_pct": 100.0
         },
         "C5 rationale": {
           "asr_pct": 4.2,
@@ -466,10 +466,10 @@
         }
       },
       "channels": {
-        "C1 task input": 1752,
-        "C2 tool response": 356,
-        "C3 memory": 375,
-        "C4 handoff": 330,
+        "C1 task input": 1818,
+        "C2 tool response": 426,
+        "C3 memory": 421,
+        "C4 handoff": 375,
         "C5 rationale": 336
       },
       "defer_tool_response_residual": {
