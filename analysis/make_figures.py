@@ -193,16 +193,18 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
 
     # (a) attack success
     asr = [asr_ci(att.get(c, [])) for c in cfgs]
-    # (b) legitimate tool proposals denied = denied proposals / proposals offered
+    # (b) legitimate tool proposals denied -- E7: the same definition the T11
+    # table uses (denied tool proposals / all tool proposals, matched on
+    # call_id), so figure and table cannot disagree. The interval still
+    # resamples benign variants, with the per-variant (denied, proposed) pairs
+    # taken from the shared counter.
+    from analysis.benign_cost import proposal_denials_by_variant
+
     denied, completed = [], []
     for c in cfgs:
         ts = ben.get(c, [])
-        per_trial = ben_scan.get(c, {})
-        units = []
-        for t in ts:
-            prop = per_trial.get(trial_id(t), (0, 0))[0]
-            if prop:
-                units.append((_CLUSTER(t), float(t.get("collateral_denials") or 0), float(prop)))
+        by_var = proposal_denials_by_variant(DEV_GROUP, DEV_DOMAIN, c)
+        units = [(k, float(d), float(p)) for k, (d, p) in by_var.items() if p]
         denied.append(_ratio_bootstrap(units))
         done = [t for t in ts if str(t.get("task_completed", "")).strip() != ""]
         completed.append(rate_ci(done, lambda t: str(t["task_completed"]).lower() == "true"))
@@ -288,6 +290,11 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
             "benign_incidents": {fs.CONFIG_LABEL[c]: len(ben.get(c, [])) for c in cfgs},
             "benign_scenarios": len({_CLUSTER(t) for t in benign_trials(trials)}),
             "judged_pct": {fs.CONFIG_LABEL[c]: round(100 * judged[c], 1) for c in cfgs},
+            # E7: same definition as table T11 (analysis/benign_cost.py)
+            "benign_denied_pct": {fs.CONFIG_LABEL[c]: round(100 * d[0], 1)
+                                  for c, d in zip(cfgs, denied)},
+            "benign_tasks_completed_pct": {fs.CONFIG_LABEL[c]: round(100 * v[0], 1)
+                                           for c, v in zip(cfgs, completed)},
         },
     }
     return path, meta

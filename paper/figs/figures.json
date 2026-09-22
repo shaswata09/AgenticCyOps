@@ -30,6 +30,20 @@
         "NoJudge": 0.0,
         "DEFER": 34.3,
         "JudgeOnly": 99.9
+      },
+      "benign_denied_pct": {
+        "Flat": 0.0,
+        "ACL": 54.8,
+        "NoJudge": 51.7,
+        "DEFER": 10.1,
+        "JudgeOnly": 12.9
+      },
+      "benign_tasks_completed_pct": {
+        "Flat": 100.0,
+        "ACL": 26.7,
+        "NoJudge": 25.0,
+        "DEFER": 95.0,
+        "JudgeOnly": 95.0
       }
     }
   },

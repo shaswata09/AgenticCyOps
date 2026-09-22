@@ -397,8 +397,31 @@ def build(results_dir: Path, main_group: str) -> str:
              t9_channels(trials),
              "", f"## T9b. Injection channels, {main_group}", "", t9_channels(trials, main_group),
              "", f"## T10. P5 evidence (AP-4 + AP-14, {main_group}, CyberOps)", "",
-             t9b_p5(trials, results_dir, main_group), ""]
+             t9b_p5(trials, results_dir, main_group), "",
+             f"## T11. Benign tool-proposal denial rate ({main_group})", "",
+             "One definition, shared with Fig. 3(b) via `analysis/benign_cost.py`: denied "
+             "tool proposals / all tool proposals, matched on `call_id`, isolated benign "
+             "runs. The numerator is a subset of the denominator by construction, so this "
+             "does not mix tool denials with memory-op denials the way a per-trial "
+             "`collateral_denials` count does.", "",
+             t11_benign_denials(main_group), ""]
     return "\n".join(parts)
+
+
+def t11_benign_denials(group: str) -> str:
+    """E7: the canonical benign denial rate, per domain and configuration."""
+    from analysis.benign_cost import DOMAINS as BC_DOMAINS, benign_denial_rates
+
+    configs = ("flat", "acl_hardened", "agenticcyops")
+    rates = benign_denial_rates(group, configs)
+    rows = []
+    for dom in (*BC_DOMAINS, "all"):
+        row = [dom if dom != "all" else "**all domains**"]
+        for cfg in configs:
+            d, p, r = rates.get((dom, cfg), (0, 0, float("nan")))
+            row.append(f"{100 * r:.1f} ({d}/{p})" if p else "-")
+        rows.append(row)
+    return _md(["Domain"] + [f"{CONFIG_LABEL.get(c, c)} denied %" for c in configs], rows)
 
 
 def main() -> None:
