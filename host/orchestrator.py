@@ -407,7 +407,15 @@ class SOARHost:
         if self.verified_execution:
             self.verified_execution.reset_for_trial()
         summary = {"state_mode": self.state_mode, "in_process": True, "mma": None}
-        if self.config == "agenticcyops" and self.mma_url:
+        # The store must be cleared for *every* configuration, not just the
+        # defended one. Gating this on ``config == "agenticcyops"`` left the
+        # flat, ACL and judge-only arms sharing one store across trials, so
+        # documents planted by earlier variants crowded later ones out of the
+        # top-k and memory-channel exposure decayed with variant order (AP-14
+        # flat: 12/12/12/9/6 by variant, against 12 across the board for the
+        # defended arm). ``state_mode: isolated`` has to mean the same thing in
+        # every arm or the undefended baseline is not comparable.
+        if self.mma_url:
             try:
                 async with httpx.AsyncClient() as client:
                     resp = await client.post(f"{self.mma_url}/admin/reset",

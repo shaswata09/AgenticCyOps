@@ -748,7 +748,8 @@ def fig_panel_composition(trials: list[dict], outdir: Path) -> tuple[Path, dict]
             agg[p]["ben_k"] += float(r["benign_rejected"])
             agg[p]["ben_n"] += float(r["benign_n"])
 
-    label = {"single": "Single", "div3": "Div3", "div4": "Div4", "lin3": "Lin3"}
+    label = {"single": "Single", "div3": "Div3", "div4": "Div4", "lin3": "Lin3",
+             "div3x": "Div3x"}
     pts = {}
     for p, d in agg.items():
         sec = 100 * d["sec_k"] / d["sec_n"] if d["sec_n"] else float("nan")
@@ -773,8 +774,19 @@ def fig_panel_composition(trials: list[dict], outdir: Path) -> tuple[Path, dict]
                     fontsize=6, color=fs.OUTCOME_COLOR["executed"], va="center")
     ax.set_xlabel("Benign proposals rejected (%)")
     ax.set_ylabel("Injected actions let through (%)")
-    ax.set_xlim(0, max(v[0] for v in pts.values() if not math.isnan(v[0])) * 1.45)
-    ax.set_ylim(-0.4, max(v[1] for v in pts.values()) * 1.25)
+    # div3x has a benign estimate but no security number (its panel never ran),
+    # so it is drawn as an open marker on the benign axis at y=0 with a note.
+    if "div3x" in pts and math.isnan(pts["div3x"][1]):
+        ben = pts["div3x"][0]
+        ax.plot(ben, 0, marker="s", markersize=5, markerfacecolor="none",
+                markeredgecolor=fs.TIER_COLOR["rule"], markeredgewidth=1.2, zorder=3)
+        ax.annotate("Div3x - security n/a\nDiv4 without the Qwen validator",
+                    (ben, 0), textcoords="offset points", xytext=(6, 8),
+                    fontsize=6, color=fs.TIER_COLOR["rule"], va="bottom")
+    _bx = [v[0] for v in pts.values() if not math.isnan(v[0])]
+    _by = [v[1] for v in pts.values() if not math.isnan(v[1])]
+    ax.set_xlim(0, (max(_bx) if _bx else 1) * 1.45)
+    ax.set_ylim(-0.6, (max(_by) if _by else 1) * 1.25)
     fs.style_axes(ax)
 
     path = fs.save(fig, "panel_composition", outdir, fs.WIDTH_1COL)
@@ -786,7 +798,7 @@ def fig_panel_composition(trials: list[dict], outdir: Path) -> tuple[Path, dict]
         "data_sources": ["results/benign_panel_rejection.csv",
                          "results/asb/e2e_validator_group_q235_div4_*/general/results.csv"],
         "n": {label[p]: {"benign_rejected_pct": None if math.isnan(v[0]) else round(v[0], 1),
-                         "letthrough_pct": round(v[1], 1),
+                         "letthrough_pct": None if math.isnan(v[1]) else round(v[1], 1),
                          "security_n": int(agg[p]["sec_n"])} for p, v in pts.items()},
     }
     return path, meta

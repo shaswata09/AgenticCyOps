@@ -217,6 +217,11 @@
         "benign_rejected_pct": null,
         "letthrough_pct": 8.5,
         "security_n": 1275
+      },
+      "Div3x": {
+        "benign_rejected_pct": 17.5,
+        "letthrough_pct": null,
+        "security_n": 0
       }
     }
   },
