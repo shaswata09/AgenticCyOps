@@ -1,0 +1,509 @@
+[
+  {
+    "name": "judgment_boundary",
+    "file": "judgment_boundary.pdf",
+    "takeaway": "Never judging is the safest and the least usable; judging everything is neither safe nor cheap; DEFER sits near the safety of NoJudge at the usability of JudgeOnly.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv",
+      "logs/cyberops_eval_attacks_q235_div4/*.jsonl"
+    ],
+    "n": {
+      "attack_trials": {
+        "Flat": 225,
+        "ACL": 225,
+        "NoJudge": 225,
+        "DEFER": 225,
+        "JudgeOnly": 225
+      },
+      "attack_variants": 75,
+      "benign_incidents": {
+        "Flat": 60,
+        "ACL": 60,
+        "NoJudge": 60,
+        "DEFER": 60,
+        "JudgeOnly": 60
+      },
+      "benign_scenarios": 20,
+      "judged_pct": {
+        "Flat": 0.0,
+        "ACL": 0.0,
+        "NoJudge": 0.0,
+        "DEFER": 34.3,
+        "JudgeOnly": 99.9
+      }
+    }
+  },
+  {
+    "name": "interception_tiers",
+    "file": "interception_tiers.pdf",
+    "takeaway": "Deterministic checks decide about three quarters of the interceptions on policy and structure attacks, and about a third on the semantic third-party benchmark.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv",
+      "results/asb/e2e_validator_group_q235_div4_div4/general/results.csv",
+      "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"
+    ],
+    "n": {
+      "Development": 64,
+      "Transfer (3 domains)": 205,
+      "ASB replay": 405,
+      "ASB live": 1606,
+      "Development tier %": {
+        "rule": 71.9,
+        "similarity": 4.7,
+        "llm": 23.4
+      },
+      "Transfer (3 domains) tier %": {
+        "rule": 74.1,
+        "similarity": 0.0,
+        "llm": 25.9
+      },
+      "ASB replay tier %": {
+        "rule": 38.3,
+        "similarity": 0.0,
+        "llm": 61.7
+      },
+      "ASB live tier %": {
+        "rule": 37.0,
+        "similarity": 0.0,
+        "llm": 63.0
+      }
+    }
+  },
+  {
+    "name": "ap_heatmap",
+    "file": "ap_heatmap.pdf",
+    "takeaway": "JudgeOnly leaves whole attack paths red that DEFER clears, and on several it scores worse than no checks at all; what survives DEFER is a short list of four paths, none above roughly 22%.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "variants": {
+        "ap1": 5,
+        "ap2": 5,
+        "ap3": 5,
+        "ap4": 7,
+        "ap6": 5,
+        "ap7": 5,
+        "ap8": 5,
+        "ap11": 5,
+        "ap12": 5,
+        "ap13": 5,
+        "ap14": 5,
+        "ap5": 5,
+        "ap9": 5,
+        "ap10": 5,
+        "ap15": 3
+      },
+      "harness_proposed": [
+        "ap5",
+        "ap9",
+        "ap10",
+        "ap15"
+      ],
+      "defer_nonzero": [
+        "ap7",
+        "ap13",
+        "ap10",
+        "ap15"
+      ]
+    }
+  },
+  {
+    "name": "paired_variants",
+    "file": "paired_variants.pdf",
+    "takeaway": "Variant by variant the cascade dominates the judge-only pipeline: it rescues many variants JudgeOnly loses and gives up almost none.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "variants": 75,
+      "JudgeOnly fails, DEFER holds": 20,
+      "both fail": 3,
+      "DEFER fails, JudgeOnly holds": 1
+    }
+  },
+  {
+    "name": "ablation",
+    "file": "ablation.pdf",
+    "takeaway": "Removing P3, P2 or P4 each lets attacks through that the others do not catch; on this subset P1 and P5 never bind.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "shared_variants": 53,
+      "asr_pct": {
+        "DEFER (subset)": 5.7,
+        "minus P1": 6.9,
+        "minus P2": 12.6,
+        "minus P3": 21.4,
+        "minus P4": 12.6,
+        "minus P5": 4.4
+      },
+      "benign_any_denial_pct": {
+        "DEFER (subset)": 80.0,
+        "minus P1": 76.7,
+        "minus P2": 73.3,
+        "minus P3": 65.0,
+        "minus P4": 83.3,
+        "minus P5": 75.0
+      }
+    }
+  },
+  {
+    "name": "p5_reads",
+    "file": "p5_reads.pdf",
+    "takeaway": "On the read-dependent paths the judges do not help: removing the store policy (P5) reopens the leak that DEFER closes, at unchanged exposure.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "AP-4": {
+        "asr_pct": {
+          "Flat": 76.2,
+          "ACL": 14.3,
+          "JudgeOnly": 61.9,
+          "DEFER minus P5": 33.3,
+          "DEFER": 0.0
+        },
+        "exposure_pct": {
+          "Flat": 100.0,
+          "ACL": 28.6,
+          "JudgeOnly": 100.0,
+          "DEFER minus P5": 100.0,
+          "DEFER": 28.6
+        }
+      }
+    }
+  },
+  {
+    "name": "panel_composition",
+    "file": "panel_composition.pdf",
+    "takeaway": "Diversity buys security: Div4 lets nothing through, and the last points of it cost a few points of benign rejection. A same-size panel of one model lineage (Lin3) gives the security back.",
+    "data_sources": [
+      "results/benign_panel_rejection.csv",
+      "results/asb/e2e_validator_group_q235_div4_*/general/results.csv"
+    ],
+    "n": {
+      "Single": {
+        "benign_rejected_pct": 14.5,
+        "letthrough_pct": 3.2,
+        "security_n": 1275
+      },
+      "Div3": {
+        "benign_rejected_pct": 14.5,
+        "letthrough_pct": 0.9,
+        "security_n": 1275
+      },
+      "Div4": {
+        "benign_rejected_pct": 19.7,
+        "letthrough_pct": 0.0,
+        "security_n": 1275
+      },
+      "Lin3": {
+        "benign_rejected_pct": null,
+        "letthrough_pct": 8.5,
+        "security_n": 1275
+      }
+    }
+  },
+  {
+    "name": "validator_behavior",
+    "file": "validator_behavior.pdf",
+    "takeaway": "The four judges agree only moderately with each other, so how many of them must approve changes what gets through by tens of points.",
+    "data_sources": [
+      "logs/*_eval_attacks_q235_div4/agenticcyops_*.jsonl"
+    ],
+    "n": {
+      "rounds": 4030,
+      "panel": [
+        "V1_qwen",
+        "V5_mistral",
+        "V4_claude",
+        "V6_gpt4o"
+      ],
+      "reject_rate_pct": {
+        "V1_qwen": 40.8,
+        "V5_mistral": 42.2,
+        "V4_claude": 73.5,
+        "V6_gpt4o": 63.5
+      },
+      "approved_pct_by_quorum": {
+        "1": 69.1,
+        "2": 54.9,
+        "3": 38.3,
+        "4": 17.5
+      }
+    }
+  },
+  {
+    "name": "cost",
+    "file": "cost.pdf",
+    "takeaway": "The judges account for most of the time the cascade adds, while the benign work it blocks is spread across the deterministic checks and the memory checks, and is much heavier outside the development domain.",
+    "data_sources": [
+      "logs/*_eval_attacks_q235_div4/*.jsonl",
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "denied_pct_of_proposals": {
+        "P2 parameter/scope": {
+          "cyberops": 7.33,
+          "finance": 6.25,
+          "healthcare": 1.45,
+          "legal": 3.31
+        },
+        "P3 LLM panel": {
+          "cyberops": 2.75,
+          "finance": 9.66,
+          "healthcare": 25.6,
+          "legal": 19.89
+        },
+        "P4 memory": {
+          "cyberops": 1.03,
+          "finance": 8.52,
+          "healthcare": 24.64,
+          "legal": 16.57
+        },
+        "P5 store policy": {
+          "cyberops": 0.0,
+          "finance": 1.7,
+          "healthcare": 0.0,
+          "legal": 0.0
+        },
+        "redactions": {
+          "cyberops": 8.25,
+          "finance": 1.7,
+          "healthcare": 0.0,
+          "legal": 11.05
+        }
+      },
+      "median_latency_s": {
+        "primary model": {
+          "Flat": 32.7,
+          "NoJudge": 49.68,
+          "DEFER": 38.48,
+          "JudgeOnly": 34.02
+        },
+        "deterministic checks": {
+          "Flat": 0.1,
+          "NoJudge": 0.04,
+          "DEFER": 0.09,
+          "JudgeOnly": 0.08
+        },
+        "LLM panel": {
+          "Flat": 0.0,
+          "NoJudge": 0.0,
+          "DEFER": 76.28,
+          "JudgeOnly": 132.31
+        }
+      },
+      "tokens_per_incident": {
+        "primary": {
+          "Flat": 20645,
+          "NoJudge": 12184,
+          "DEFER": 12292,
+          "JudgeOnly": 11937
+        },
+        "validator": {
+          "Flat": 0,
+          "NoJudge": 0,
+          "DEFER": 17348,
+          "JudgeOnly": 26321
+        }
+      },
+      "benign_proposals": {
+        "cyberops": 873,
+        "finance": 176,
+        "healthcare": 207,
+        "legal": 181
+      }
+    }
+  },
+  {
+    "name": "state_carryover",
+    "file": "state_carryover.pdf",
+    "takeaway": "With state carried across incidents the pipeline is already saturated at the first benign incident after the attacks and never recovers, so accumulated state has to expire.",
+    "data_sources": [
+      "logs/*_eval_attacks_q235_div4_persistent/*.jsonl",
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "isolated_mean_denials": 1.87,
+      "sequence_len": {
+        "cyberops": 20,
+        "finance": 5,
+        "healthcare": 5,
+        "legal": 5
+      },
+      "persistent_mean_denials": {
+        "cyberops": 7.35,
+        "finance": 8.2,
+        "healthcare": 11.4,
+        "legal": 8.2
+      }
+    }
+  },
+  {
+    "name": "transfer",
+    "file": "transfer.pdf",
+    "takeaway": "The cascade holds its attack-success reduction across four domains and four primary models; what it costs on benign work does not transfer and varies widely by domain.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "Qwen3-235B / cyberops": {
+        "Flat": 36.0,
+        "ACL": 24.0,
+        "DEFER": 4.0,
+        "benign any-denial": 80.0
+      },
+      "Qwen3-235B / finance": {
+        "Flat": 35.6,
+        "ACL": 28.4,
+        "DEFER": 2.2,
+        "benign any-denial": 100.0
+      },
+      "Qwen3-235B / healthcare": {
+        "Flat": 21.8,
+        "ACL": 17.8,
+        "DEFER": 0.4,
+        "benign any-denial": 100.0
+      },
+      "Qwen3-235B / legal": {
+        "Flat": 31.6,
+        "ACL": 31.6,
+        "DEFER": 9.8,
+        "benign any-denial": 100.0
+      },
+      "Llama-4-Scout / cyberops": {
+        "Flat": 35.1,
+        "ACL": 29.8,
+        "DEFER": 1.8,
+        "benign any-denial": 93.3
+      },
+      "Mistral-Small / cyberops": {
+        "Flat": 21.8,
+        "ACL": 19.6,
+        "DEFER": 2.7,
+        "benign any-denial": 53.3
+      },
+      "Llama-3.1-8B / cyberops": {
+        "Flat": 36.0,
+        "ACL": 33.3,
+        "DEFER": 4.0,
+        "benign any-denial": 50.0
+      }
+    }
+  },
+  {
+    "name": "channels",
+    "file": "channels.pdf",
+    "takeaway": "Where exposure is measured the injected content does reach the model, and the cascade closes four of the five channels; the one it does not close is content-plausible poisoning on the tool-response channel.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "Flat": {
+        "C1 task input": {
+          "asr_pct": 26.3,
+          "exposure_pct": 100.0
+        },
+        "C2 tool response": {
+          "asr_pct": 9.1,
+          "exposure_pct": 97.0
+        },
+        "C3 memory": {
+          "asr_pct": 19.0,
+          "exposure_pct": 88.6
+        },
+        "C4 handoff": {
+          "asr_pct": 50.0,
+          "exposure_pct": null
+        },
+        "C5 rationale": {
+          "asr_pct": 76.0,
+          "exposure_pct": null
+        }
+      },
+      "DEFER": {
+        "C1 task input": {
+          "asr_pct": 3.3,
+          "exposure_pct": 100.0
+        },
+        "C2 tool response": {
+          "asr_pct": 9.2,
+          "exposure_pct": 72.4
+        },
+        "C3 memory": {
+          "asr_pct": 3.8,
+          "exposure_pct": 62.9
+        },
+        "C4 handoff": {
+          "asr_pct": 3.3,
+          "exposure_pct": null
+        },
+        "C5 rationale": {
+          "asr_pct": 4.2,
+          "exposure_pct": null
+        }
+      },
+      "channels": {
+        "C1 task input": 1752,
+        "C2 tool response": 356,
+        "C3 memory": 375,
+        "C4 handoff": 330,
+        "C5 rationale": 336
+      },
+      "defer_tool_response_residual": {
+        "legal ap2": 9
+      }
+    }
+  },
+  {
+    "name": "asb_families",
+    "file": "asb_families.pdf",
+    "takeaway": "On a third-party benchmark, connectivity limits do almost nothing against actions injected on tools the agent already holds, while the cascade stops 94% of what the models actually emit.",
+    "data_sources": [
+      "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"
+    ],
+    "n": {
+      "Flat": {
+        "Direct PI": 31.9,
+        "Indirect PI": 30.3,
+        "Memory poisoning": 39.0,
+        "PoT backdoor": 30.7
+      },
+      "ACL": {
+        "Direct PI": 32.4,
+        "Indirect PI": 30.3,
+        "Memory poisoning": 41.4,
+        "PoT backdoor": 28.3
+      },
+      "DEFER": {
+        "Direct PI": 2.8,
+        "Indirect PI": 0.3,
+        "Memory poisoning": 1.5,
+        "PoT backdoor": 8.3
+      },
+      "emitted by primary": {
+        "Direct PI": 32.0,
+        "Indirect PI": 31.1,
+        "Memory poisoning": 40.0,
+        "PoT backdoor": 29.3
+      },
+      "trials_per_family_per_config": {
+        "DPI": 1800,
+        "IPI": 1800,
+        "MP": 1200,
+        "PoT": 300
+      },
+      "blocked_share_of_emitted_pct": {
+        "Direct PI": 91.2,
+        "Indirect PI": 99.0,
+        "Memory poisoning": 96.2,
+        "PoT backdoor": 71.7
+      },
+      "blocked_share_pooled_pct": 94.2,
+      "emitted_n": 1704
+    }
+  }
+]

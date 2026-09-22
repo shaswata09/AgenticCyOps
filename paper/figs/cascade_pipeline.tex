@@ -1,0 +1,96 @@
+% ---------------------------------------------------------------------------
+% F14. The cascade pipeline (design figure).
+%
+% Hand-drawn TikZ: the order of checks, not measured data. Its two annotations
+% ARE data and come from cascade_pipeline_defs.tex, which `make figures`
+% regenerates from results/ and logs/ -- never edit those numbers here.
+%
+% Preamble needed in the paper:
+%   \usepackage{tikz}
+%   \usetikzlibrary{positioning,fit,backgrounds,arrows.meta}
+%   \input{figs/cascade_pipeline_defs}     % defines \judgedpct, \deterministicpct
+%
+% Then, inside a figure* environment:
+%   \input{figs/cascade_pipeline}
+% ---------------------------------------------------------------------------
+
+\begingroup
+% Tier colours -- identical to analysis/figstyle.py (Okabe--Ito)
+\definecolor{tierrule}{HTML}{0072B2}   % deterministic / rule-based
+\definecolor{tiersim}{HTML}{56B4E9}    % similarity threshold
+\definecolor{tierllm}{HTML}{E69F00}    % LLM panel
+\definecolor{inout}{HTML}{999999}      % entry / exit
+\definecolor{defergreen}{HTML}{009E73}
+
+\tikzset{
+  chk/.style   = {draw=#1, fill=#1!12, line width=0.5pt, rounded corners=1.5pt,
+                  inner sep=2.6pt, align=center, font=\scriptsize},
+  rule/.style  = {chk=tierrule},
+  sim/.style   = {chk=tiersim},
+  llm/.style   = {chk=tierllm},
+  term/.style  = {chk=inout},
+  flow/.style  = {-{Stealth[length=3.2pt]}, line width=0.5pt, draw=black!65},
+  note/.style  = {font=\tiny, align=left, inner sep=1pt},
+  lane/.style  = {font=\scriptsize\bfseries, anchor=east},
+}
+% "keeps state" marker: a small filled dot in the box corner
+\newcommand{\keepsstate}{\tikz[baseline=-0.5ex]{\fill[black] (0,0) circle (1.1pt);}}
+
+\begin{tikzpicture}[node distance=3.2mm]
+
+% ---------------- tool-call path -----------------------------------------
+\node[term] (call) {tool\\call};
+\node[rule, right=of call] (p1reg)  {P1.L1\\registry};
+\node[rule, right=of p1reg] (p2man) {P2.L1--L2\\manifest,\\parameters};
+
+\node[rule, right=6mm of p2man] (p3ctx) {P3.L0--L3\\context, sequence,\\ledgers \keepsstate};
+\node[rule, right=of p3ctx] (p3risk) {P3.L4--L5\\risk score,\\auto-gates \keepsstate};
+\node[llm,  right=of p3risk] (panel)  {P3.L6\\LLM panel};
+\node[rule, right=of panel] (hash)    {P3.L7\\pre-exec\\hash};
+
+\node[term, right=6mm of hash] (exec) {execute};
+\node[rule, right=of exec] (p1resp) {P1.L3\\response\\integrity};
+\node[rule, right=of p1resp] (p2out) {P2.L3\\output\\classifier};
+
+\begin{scope}[on background layer]
+  \node[draw=tierrule!55, dashed, line width=0.5pt, rounded corners=2pt,
+        fit=(p3ctx)(p3risk)(panel)(hash), inner sep=3.2pt] (p3box) {};
+\end{scope}
+
+\foreach \a/\b in {call/p1reg, p1reg/p2man, p2man/p3ctx, p3ctx/p3risk,
+                   p3risk/panel, panel/hash, hash/exec, exec/p1resp, p1resp/p2out}
+  \draw[flow] (\a) -- (\b);
+
+% data-driven annotations (from cascade_pipeline_defs.tex)
+\node[note, above=1.6mm of panel, text=tierllm]
+  {judged: \judgedpct\% of attack proposals};
+\node[note, below=1.8mm of p3box.south, anchor=north, text=tierrule]
+  {deterministic checks: \deterministicpct\% of all first interceptions};
+
+% ---------------- memory write path --------------------------------------
+\node[lane] at ([yshift=-17mm]call.west) (wlane) {memory write};
+\node[rule, right=3mm of wlane] (p5w) {P5\\store policy};
+\node[sim, right=of p5w]  (p4a) {P4.1--3\\schema, metadata,\\provenance};
+\node[sim, right=of p4a]  (p4b) {P4.4\\similarity\\threshold};
+\node[sim, right=of p4b]  (p4c) {P4.5--6\\write replay,\\rate \keepsstate};
+\node[term, right=of p4c] (wcommit) {commit};
+\foreach \a/\b in {p5w/p4a, p4a/p4b, p4b/p4c, p4c/wcommit} \draw[flow] (\a) -- (\b);
+
+% ---------------- memory read path ---------------------------------------
+\node[lane] at ([yshift=-30mm]call.west) (rlane) {memory read};
+\node[rule, right=3mm of rlane] (p5g) {P5.1--2\\access control,\\query scope};
+\node[rule, right=of p5g] (store)  {store};
+\node[rule, right=of store] (redact) {P5.3\\field\\redaction};
+\node[rule, right=of redact] (san)  {P5.5\\injection\\sanitisation};
+\node[term, right=of san] (deliver) {deliver};
+\foreach \a/\b in {p5g/store, store/redact, redact/san, san/deliver} \draw[flow] (\a) -- (\b);
+
+% ---------------- legend --------------------------------------------------
+\node[note, anchor=north west] at ([yshift=-6mm]rlane.south west) (leg)
+  {\keepsstate\ keeps state across incidents\quad
+   \textcolor{tierrule}{$\blacksquare$} rule-based\quad
+   \textcolor{tiersim}{$\blacksquare$} similarity threshold\quad
+   \textcolor{tierllm}{$\blacksquare$} LLM panel};
+
+\end{tikzpicture}
+\endgroup
