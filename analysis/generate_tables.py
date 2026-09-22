@@ -404,7 +404,13 @@ def build(results_dir: Path, main_group: str) -> str:
              "runs. The numerator is a subset of the denominator by construction, so this "
              "does not mix tool denials with memory-op denials the way a per-trial "
              "`collateral_denials` count does.", "",
-             t11_benign_denials(main_group), ""]
+             t11_benign_denials(main_group), "",
+             f"## T12. Benign denials by principle and check ({main_group}, AgenticCyOps)", "",
+             "E14: every benign denial attributed to the check that made it, with the tools "
+             "or stores it denied most. The LLM panel is separated from the deterministic "
+             "P3 layers; the gate event that merely surfaces a panel rejection is not "
+             "counted twice.", "",
+             t12_benign_denials_by_check(main_group), ""]
     return "\n".join(parts)
 
 
@@ -422,6 +428,22 @@ def t11_benign_denials(group: str) -> str:
             row.append(f"{100 * r:.1f} ({d}/{p})" if p else "-")
         rows.append(row)
     return _md(["Domain"] + [f"{CONFIG_LABEL.get(c, c)} denied %" for c in configs], rows)
+
+
+def t12_benign_denials_by_check(group: str) -> str:
+    """E14: which check denied benign work, per domain, and on what."""
+    from analysis.benign_cost import (DOMAINS as BC_DOMAINS, benign_denials_by_check,
+                                      principle_of)
+
+    rows = []
+    for dom in BC_DOMAINS:
+        by = benign_denials_by_check(group, dom)
+        for mech, rec in sorted(by.items(), key=lambda kv: (-kv[1]["n"], kv[0])):
+            targets = ", ".join(f"{t} ({c})" for t, c in rec["targets"]) or "-"
+            rows.append([dom, principle_of(mech), mech.replace("_", " "), rec["n"], targets])
+    if not rows:
+        return "_no benign denials recorded_"
+    return _md(["Domain", "Principle", "Check", "Denials", "Top denied targets"], rows)
 
 
 def main() -> None:

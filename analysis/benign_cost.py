@@ -125,6 +125,68 @@ def proposal_denials_by_variant(group: str, domain: str, config: str = "agenticc
     return {k: (d, p) for k, (d, p) in out.items()}
 
 
+def benign_denials_by_check(group: str, domain: str, config: str = "agenticcyops",
+                            ap: str = "benign") -> dict[str, dict]:
+    """E14: benign denials broken out by the check that made them.
+
+    ``{mechanism: {"n": int, "targets": [(target, count), ...]}}`` where the
+    target is the tool or store the denied action addressed. The LLM panel is
+    kept separate from the deterministic P3 layers, and the gate event that
+    merely surfaces a panel rejection (``tool_call`` denied with
+    ``P3_verified_execution``) is dropped so one denial is not counted twice.
+    Individual validator opinions (``consensus_vote``) are never denials.
+    """
+    per: dict[tuple[str, str], list[tuple[str, str]]] = defaultdict(list)
+    newest: dict[str, str] = {}
+    pattern = str(LOGS / f"{domain}_eval_attacks_{group}" / f"{config}_*.jsonl")
+    for f in sorted(glob.glob(pattern)):
+        with open(f, errors="ignore") as fh:
+            for ln in fh:
+                if not ln.strip():
+                    continue
+                try:
+                    e = json.loads(ln)
+                except json.JSONDecodeError:
+                    continue
+                if e.get("ap") != ap:
+                    continue
+                tid = e.get("trial_id")
+                if not tid:
+                    continue
+                newest[tid] = f
+                if str(e.get("auth_decision") or "").lower() != "deny":
+                    continue
+                act, mech = e.get("action"), e.get("mechanism")
+                if act == "consensus_vote":
+                    continue
+                if act == "tool_call" and mech == "P3_verified_execution":
+                    continue                      # same denial as the panel's
+                per[(tid, f)].append((str(mech), str(e.get("destination") or "-")))
+    counts: dict[str, dict] = defaultdict(lambda: {"n": 0, "_t": defaultdict(int)})
+    for (tid, f), items in per.items():
+        if newest.get(tid) != f:
+            continue
+        for mech, target in items:
+            counts[mech]["n"] += 1
+            counts[mech]["_t"][target] += 1
+    out = {}
+    for mech, rec in counts.items():
+        top = sorted(rec["_t"].items(), key=lambda kv: -kv[1])[:3]
+        out[mech] = {"n": rec["n"], "targets": top}
+    return out
+
+
+def principle_of(mechanism: str) -> str:
+    """``P1``..``P5`` (panel split out) for a mechanism name."""
+    m = str(mechanism or "")
+    if m == "P3_llm_consensus_reject":
+        return "P3 (panel)"
+    for p in ("P1", "P2", "P3", "P4", "P5"):
+        if m.startswith(p):
+            return p
+    return "other"
+
+
 def benign_denial_rates(group: str, configs, domains=DOMAINS) -> dict:
     """``{(domain, config): (denied, proposed, rate)}`` plus pooled totals."""
     out: dict = {}
