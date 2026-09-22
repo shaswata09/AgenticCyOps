@@ -16,9 +16,14 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 PROFILE="${1:-q235}"
 INTERVAL="${WATCHDOG_INTERVAL:-60}"
 LOG="logs/vllm_watchdog.log"
+# Watch the PRIMARY only. A dead primary kills every trial, so it is worth
+# restarting. A validator that is merely slow under panel load reads as "down"
+# and restarting it would try to put a second copy on a GPU that is already
+# ~92% full, taking out its neighbour too -- the validators are left alone and
+# a transient hiccup just costs individual trials.
 case "$PROFILE" in
-    q235) PORTS="8000 8002 8003" ;;
-    mid)  PORTS="8004 8002 8003 8005 8007" ;;
+    q235) PORTS="${WATCH_PORTS:-8000}" ;;
+    mid)  PORTS="${WATCH_PORTS:-8004}" ;;
     *)    echo "unknown profile $PROFILE"; exit 2 ;;
 esac
 
