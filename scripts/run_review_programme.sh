@@ -64,7 +64,7 @@ a0_llama8b() {
     for dom in cyberops finance; do
         for cfg in flat acl_hardened agenticcyops; do
             stream "$slot" llama8b_div4 "$dom" "$cfg" 2 & pids+=($!)
-            slot=$((slot+1)); sleep 10
+            slot=$((slot+1)); sleep 25
         done
     done
     for p in "${pids[@]}"; do wait "$p"; done
@@ -79,7 +79,7 @@ a1_fast() {
     for cfg in symbolic_only acl_hardened flat; do
         for dom in "${DOMAINS[@]}"; do
             stream "$slot" "$GROUP" "$dom" "$cfg" 3 & pids+=($!)
-            slot=$((slot+1)); sleep 12
+            slot=$((slot+1)); sleep 25
         done
     done
     for p in "${pids[@]}"; do wait "$p"; done
@@ -95,12 +95,12 @@ a2_slow() {
     for cfg in llm_judge agenticcyops; do
         for dom in "${DOMAINS[@]}"; do
             stream "$slot" "$GROUP" "$dom" "$cfg" 3 & pids+=($!)
-            slot=$((slot+1)); sleep 12
+            slot=$((slot+1)); sleep 25
         done
     done
     for p in P1 P2 P3 P4 P5; do
         ablation "$slot" "$p" & pids+=($!)
-        slot=$((slot+1)); sleep 12
+        slot=$((slot+1)); sleep 25
     done
     ( note "A2 ASB: E4.2 frozen full run, 255 cases x 2 trials x 3 configs"
       scripts/run_asb_e2e.sh "$GROUP" all 2 all 3 > logs/prog_asb_e42.log 2>&1
@@ -127,7 +127,7 @@ b_transfer() {
         for dom in cyberops finance; do
             for cfg in flat acl_hardened agenticcyops; do
                 stream "$slot" "$g" "$dom" "$cfg" 2 & pids+=($!)
-                slot=$((slot+1)); sleep 12
+                slot=$((slot+1)); sleep 25
             done
         done
     done
@@ -139,12 +139,14 @@ main() {
     date -Iseconds > logs/programme_start.txt
     note "===== review programme start (budget ~10 h) ====="
     bash scripts/check_freeze.sh | tee -a "$STATUS"
-    a0_llama8b &            # independent hardware, runs throughout
-    local a0=$!
     a1_fast
     a2_slow
-    wait "$a0" 2>/dev/null
+    # llama8b only needs the A51 endpoint, but its harness, MMA gateway and
+    # tool servers still run here, so it waits until the 235B phases are done.
+    a0_llama8b &
+    local a0=$!
     b_transfer
+    wait "$a0" 2>/dev/null
     note "===== review programme complete ====="
 }
 

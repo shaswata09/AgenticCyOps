@@ -19,7 +19,8 @@ newfiles() { # newfiles <dir> [nameglob]
 ntrials() { # ntrials <dir> [nameglob]
     local fs; fs=$(newfiles "$1" "${2:-*.jsonl}")
     [ -z "$fs" ] && { echo 0; return; }
-    cat $fs 2>/dev/null | grep '"trial_complete"' | grep -Ec "$APS_RE" || echo 0
+    local n; n=$(cat $fs 2>/dev/null | grep '"trial_complete"' | grep -Ec "$APS_RE") || true
+    echo "${n:-0}"
 }
 
 snapshot() {
