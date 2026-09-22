@@ -11,6 +11,7 @@ table and PDF is rebuilt from those logs with no LLM calls.
 | `defense-freeze-v2` | see `git show` | the defense stack used for the first full programme |
 | `defense-freeze-v2.1` | `a369d18` | v2 plus one agent-output parser fix (`agents/base_agent.py`): a JSON array/scalar answer is free text instead of a crash. Frozen defense directories byte-identical to v2. |
 | `defense-freeze-v2.2` | tagged on the T7 commit | v2.1 plus the tool-response / memory-channel measurability work (T1–T7 below). **No defense decision changed.** |
+| `defense-freeze-v2.3` | tagged for the external-review experiments | v2.2 plus one provenance-only change: `logging_utils/run_metadata.py::_scrubbed_command` redacts API keys and remote endpoint URLs out of the `command` field of the run header. **No defense decision changed** — `git diff defense-freeze-v2.2 defense-freeze-v2.3 -- host consensus memory configs domains/*/configs mcp_servers agents attacks/effects.py attacks/harness.py` is empty. |
 
 ### What changed between `defense-freeze-v2.1` and `defense-freeze-v2.2`
 
