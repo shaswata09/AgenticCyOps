@@ -26,12 +26,25 @@ note() { echo "$(date '+%F %T')  $*" >> "$LOG"; }
 note "watchdog start for profile $PROFILE (ports: $PORTS)"
 
 restarts=0
+strikes=0
 while true; do
     down=""
     for p in $PORTS; do
-        curl -s --max-time 5 "http://127.0.0.1:${p}/health" >/dev/null 2>&1 || down="$down $p"
+        # A loaded server can be slow to answer /health. start_server probes with
+        # --max-time 1, so a false "down" here makes it launch a SECOND copy onto
+        # GPUs that already hold the model -> OOM -> the real crash. Be patient,
+        # and only act when the port is unreachable AND nothing is listening.
+        curl -s --max-time 30 "http://127.0.0.1:${p}/health" >/dev/null 2>&1 && continue
+        ss -ltn 2>/dev/null | grep -q ":${p} " && continue     # still bound: alive, just busy
+        down="$down $p"
     done
     if [ -n "$down" ]; then
+        # require three consecutive sightings before touching anything
+        strikes=$((strikes+1))
+        if [ "$strikes" -lt 3 ]; then
+            note "possible down:$down (strike $strikes/3) -- not acting yet"
+            sleep "$INTERVAL"; continue
+        fi
         restarts=$((restarts+1))
         note "DOWN:$down -- restart #$restarts"
         # Only clear orphaned workers when the primary is the thing that died
@@ -58,6 +71,9 @@ while true; do
         sleep 5
         bash scripts/vllm_profiles.sh start "$PROFILE" >> "$LOG" 2>&1
         note "restart attempt finished; re-checking in ${INTERVAL}s"
+        strikes=0
+    else
+        strikes=0
     fi
     sleep "$INTERVAL"
 done
