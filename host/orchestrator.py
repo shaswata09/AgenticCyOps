@@ -103,6 +103,20 @@ class SOARHost:
         self.disabled_principles: set = {p.upper() for p in (disabled_principles or set())}
         self.disabled_principles |= {p.upper() for p in _flags.get("extra_disabled", set())}
 
+        # E9: stores marked critical in the domain config. Writes to these are
+        # routed to the panel under agenticcyops_writejudge; empty for every
+        # other configuration, so nothing else changes behaviour.
+        self.critical_stores: set = set()
+        if self.write_judge:
+            try:
+                import json as _j
+                _cfg = _j.loads((BASE_DIR / "domains" / domain / "configs"
+                                 / "memory_collections.json").read_text())
+                self.critical_stores = {c["id"] for c in _cfg.get("collections", [])
+                                        if c.get("critical")}
+            except Exception:
+                self.critical_stores = set()
+
         self.enforcer = ManifestEnforcer(domain=domain, logger=logger)
         self.handoff = PhaseHandoff(logger=logger)
 
@@ -1176,6 +1190,30 @@ class SOARHost:
         # Every config writes to the same store through the gateway; flat and
         # acl_hardened bypass P4 / P5 (no gateway defenses in those systems).
         bypass = self.config != "agenticcyops"
+
+        # ── E9: route writes to a critical store through the panel ──
+        # Judged before the write, not after: the MMA has no dry-run and no
+        # delete, so a post-hoc verdict could not undo a committed write. The
+        # similarity-based branch E9 also describes ("passes every
+        # deterministic check but scores below the P4.2 threshold + 0.2")
+        # needs that dry-run, so it is deliberately not implemented here
+        # rather than approximated.
+        if self.write_judge and not bypass and store_id in self.critical_stores:
+            if self.consensus:
+                proposal = {"tool_id": f"memory_write:{store_id}", "action": "write",
+                            "target": store_id, "document": str(content)[:2000],
+                            "phase": phase}
+                approved = await self.consensus.validate(proposal, context)
+                if self.logger:
+                    self.logger.log_memory_write(
+                        agent=f"{phase}_agent", store=store_id,
+                        auth_decision="allow" if approved else "deny",
+                        mechanism=("P3_write_judge_approve" if approved
+                                   else "P3_write_judge_reject"),
+                        payload=content, extra={**mem_meta, "critical_store": True})
+                if not approved:
+                    return {"status": "denied", "mechanism": "P3_write_judge_reject"}
+
         status, body = await self._mma_post("/memory/write", {
             "phase": phase,
             "store_id": store_id,

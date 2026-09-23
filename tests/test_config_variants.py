@@ -110,3 +110,27 @@ def test_variants_are_registered_with_the_harness():
         assert label in CONFIGS
         assert label in _STACK_CONFIGS
         assert label in _PANEL_CONFIGS, "every variant needs the validator panel"
+
+
+def test_writejudge_loads_critical_stores_only_for_its_own_config():
+    """E9: the critical-store set is empty for every other configuration, so
+    the deployed write path is untouched."""
+    wj = SOARHost(domain="cyberops", config="agenticcyops_writejudge", consensus=object())
+    assert wj.write_judge is True
+    assert wj.critical_stores, "writejudge must load the marked stores"
+    base = SOARHost(domain="cyberops", config="agenticcyops", consensus=object())
+    assert base.write_judge is False
+    assert base.critical_stores == set()
+
+
+@pytest.mark.parametrize("domain", ["cyberops", "finance", "healthcare", "legal"])
+def test_every_domain_marks_critical_stores(domain):
+    """E9 needs a marking in each domain, and it must name real collections."""
+    import json
+    from config import BASE_DIR
+    cfg = json.loads((BASE_DIR / "domains" / domain / "configs"
+                      / "memory_collections.json").read_text())
+    ids = {c["id"] for c in cfg["collections"]}
+    crit = {c["id"] for c in cfg["collections"] if c.get("critical")}
+    assert crit, f"{domain}: no critical stores marked"
+    assert crit <= ids
