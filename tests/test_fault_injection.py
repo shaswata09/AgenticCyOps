@@ -163,8 +163,12 @@ def test_config_tamper_aborts_the_incident_without_touching_disk(tmp_path, monke
 @pytest.mark.parametrize("domain", ["cyberops", "healthcare", "finance", "legal"])
 def test_ap15_variants_are_fault_variants(domain):
     vs = load_variants(domain, "ap15")
-    assert [v["variant_id"] for v in vs] == ["ap15_v1", "ap15_v2", "ap15_v3"]
-    kinds = [v["meta"]["injection"]["fault"]["kind"] for v in vs]
+    # The three base fault variants must be present and in order. Later blocks
+    # append siblings (E2 target-in-alert, E13 description drift), so the list
+    # is not asserted to be exactly three -- every variant is still checked.
+    base = [v for v in vs if v["variant_id"] in ("ap15_v1", "ap15_v2", "ap15_v3")]
+    assert [v["variant_id"] for v in base] == ["ap15_v1", "ap15_v2", "ap15_v3"]
+    kinds = [v["meta"]["injection"]["fault"]["kind"] for v in base]
     assert kinds == ["toctou", "forged_response", "config_tamper"]
     for v in vs:
         assert validate_payload(v) == []

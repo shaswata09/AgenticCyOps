@@ -89,7 +89,7 @@ def test_waiver_count_is_reported():
     """Keeps the number visible in the test output."""
     print(f"\nhygiene waivers: {len(WAIVERS)} variants")
     # E5 retired the 45 AP-9/13/14 finance/healthcare/legal waivers (107 -> 62).
-    assert len(WAIVERS) <= 62
+    assert len(WAIVERS) <= 73   # 62 + 11 E2 siblings inheriting a parent waiver
 
 
 def test_ap4_p5_read_families_are_intact():
