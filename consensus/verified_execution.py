@@ -57,12 +57,20 @@ class VerifiedExecution:
         adaptive_consent_path=None,
         adaptive_consent_persist: bool = True,
         symbolic_only: bool = False,
+        gate_mode: str = "default",          # E1 / E16: auto-approve rule
+        p3_deterministic_off: bool = False,   # E17: P2 + panel only
+
     ):
         self.domain = domain
         self.logger = logger
         # H10: with symbolic_only the L6 LLM consensus is deliberately absent
         # and a proposal that reaches L6 is escalated to a human.
         self.symbolic_only = symbolic_only
+        self.gate_mode = gate_mode
+        # E17 (p2_judge): skip P3's deterministic layers and send every
+        # consequential proposal straight to the panel, so the value of the
+        # remaining deterministic checks can be isolated.
+        self.p3_deterministic_off = p3_deterministic_off
 
         # Layer instances
         self.handoff_validator = HandoffValidator(logger=logger)
@@ -81,7 +89,7 @@ class VerifiedExecution:
         self.scorer = ProposalScorer(
             domain=domain, embedding_model=embedding_model, logger=logger
         )
-        self.auto_gates = AutoGates(logger=logger)
+        self.auto_gates = AutoGates(logger=logger, mode=gate_mode)
         self.global_monitor = GlobalActionMonitor(logger=logger)  # TA-22
         self.llm_consensus = consensus_validator  # L6 — existing multi-model
 
@@ -105,6 +113,26 @@ class VerifiedExecution:
 
         Returns dict with: approved, mechanism, reason, layer, details
         """
+
+        # ── E17 (p2_judge): P2 + panel only ──
+        # Every consequential proposal goes straight to the judges, with none
+        # of P3's deterministic layers in front of them. Together with
+        # JUDGEONLY and FULL this isolates what the deterministic checks add.
+        if self.p3_deterministic_off:
+            if self.llm_consensus:
+                sanitized = self._sanitize_proposal(proposal)
+                approved = await self.llm_consensus.validate(sanitized, context)
+                mechanism = ("P3_llm_consensus_approve" if approved
+                             else "P3_llm_consensus_reject")
+                self._log_decision("allow" if approved else "deny", mechanism,
+                                   f"LLM consensus: {'approved' if approved else 'rejected'}",
+                                   "L6")
+                return self._result(approved, mechanism,
+                                    f"LLM consensus: {'approved' if approved else 'rejected'}",
+                                    "L6", {})
+            self._log_decision("deny", "P3_no_consensus", "No consensus validator", "L6")
+            return self._result(False, "P3_no_consensus",
+                                "No consensus validator available", "L6")
 
         # ── L0: Handoff Validation ──
         if "handoff_source" in context or "monitor_handoff" in context:

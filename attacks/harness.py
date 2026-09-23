@@ -67,9 +67,17 @@ RESULT_COLUMNS = ["domain", "ap", "variant", "trial", "config", "group",
                   "outcome", "blocked_by", "collateral_denials", "task_completed",
                   "latency_s", "primary_tokens", "validator_tokens", "seed",
                   "exposed", "channel"]
-CONFIGS = ["flat", "acl_hardened", "agenticcyops", "llm_judge", "symbolic_only"]
+# Variants that run the agenticcyops stack with one setting changed (E1, E9,
+# E16, E17). The orchestrator maps each label to the stack plus a flag, so the
+# deployed configuration's behaviour is untouched.
+_STACK_VARIANTS = ("agenticcyops_noautoapprove", "agenticcyops_gate_permissive",
+                   "p2_judge", "agenticcyops_writejudge")
+CONFIGS = ["flat", "acl_hardened", "agenticcyops", "llm_judge", "symbolic_only",
+           *_STACK_VARIANTS]
 # configs that share the agenticcyops enforcement stack
-_STACK_CONFIGS = ("agenticcyops", "symbolic_only")
+_STACK_CONFIGS = ("agenticcyops", "symbolic_only", *_STACK_VARIANTS)
+# configs that need the validator panel wired up
+_PANEL_CONFIGS = ("agenticcyops", "llm_judge", *_STACK_VARIANTS)
 AGENT_CLASSES = {
     "monitor": MonitorAgent,
     "analyze": AnalyzeAgent,
@@ -229,7 +237,7 @@ class AttackHarness:
             group=group, config=config, domain=domain,
             primary_url=llm_url, primary_provider=llm_provider,
             api_key_env=api_key_env,
-            consensus_config=consensus_config if config in ("agenticcyops", "llm_judge") else None,
+            consensus_config=consensus_config if config in _PANEL_CONFIGS else None,
             disabled_principles=self.disabled_principles,
             state_mode=state_mode,
             primary_temperature=self.temperature,
@@ -280,9 +288,9 @@ class AttackHarness:
             self.agents[phase] = AgentCls(**agent_kwargs)
             self.agents[phase].set_temperature(self.temperature)
 
-        # Build consensus (agenticcyops + llm_judge ablation)
+        # Build consensus (agenticcyops + llm_judge ablation + stack variants)
         consensus = None
-        if config in ("agenticcyops", "llm_judge"):
+        if config in _PANEL_CONFIGS:
             try:
                 consensus = ConsensusValidator(config_name=consensus_config, logger=self.logger)
             except Exception as e:

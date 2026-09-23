@@ -35,6 +35,15 @@ PHASE_ORDER = ["monitor", "analyze", "admin", "report"]
 class SOARHost:
     """Central orchestrator for the AgenticCyOps testbed."""
 
+    # config label -> flags on the agenticcyops stack (see __init__)
+    _STACK_VARIANTS = {
+        "symbolic_only": {},
+        "agenticcyops_noautoapprove": {"gate_mode": "noautoapprove"},
+        "agenticcyops_gate_permissive": {"gate_mode": "permissive"},
+        "p2_judge": {"p3_deterministic_off": True, "extra_disabled": {"P1", "P4", "P5"}},
+        "agenticcyops_writejudge": {"write_judge": True},
+    }
+
     def __init__(
         self,
         domain: str,
@@ -56,8 +65,20 @@ class SOARHost:
         # instead of judged.  Internally it is the agenticcyops branch with
         # no consensus validator; the label is kept for logs and results.
         self.config_label = config
-        self.config = "agenticcyops" if config == "symbolic_only" else config
+        # Configuration variants that run on the agenticcyops stack with one
+        # setting changed. Each is a flag, not a fork of the decision code, so
+        # the deployed configuration's behaviour is untouched.
+        #   symbolic_only                 (H10) L6 removed, proposals escalate
+        #   agenticcyops_noautoapprove    (E1)  no deterministic auto-approve
+        #   agenticcyops_gate_permissive  (E16) loose auto-approve gate
+        #   p2_judge                      (E17) P2 + panel only
+        #   agenticcyops_writejudge       (E9)  panel also judges memory writes
+        _flags = self._STACK_VARIANTS.get(config, {})
+        self.config = "agenticcyops" if config in self._STACK_VARIANTS else config
         config = self.config
+        self._gate_mode = _flags.get("gate_mode", "default")
+        self._p3_deterministic_off = bool(_flags.get("p3_deterministic_off"))
+        self.write_judge = bool(_flags.get("write_judge"))
         if self.config_label == "symbolic_only":
             consensus = None
         self.llm_url = llm_url
@@ -80,6 +101,7 @@ class SOARHost:
         # short-circuit when the principle is disabled.  Stored uppercase
         # so callers can pass either case.
         self.disabled_principles: set = {p.upper() for p in (disabled_principles or set())}
+        self.disabled_principles |= {p.upper() for p in _flags.get("extra_disabled", set())}
 
         self.enforcer = ManifestEnforcer(domain=domain, logger=logger)
         self.handoff = PhaseHandoff(logger=logger)
@@ -111,6 +133,8 @@ class SOARHost:
                 adaptive_consent_path=adaptive_consent_path,
                 adaptive_consent_persist=(state_mode == "persistent"),
                 symbolic_only=(self.config_label == "symbolic_only"),
+                gate_mode=self._gate_mode,
+                p3_deterministic_off=self._p3_deterministic_off,
             )
         else:
             self.param_validator = None

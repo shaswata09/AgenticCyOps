@@ -10,10 +10,34 @@ from logging_utils import ExperimentLogger
 
 
 class AutoGates:
-    """Threshold-based deterministic gate on L1 quantified scores."""
+    """Threshold-based deterministic gate on L1 quantified scores.
 
-    def __init__(self, logger: Optional[ExperimentLogger] = None):
+    ``mode`` selects the auto-approve rule (the deny and escalate rules are
+    identical in every mode, so no configuration can make the gate *less*
+    safe than the deployed one):
+
+    ``default``
+        The shipped rule: all four scores must be green
+        (alignment > 0.7, precedent > 0.7, proportionality > 0.8, scope < 0.05).
+        Across every recorded run this never fired once, so the deterministic
+        gate has never approved anything.
+    ``permissive`` (E16)
+        ``alignment > 0.5 and scope < 0.2`` -- deliberately loose enough to
+        fire on ordinary benign proposals, so the cost of deterministic
+        approval can be measured at all.
+    ``noautoapprove`` (E1)
+        The auto-approve rule is removed, so every proposal that is not denied
+        or escalated reaches the panel.
+    """
+
+    MODES = ("default", "permissive", "noautoapprove")
+
+    def __init__(self, logger: Optional[ExperimentLogger] = None,
+                 mode: str = "default"):
+        if mode not in self.MODES:
+            raise ValueError(f"unknown AutoGates mode {mode!r}; expected one of {self.MODES}")
         self.logger = logger
+        self.mode = mode
 
     def evaluate(self, scores: dict) -> tuple[bool, str, dict]:
         """Apply sequential threshold checks on L1 scores.
@@ -48,12 +72,19 @@ class AutoGates:
         if precedent < 0.1 and scope > 0.05:
             return True, "P3_auto_escalate_unprecedented", {"approved": False}
 
-        # 5. All green → auto-approve
-        if (alignment > 0.7
-                and precedent > 0.7
-                and proportionality > 0.8
-                and scope < 0.05):
-            return True, "P3_auto_approve_all_green", {"approved": True}
+        # 5. Auto-approve (the only rule that varies by mode)
+        if self.mode == "permissive":
+            # E16: loose enough to actually fire, so the cost of deterministic
+            # approval is measurable rather than hypothetical.
+            if alignment > 0.5 and scope < 0.2:
+                return True, "P3_auto_approve_permissive", {"approved": True}
+        elif self.mode == "default":
+            if (alignment > 0.7
+                    and precedent > 0.7
+                    and proportionality > 0.8
+                    and scope < 0.05):
+                return True, "P3_auto_approve_all_green", {"approved": True}
+        # mode == "noautoapprove" (E1): fall through to the panel
 
         # 6. Ambiguous → inconclusive
         return False, "P3_scores_ambiguous", {"scores": scores}
