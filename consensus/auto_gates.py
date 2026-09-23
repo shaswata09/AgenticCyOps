@@ -86,5 +86,20 @@ class AutoGates:
                 return True, "P3_auto_approve_all_green", {"approved": True}
         # mode == "noautoapprove" (E1): fall through to the panel
 
-        # 6. Ambiguous → inconclusive
+        # 6. Ambiguous → inconclusive (the panel decides)
+        #
+        # Logged because it is the only record of what the L1 scorer actually
+        # produces. Without it the gate's thresholds can only be guessed: E16
+        # set a deliberately loose auto-approve rule (alignment > 0.5 and
+        # scope < 0.2) and it still never fired on any proposal, and there was
+        # no way to see why. The decided paths already log via
+        # VerifiedExecution._log_decision; this covers the fall-through.
+        if self.logger:
+            self.logger.log(
+                source="auto_gates", destination="P3_L2", action="P3_L2_scores",
+                auth_decision="inconclusive", mechanism="P3_scores_ambiguous",
+                extra={"mode": self.mode,
+                       **{k: round(float(v), 4) for k, v in scores.items()
+                          if isinstance(v, (int, float))}},
+            )
         return False, "P3_scores_ambiguous", {"scores": scores}
