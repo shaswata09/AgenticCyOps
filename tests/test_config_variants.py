@@ -18,8 +18,12 @@ DENY_CASES = {
     "P3_auto_escalate_unprecedented": {"alignment": 0.9, "scope": 0.1, "precedent": 0.0},
 }
 ALL_GREEN = {"alignment": 0.9, "precedent": 0.9, "proportionality": 0.9, "scope": 0.01}
-# benign-looking: the deployed gate leaves it to the panel, permissive approves
-MIDDLING = {"alignment": 0.6, "precedent": 0.5, "proportionality": 0.5, "scope": 0.1}
+# A benign-looking proposal as the scorer actually emits them: alignment and
+# precedent are pinned at their 0.5 fallback in the deployed system (the ledger
+# is never passed to the scorer and incident_evidence never reaches the P3
+# context), so only scope and proportionality carry information. The deployed
+# gate leaves this to the panel; the permissive gate approves it.
+MIDDLING = {"alignment": 0.5, "precedent": 0.5, "proportionality": 0.95, "scope": 0.01}
 
 
 def test_modes_are_validated():
@@ -50,6 +54,18 @@ def test_permissive_gate_fires_on_middling_scores():
     decided, reason, details = AutoGates(mode="permissive").evaluate(MIDDLING)
     assert decided and details["approved"]
     assert reason == "P3_auto_approve_permissive"
+
+
+def test_permissive_rule_ignores_the_pinned_dimensions():
+    """E16: alignment and precedent are structurally 0.5, so a rule that keys
+    on them can never fire. The permissive rule must key on scope and
+    proportionality instead."""
+    g = AutoGates(mode="permissive")
+    pinned = {"alignment": 0.5, "precedent": 0.5}
+    # high proportionality + narrow scope -> approves despite pinned dimensions
+    assert g.evaluate({**pinned, "proportionality": 0.95, "scope": 0.01})[0] is True
+    # low proportionality -> still goes to the panel
+    assert g.evaluate({**pinned, "proportionality": 0.80, "scope": 0.01})[0] is False
 
 
 def test_noautoapprove_never_approves():
