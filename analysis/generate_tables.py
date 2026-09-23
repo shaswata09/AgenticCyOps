@@ -410,7 +410,19 @@ def build(results_dir: Path, main_group: str) -> str:
              "or stores it denied most. The LLM panel is separated from the deterministic "
              "P3 layers; the gate event that merely surfaces a panel rejection is not "
              "counted twice.", "",
-             t12_benign_denials_by_check(main_group), ""]
+             t12_benign_denials_by_check(main_group), "",
+             f"## T13. Checks by tier: what each intercepts and what it costs ({main_group})", "",
+             "E19: one tier mapping (`analysis/figstyle.tier4_of`) shared with the figures. "
+             "Content-independent rules decide from structure alone and cannot be reworded "
+             "past; content-dependent rules read the proposal and can be; similarity is the "
+             "tunable embedding tier; the panel is the judges.", "",
+             t13_tier_breakdown(trials, main_group), "",
+             f"## T14. Where P3 decisions were taken ({main_group})", "",
+             "E1.3: the paper states no proposal was ever auto-approved. The logs show the "
+             "stronger fact -- the deterministic gate never decided at all, so every "
+             "consequential proposal that survived the deterministic denials reached the "
+             "panel (or, under symbolic-only, was escalated).", "",
+             t14_p3_decisions(main_group), ""]
     return "\n".join(parts)
 
 
@@ -444,6 +456,81 @@ def t12_benign_denials_by_check(group: str) -> str:
     if not rows:
         return "_no benign denials recorded_"
     return _md(["Domain", "Principle", "Check", "Denials", "Top denied targets"], rows)
+
+
+def t13_tier_breakdown(trials: list[dict], group: str) -> str:
+    """E19: every check, its tier, what it intercepts and what it costs.
+
+    One mapping (``figstyle.tier4_of``) serves this table and the figures, so
+    the "embedding tier is pure cost" claim can be read off a single source.
+    """
+    from analysis import figstyle as fs
+    from analysis.benign_cost import DOMAINS as BC_DOMAINS, benign_denials_by_check
+
+    intercept: dict[str, int] = defaultdict(int)
+    for t in trials:
+        if (t["group"] == group and t["config"] == "agenticcyops" and not t.get("suffix")
+                and t["ap"] != "benign" and t["outcome"] == "blocked" and t.get("blocked_by")):
+            intercept[t["blocked_by"]] += 1
+    denials: dict[str, int] = defaultdict(int)
+    for dom in BC_DOMAINS:
+        for mech, rec in benign_denials_by_check(group, dom).items():
+            denials[mech] += rec["n"]
+
+    rows = []
+    for mech in sorted(set(intercept) | set(denials),
+                       key=lambda m: (fs.TIER4_ORDER.index(fs.tier4_of(m) or "rule_independent"),
+                                      -intercept.get(m, 0))):
+        tier = fs.tier4_of(mech)
+        rows.append([fs.TIER4_LABEL.get(tier, tier), mech.replace("_", " "),
+                     intercept.get(mech, 0), denials.get(mech, 0)])
+    # tier totals make the cost/benefit per tier explicit
+    rows.append(["**tier totals**", "", "", ""])
+    for tier in fs.TIER4_ORDER:
+        i = sum(v for m, v in intercept.items() if fs.tier4_of(m) == tier)
+        d = sum(v for m, v in denials.items() if fs.tier4_of(m) == tier)
+        rows.append([f"**{fs.TIER4_LABEL[tier]}**", "", f"**{i}**", f"**{d}**"])
+    return _md(["Tier", "Check", "Attack first interceptions", "Benign denials"], rows)
+
+
+def t14_p3_decisions(group: str) -> str:
+    """E1.3: where every P3 decision was actually taken, per configuration.
+
+    The paper states from an ad hoc query that no proposal was ever
+    auto-approved. This reproduces it from the logs, and reports the stronger
+    fact: the deterministic gate never *decided* at all.
+    """
+    import glob
+    import json as _json
+
+    LAYER = {"L0.7": "adaptive consent (P3.7)", "L2": "auto-gate (P3.9)", "L6": "LLM panel (P3.10)"}
+    by: dict[str, dict] = defaultdict(lambda: defaultdict(int))
+    for f in glob.glob(str(BASE_DIR / "logs" / f"*_eval_attacks_{group}*" / "*.jsonl")):
+        cfg = Path(f).name.split("_2026")[0]
+        with open(f, errors="ignore") as fh:
+            for ln in fh:
+                if '"P3' not in ln:
+                    continue
+                try:
+                    e = _json.loads(ln)
+                except _json.JSONDecodeError:
+                    continue
+                m = str(e.get("mechanism") or "")
+                if not m.startswith("P3") or e.get("action") == "consensus_vote":
+                    continue
+                lay = str(e.get("layer") or "")
+                if lay in LAYER:
+                    by[cfg][(LAYER[lay], m, str(e.get("auth_decision")))] += 1
+    rows = []
+    for cfg in ("flat", "acl_hardened", "symbolic_only", "agenticcyops", "llm_judge"):
+        c = by.get(cfg)
+        if not c:
+            continue
+        for (lay, m, dec), v in sorted(c.items(), key=lambda kv: -kv[1]):
+            rows.append([CONFIG_LABEL.get(cfg, cfg), lay, m.replace("_", " "), dec, v])
+    auto = sum(v for c in by.values() for (lay, _m, _d), v in c.items() if "panel" not in lay)
+    rows.append(["**all configs**", "**deterministic auto-decisions (P3.7 + P3.9)**", "", "", f"**{auto}**"])
+    return _md(["Config", "Layer", "Mechanism", "Decision", "Count"], rows)
 
 
 def main() -> None:
