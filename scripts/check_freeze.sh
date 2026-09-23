@@ -16,7 +16,7 @@
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-TAG="${FREEZE_TAG:-defense-freeze-v2.4}"
+TAG="${FREEZE_TAG:-defense-freeze-v2.5}"
 FROZEN=(host consensus memory configs mcp_servers agents logging_utils attacks/effects.py attacks/harness.py)
 for d in domains/*/configs; do FROZEN+=("$d"); done
 
