@@ -187,6 +187,33 @@ def principle_of(mechanism: str) -> str:
     return "other"
 
 
+def denial_rate_ci(group: str, domain: str, config: str = "agenticcyops",
+                   B: int = 10000, seed: int = 0, alpha: float = 0.05):
+    """E20: cluster-bootstrap interval for the benign denial rate.
+
+    The rate is a ratio of sums (denied proposals / proposals offered), so the
+    bootstrap resamples the *scenarios* -- the same cluster unit the attack
+    intervals use -- and recomputes the ratio from each draw. Reported as
+    ``(point, low, high, n_scenarios)``.
+    """
+    import numpy as np
+
+    by_var = proposal_denials_by_variant(group, domain, config)
+    units = [(d, p) for d, p in by_var.values() if p]
+    if not units:
+        return float("nan"), float("nan"), float("nan"), 0
+    num = np.array([d for d, _ in units], dtype=float)
+    den = np.array([p for _, p in units], dtype=float)
+    point = num.sum() / den.sum()
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, len(units), size=(B, len(units)))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        draws = np.where(den[idx].sum(axis=1) > 0,
+                         num[idx].sum(axis=1) / den[idx].sum(axis=1), np.nan)
+    lo, hi = np.nanpercentile(draws, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return float(point), float(lo), float(hi), len(units)
+
+
 def benign_denial_rates(group: str, configs, domains=DOMAINS) -> dict:
     """``{(domain, config): (denied, proposed, rate)}`` plus pooled totals."""
     out: dict = {}

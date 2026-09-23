@@ -430,6 +430,8 @@ def t11_benign_denials(group: str) -> str:
     """E7: the canonical benign denial rate, per domain and configuration."""
     from analysis.benign_cost import DOMAINS as BC_DOMAINS, benign_denial_rates
 
+    from analysis.benign_cost import denial_rate_ci
+
     configs = ("flat", "acl_hardened", "agenticcyops")
     rates = benign_denial_rates(group, configs)
     rows = []
@@ -437,9 +439,17 @@ def t11_benign_denials(group: str) -> str:
         row = [dom if dom != "all" else "**all domains**"]
         for cfg in configs:
             d, p, r = rates.get((dom, cfg), (0, 0, float("nan")))
-            row.append(f"{100 * r:.1f} ({d}/{p})" if p else "-")
+            if not p:
+                row.append("-")
+                continue
+            if dom == "all":
+                row.append(f"{100 * r:.1f} ({d}/{p})")
+            else:
+                # E20: interval bootstrapped over benign scenarios
+                pt, lo, hi, ns = denial_rate_ci(group, dom, cfg)
+                row.append(f"{100 * pt:.1f} [{100 * lo:.1f}, {100 * hi:.1f}] ({d}/{p}, k={ns})")
         rows.append(row)
-    return _md(["Domain"] + [f"{CONFIG_LABEL.get(c, c)} denied %" for c in configs], rows)
+    return _md(["Domain"] + [f"{CONFIG_LABEL.get(c, c)} denied % [95%]" for c in configs], rows)
 
 
 def t12_benign_denials_by_check(group: str) -> str:
