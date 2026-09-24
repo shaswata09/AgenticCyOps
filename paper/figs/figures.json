@@ -15,7 +15,7 @@
         "DEFER": 225,
         "JudgeOnly": 225
       },
-      "attack_variants": 80,
+      "attack_variants": 75,
       "benign_incidents": {
         "Flat": 60,
         "ACL": 60,
@@ -43,7 +43,7 @@
         "ACL": 26.7,
         "NoJudge": 25.0,
         "DEFER": 95.0,
-        "JudgeOnly": 95.0
+        "JudgeOnly": null
       }
     }
   },
@@ -105,11 +105,11 @@
         "ap8": 5,
         "ap11": 5,
         "ap12": 5,
-        "ap13": 6,
+        "ap13": 5,
         "ap14": 5,
-        "ap5": 6,
-        "ap9": 7,
-        "ap10": 6,
+        "ap5": 5,
+        "ap9": 5,
+        "ap10": 5,
         "ap15": 3
       },
       "harness_proposed": [
@@ -136,7 +136,7 @@
       "results/eval_attacks/all_trials.csv"
     ],
     "n": {
-      "variants": 80,
+      "variants": 75,
       "JudgeOnly fails, DEFER holds": 23,
       "DEFER fails, JudgeOnly holds": 2,
       "both fail": 6
@@ -160,12 +160,12 @@
         "minus P5": 8.8
       },
       "benign_any_denial_pct": {
-        "DEFER (subset)": 80.0,
-        "minus P1": 76.7,
-        "minus P2": 73.3,
+        "DEFER (subset)": 76.7,
+        "minus P1": 63.3,
+        "minus P2": 46.7,
         "minus P3": 65.0,
-        "minus P4": 83.3,
-        "minus P5": 75.0
+        "minus P4": 78.3,
+        "minus P5": 68.3
       }
     }
   },
@@ -356,7 +356,7 @@
       "results/eval_attacks/all_trials.csv"
     ],
     "n": {
-      "isolated_mean_denials": 1.87,
+      "isolated_mean_denials": 1.53,
       "sequence_len": {
         "cyberops": 20,
         "finance": 5,
@@ -383,7 +383,7 @@
         "Flat": 36.4,
         "ACL": 24.0,
         "DEFER": 8.4,
-        "benign any-denial": 80.0
+        "benign any-denial": 76.7
       },
       "Qwen3-235B / finance": {
         "Flat": 32.0,
@@ -407,19 +407,19 @@
         "Flat": 35.1,
         "ACL": 29.8,
         "DEFER": 5.8,
-        "benign any-denial": 93.3
+        "benign any-denial": 83.3
       },
       "Mistral-Small / cyberops": {
         "Flat": 21.8,
         "ACL": 19.6,
         "DEFER": 8.0,
-        "benign any-denial": 53.3
+        "benign any-denial": 38.3
       },
       "Llama-3.1-8B / cyberops": {
         "Flat": 36.0,
         "ACL": 33.3,
         "DEFER": 6.2,
-        "benign any-denial": 50.0
+        "benign any-denial": 45.0
       }
     }
   },

@@ -39,55 +39,64 @@
 \begin{tikzpicture}[node distance=3.2mm]
 
 % ---------------- tool-call path -----------------------------------------
+% IDs, order, tier colours and state markers follow Table (tab:layers) and
+% Algorithms 1--3; a box is coloured by the most learned tier among its checks.
 \node[term] (call) {tool\\call};
-\node[rule, right=of call] (p1reg)  {P1.L1\\registry};
-\node[rule, right=of p1reg] (p2man) {P2.L1--L2\\manifest,\\parameters};
+\node[rule, right=of call] (p1reg)  {P1.1\\registry};
+\node[rule, right=of p1reg] (p2man) {P2.1\\manifest,\\action caps};
+\node[sim,  right=of p2man] (p2par) {P2.2\\parameters,\\target in evidence};
 
-\node[rule, right=6mm of p2man] (p3ctx) {P3.L0--L3\\context, sequence,\\ledgers \keepsstate};
-\node[rule, right=of p3ctx] (p3risk) {P3.L4--L5\\risk score,\\auto-gates \keepsstate};
-\node[llm,  right=of p3risk] (panel)  {P3.L6\\LLM panel};
-\node[rule, right=of panel] (hash)    {P3.L7\\pre-exec\\hash};
+\node[rule, right=6mm of p2par] (p3ctx) {P3.1--3.6\\handoff, context, intent,\\ledgers, replay \keepsstate};
+\node[rule, right=of p3ctx] (p3risk) {P3.7--3.9\\consent, risk score,\\auto-gates \keepsstate};
+\node[llm,  right=of p3risk] (panel)  {P3.10\\LLM panel};
+\node[rule, right=of panel] (hash)    {P3.11\\pre-exec\\hash};
 
 \node[term, right=6mm of hash] (exec) {execute};
-\node[rule, right=of exec] (p1resp) {P1.L3\\response\\integrity};
-\node[rule, right=of p1resp] (p2out) {P2.L3\\output\\classifier};
+\node[rule, right=of exec] (p1resp) {P1.2\\response\\integrity \keepsstate};
+\node[sim, right=of p1resp] (p2out) {P2.3\\output\\classifier};
 
 \begin{scope}[on background layer]
   \node[draw=tierrule!55, dashed, line width=0.5pt, rounded corners=2pt,
         fit=(p3ctx)(p3risk)(panel)(hash), inner sep=3.2pt] (p3box) {};
 \end{scope}
+\node[note, anchor=south west, text=black!60] at ([yshift=0.6mm]p3box.north west)
+  {P3: consequential calls only};
 
-\foreach \a/\b in {call/p1reg, p1reg/p2man, p2man/p3ctx, p3ctx/p3risk,
+\foreach \a/\b in {call/p1reg, p1reg/p2man, p2man/p2par, p2par/p3ctx, p3ctx/p3risk,
                    p3risk/panel, panel/hash, hash/exec, exec/p1resp, p1resp/p2out}
   \draw[flow] (\a) -- (\b);
 
 % data-driven annotations (from cascade_pipeline_defs.tex)
-\node[note, above=1.6mm of panel, text=tierllm]
-  {judged: \judgedpct\% of attack proposals};
+\node[note, anchor=south, text=tierllm] at ([yshift=0.6mm]panel |- p3box.north)
+  {judged: \judgedpct\% of attack-incident tool proposals};
 \node[note, below=1.8mm of p3box.south, anchor=north, text=tierrule]
-  {deterministic checks: \deterministicpct\% of all first interceptions};
+  {deterministic checks: \deterministicpct\% of first interceptions (development split)};
 
 % ---------------- memory write path --------------------------------------
 \node[lane] at ([yshift=-17mm]call.west) (wlane) {memory write};
-\node[rule, right=3mm of wlane] (p5w) {P5\\store policy};
-\node[sim, right=of p5w]  (p4a) {P4.1--3\\schema, metadata,\\provenance};
-\node[sim, right=of p4a]  (p4b) {P4.4\\similarity\\threshold};
-\node[sim, right=of p4b]  (p4c) {P4.5--6\\write replay,\\rate \keepsstate};
-\node[term, right=of p4c] (wcommit) {commit};
-\foreach \a/\b in {p5w/p4a, p4a/p4b, p4b/p4c, p4c/wcommit} \draw[flow] (\a) -- (\b);
+\node[rule, right=3mm of wlane] (p5w) {P5.1\\store policy};
+\node[rule, right=of p5w] (p41) {P4.1\\schema};
+\node[sim,  right=of p41] (p42) {P4.2\\evidence\\similarity};
+\node[rule, right=of p42] (p43) {P4.3\\metadata};
+\node[sim,  right=of p43] (p44) {P4.4\\drift \keepsstate};
+\node[rule, right=of p44] (p456) {P4.5--4.6\\write replay \keepsstate,\\contradiction};
+\node[term, right=of p456] (wcommit) {commit};
+\foreach \a/\b in {p5w/p41, p41/p42, p42/p43, p43/p44, p44/p456, p456/wcommit} \draw[flow] (\a) -- (\b);
 
 % ---------------- memory read path ---------------------------------------
 \node[lane] at ([yshift=-30mm]call.west) (rlane) {memory read};
-\node[rule, right=3mm of rlane] (p5g) {P5.1--2\\access control,\\query scope};
-\node[rule, right=of p5g] (store)  {store};
-\node[rule, right=of store] (redact) {P5.3\\field\\redaction};
-\node[rule, right=of redact] (san)  {P5.5\\injection\\sanitisation};
+\node[rule, right=3mm of rlane] (p51) {P5.1\\store policy};
+\node[sim, right=of p51] (p53) {P5.3\\query scope};
+\node[sim, right=of p53] (p54) {P5.4\\read-pattern\\monitor \keepsstate};
+\node[term, right=of p54] (store)  {store};
+\node[rule, right=of store] (p52) {P5.2\\field\\filter};
+\node[rule, right=of p52] (san)  {P5.5\\read\\sanitization};
 \node[term, right=of san] (deliver) {deliver};
-\foreach \a/\b in {p5g/store, store/redact, redact/san, san/deliver} \draw[flow] (\a) -- (\b);
+\foreach \a/\b in {p51/p53, p53/p54, p54/store, store/p52, p52/san, san/deliver} \draw[flow] (\a) -- (\b);
 
 % ---------------- legend --------------------------------------------------
 \node[note, anchor=north west] at ([yshift=-6mm]rlane.south west) (leg)
-  {\keepsstate\ keeps state across incidents\quad
+  {\keepsstate\ at least one check keeps state across incidents\quad
    \textcolor{tierrule}{$\blacksquare$} rule-based\quad
    \textcolor{tiersim}{$\blacksquare$} similarity threshold\quad
    \textcolor{tierllm}{$\blacksquare$} LLM panel};
