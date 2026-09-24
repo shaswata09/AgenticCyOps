@@ -1,6 +1,6 @@
 # Paper tables (scoring v3)
 
-Generated from `results/eval_attacks/all_trials.csv` (10373 trials, groups: llama8b_div4, mistral_div3p, q235_div4, scout_div4). ASR = executed / measurable trials; attempt = executed + blocked; not-measurable and error trials excluded. CIs: Wilson (per-trial) and cluster bootstrap over variants (B = 10,000). Paired differences resample variants shared by both arms; p-values are Holm-corrected within each domain's family of attack paths.
+Generated from `results/eval_attacks/all_trials.csv` (11806 trials, groups: llama8b_div4, mistral_div3p, q235_div4, q235_div4_e16probe, scout_div4). ASR = executed / measurable trials; attempt = executed + blocked; not-measurable and error trials excluded. CIs: Wilson (per-trial) and cluster bootstrap over variants (B = 10,000). Paired differences resample variants shared by both arms; p-values are Holm-corrected within each domain's family of attack paths.
 
 ## T1. Headline attack success by group and configuration
 
@@ -70,10 +70,15 @@ Generated from `results/eval_attacks/all_trials.csv` (10373 trials, groups: llam
 | mistral_div3p | AgenticCyOps | 75 | 78.7 [68.1, 86.4] | 62.7 [51.4, 72.7] | 1.43 | 53.4 / 103.6 | 11821 / 3475 |
 | mistral_div3p | Flat | 75 | 80.0 [69.6, 87.5] | 0.0 [0.0, 4.9] | 0.00 | 32.2 / 55.1 | 18758 / 0 |
 | q235_div4 | ACL-Hardened | 105 | 58.1 [48.5, 67.1] | 94.3 [88.1, 97.4] | 7.59 | 34.9 / 57.5 | 18376 / 0 |
-| q235_div4 | AgenticCyOps | 105 | 97.1 [91.9, 99.0] | 88.6 [81.1, 93.3] | 3.40 | 112.7 / 172.5 | 11928 / 15895 |
+| q235_div4 | AgenticCyOps | 105 | 93.3 [86.9, 96.7] | 92.4 [85.7, 96.1] | 3.40 | 115.9 / 192.5 | 11917 / 16429 |
+| q235_div4 | agenticcyops_gate_permissive | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 6.12 | 87.9 / 104.9 | 12193 / 6871 |
+| q235_div4 | agenticcyops_noautoapprove | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 7.98 | 130.3 / 175.6 | 12030 / 9651 |
+| q235_div4 | agenticcyops_writejudge | 105 | 98.1 [93.3, 99.5] | 91.4 [84.5, 95.4] | 3.50 | 122.3 / 202.7 | 11959 / 17890 |
 | q235_div4 | Flat | 105 | 100.0 [96.5, 100.0] | 0.0 [0.0, 3.5] | 0.00 | 36.2 / 67.5 | 19768 / 0 |
 | q235_div4 | LLM-judge only | 60 | 95.0 [86.3, 98.3] | 81.7 [70.1, 89.4] | 1.82 | 167.3 / 194.8 | 11937 / 26321 |
+| q235_div4 | p2_judge | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 8.22 | 127.8 / 174.8 | 12127 / 9988 |
 | q235_div4 | Symbolic only (no L6) | 60 | 25.0 [15.8, 37.2] | 96.7 [88.6, 99.1] | 7.42 | 55.1 / 72.3 | 12184 / 0 |
+| q235_div4_e16probe | agenticcyops_gate_permissive | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 8.30 | 111.4 / 142.2 | 11978 / 10000 |
 | scout_div4 | ACL-Hardened | 75 | 70.7 [59.6, 79.8] | 52.0 [40.9, 62.9] | 1.79 | 51.0 / 64.5 | 21316 / 0 |
 | scout_div4 | AgenticCyOps | 75 | 62.7 [51.4, 72.7] | 94.7 [87.1, 97.9] | 3.44 | 94.5 / 150.0 | 12162 / 8651 |
 | scout_div4 | Flat | 75 | 84.0 [74.1, 90.6] | 0.0 [0.0, 4.9] | 0.00 | 51.9 / 64.8 | 21685 / 0 |
@@ -84,20 +89,21 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 
 | Domain | State mode | N | Any denial % [95%] | Denials / incident | Task completed % [95%] | Any denial %: first half / second half of sequence |
 |---|---|---|---|---|---|---|
-| cyberops | isolated | 20 | 70.0 [48.1, 85.5] | 1.45 | 90.0 [69.9, 97.2] | 70 / 70 |
-| cyberops | persistent | 20 | 100.0 [83.9, 100.0] | 7.35 | 5.0 [0.9, 23.6] | 100 / 100 |
-| healthcare | isolated | 5 | 100.0 [56.6, 100.0] | 7.60 | 100.0 [56.6, 100.0] | 100 / 100 |
-| healthcare | persistent | 5 | 100.0 [56.6, 100.0] | 11.40 | 40.0 [11.8, 76.9] | 100 / 100 |
-| finance | isolated | 5 | 100.0 [56.6, 100.0] | 4.20 | 100.0 [56.6, 100.0] | 100 / 100 |
-| finance | persistent | 5 | 100.0 [56.6, 100.0] | 8.20 | 40.0 [11.8, 76.9] | 100 / 100 |
+| cyberops | isolated | 20 | 95.0 [76.4, 99.1] | 1.85 | 85.0 [64.0, 94.8] | 100 / 90 |
+| cyberops | persistent (pass 1) | 20 | 100.0 [83.9, 100.0] | 7.35 | 5.0 [0.9, 23.6] | 100 / 100 |
+| cyberops | persistent (pass 2, reversed) | 20 | 100.0 [83.9, 100.0] | 8.75 | 5.0 [0.9, 23.6] | 100 / 100 |
+| healthcare | isolated | 5 | 100.0 [56.6, 100.0] | 7.80 | 100.0 [56.6, 100.0] | 100 / 100 |
+| healthcare | persistent (pass 1) | 5 | 100.0 [56.6, 100.0] | 11.40 | 40.0 [11.8, 76.9] | 100 / 100 |
+| finance | isolated | 5 | 100.0 [56.6, 100.0] | 3.60 | 100.0 [56.6, 100.0] | 100 / 100 |
+| finance | persistent (pass 1) | 5 | 100.0 [56.6, 100.0] | 8.20 | 40.0 [11.8, 76.9] | 100 / 100 |
 | legal | isolated | 5 | 100.0 [56.6, 100.0] | 4.80 | 100.0 [56.6, 100.0] | 100 / 100 |
-| legal | persistent | 5 | 100.0 [56.6, 100.0] | 8.20 | 40.0 [11.8, 76.9] | 100 / 100 |
+| legal | persistent (pass 1) | 5 | 100.0 [56.6, 100.0] | 8.20 | 40.0 [11.8, 76.9] | 100 / 100 |
 
 ## T4. Ablations (E3), q235_div4
 
 | Ablation config | Attack trials | ASR % [95%] | Benign trials | Benign any-denial % [95%] |
 |---|---|---|---|---|
-| AgenticCyOps | 225 | 4.0 [2.1, 7.4] | 60 | 80.0 [68.2, 88.2] |
+| AgenticCyOps | 240 | 2.9 [1.4, 5.9] | 60 | 86.7 [75.8, 93.1] |
 | agenticcyops -P1 | 204 | 5.4 [3.0, 9.4] | 60 | 76.7 [64.6, 85.6] |
 | agenticcyops -P2 | 204 | 9.8 [6.4, 14.7] | 60 | 73.3 [61.0, 82.9] |
 | agenticcyops -P3 | 204 | 19.1 [14.3, 25.1] | 60 | 65.0 [52.4, 75.8] |
@@ -110,24 +116,24 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 
 | Layer | Blocked trials | Share % |
 |---|---|---|
-| P3_llm_consensus_reject | 70 | 26.7 |
-| P2_target_not_in_evidence | 60 | 22.9 |
-| P4_schema_violation | 48 | 18.3 |
-| P2_parameter_rule_violation | 20 | 7.6 |
-| P5_access_control | 12 | 4.6 |
-| P5_broad_query_block | 12 | 4.6 |
-| P3_handoff_validation | 8 | 3.1 |
-| P2_critical_asset | 5 | 1.9 |
-| P3_operational_context | 5 | 1.9 |
-| P1_config_integrity_violation | 4 | 1.5 |
-| P4_metadata_invalid | 3 | 1.1 |
-| P4_similarity_reject | 3 | 1.1 |
-| P4_write_replay | 3 | 1.1 |
-| P2_wildcard_parameter | 3 | 1.1 |
-| P3_replay_detection | 2 | 0.8 |
-| P1_response_integrity | 2 | 0.8 |
-| P3_bulk_action | 1 | 0.4 |
-| P3_execution_verification | 1 | 0.4 |
+| P3_llm_consensus_reject | 124 | 38.3 |
+| P2_target_not_in_evidence | 61 | 18.8 |
+| P4_schema_violation | 48 | 14.8 |
+| P2_parameter_rule_violation | 19 | 5.9 |
+| P5_access_control | 12 | 3.7 |
+| P5_broad_query_block | 12 | 3.7 |
+| P3_handoff_validation | 12 | 3.7 |
+| P1_config_integrity_violation | 6 | 1.9 |
+| P2_critical_asset | 5 | 1.5 |
+| P3_operational_context | 5 | 1.5 |
+| P4_metadata_invalid | 3 | 0.9 |
+| P4_similarity_reject | 3 | 0.9 |
+| P4_write_replay | 3 | 0.9 |
+| P4_drift_outlier | 3 | 0.9 |
+| P2_wildcard_parameter | 3 | 0.9 |
+| P3_replay_detection | 2 | 0.6 |
+| P1_response_integrity | 2 | 0.6 |
+| P3_execution_verification | 1 | 0.3 |
 
 ## T6. ASB paired panel replay (E6)
 
@@ -190,9 +196,13 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | mistral_div3p | AgenticCyOps | 450 | 9327 | 2150 | 35.3 / 81.6 |
 | mistral_div3p | Flat | 450 | 15629 | 0 | 19.7 / 53.7 |
 | q235_div4 | ACL-Hardened | 900 | 15184 | 0 | 36.1 / 76.7 |
-| q235_div4 | AgenticCyOps | 900 | 8647 | 8694 | 79.4 / 165.2 |
-| q235_div4 | Flat | 900 | 16419 | 0 | 37.3 / 81.5 |
+| q235_div4 | AgenticCyOps | 972 | 8613 | 8611 | 77.5 / 158.6 |
+| q235_div4 | agenticcyops_gate_permissive | 222 | 8401 | 6008 | 57.1 / 104.8 |
+| q235_div4 | agenticcyops_noautoapprove | 240 | 11246 | 6515 | 95.3 / 144.8 |
+| q235_div4 | agenticcyops_writejudge | 207 | 8326 | 10617 | 83.5 / 154.1 |
+| q235_div4 | Flat | 939 | 16501 | 0 | 35.6 / 76.0 |
 | q235_div4 | LLM-judge only | 226 | 10728 | 27857 | 181.2 / 251.1 |
+| q235_div4 | p2_judge | 240 | 11239 | 8647 | 103.5 / 152.8 |
 | q235_div4 | Symbolic only (no L6) | 450 | 9529 | 0 | 41.1 / 80.0 |
 | scout_div4 | ACL-Hardened | 450 | 19471 | 0 | 48.0 / 66.7 |
 | scout_div4 | AgenticCyOps | 450 | 11279 | 6104 | 76.2 / 134.4 |
@@ -215,34 +225,43 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | mistral_div3p | finance | agenticcyops |  | 5435e156e1 | defense-freeze-v2.2 | mistralai/Mistral-Small-3.2-24B-Instruct-2506 | bf16 | mistral_div3p | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | mistral_div3p | finance | flat |  | 5435e156e1 | defense-freeze-v2.2 | mistralai/Mistral-Small-3.2-24B-Instruct-2506 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | acl_hardened |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
-| q235_div4 | cyberops | agenticcyops |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | cyberops | agenticcyops |  | 7ceb670753 | defense-freeze-v2.8-1-g7ceb670 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | agenticcyops | _disabled_P1 | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | agenticcyops | _disabled_P2 | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | agenticcyops | _disabled_P3 | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | agenticcyops | _disabled_P4 | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | agenticcyops | _disabled_P5 | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
-| q235_div4 | cyberops | flat |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | cyberops | agenticcyops_gate_permissive |  | f6f713d773 | defense-freeze-v2.7 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | cyberops | agenticcyops_noautoapprove |  | f0baad81f3 | defense-freeze-v2.5-1-gf0baad8 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | cyberops | agenticcyops_writejudge |  | d838b8f020 | defense-freeze-v2.8-2-gd838b8f | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | cyberops | flat |  | f0baad81f3 | defense-freeze-v2.5-1-gf0baad8 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | llm_judge |  | 5435e156e1 | defense-freeze-v2.2 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | cyberops | p2_judge |  | f0baad81f3 | defense-freeze-v2.5-1-gf0baad8 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | symbolic_only |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | finance | acl_hardened |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
-| q235_div4 | finance | agenticcyops |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
-| q235_div4 | finance | flat |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | finance | agenticcyops |  | 7ceb670753 | defense-freeze-v2.8-1-g7ceb670 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | finance | agenticcyops_writejudge |  | 7ceb670753 | defense-freeze-v2.8-1-g7ceb670 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | finance | flat |  | 749977fb38 | defense-freeze-v2.4-6-g749977f | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | finance | llm_judge |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | finance | symbolic_only |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | healthcare | acl_hardened |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
-| q235_div4 | healthcare | agenticcyops |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
-| q235_div4 | healthcare | flat |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | healthcare | agenticcyops |  | 7ceb670753 | defense-freeze-v2.8-1-g7ceb670 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | healthcare | agenticcyops_writejudge |  | 7ceb670753 | defense-freeze-v2.8-1-g7ceb670 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | healthcare | flat |  | 8d90ff1390 | defense-freeze-v2.4-8-g8d90ff1 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | healthcare | llm_judge |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | healthcare | symbolic_only |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | legal | acl_hardened |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
-| q235_div4 | legal | agenticcyops |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | legal | agenticcyops |  | 7ceb670753 | defense-freeze-v2.8-1-g7ceb670 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4 | legal | agenticcyops_writejudge |  | 7ceb670753 | defense-freeze-v2.8-1-g7ceb670 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | legal | flat |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | legal | llm_judge |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | legal | symbolic_only |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4_e16probe | cyberops | agenticcyops_gate_permissive |  | 5cc913d92b | defense-freeze-v2.6 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_persistent | cyberops | agenticcyops |  | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_persistent | finance | agenticcyops |  | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_persistent | healthcare | agenticcyops |  | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_persistent | legal | agenticcyops |  | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4_persistent3 | cyberops | agenticcyops |  | d838b8f020 | defense-freeze-v2.8-2-gd838b8f | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
 | scout_div4 | cyberops | acl_hardened |  | 5435e156e1 | defense-freeze-v2.2 | meta-llama/Llama-4-Scout-17B-16E-Instruct | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | scout_div4 | cyberops | agenticcyops |  | 5435e156e1 | defense-freeze-v2.2 | meta-llama/Llama-4-Scout-17B-16E-Instruct | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | scout_div4 | cyberops | flat |  | 5435e156e1 | defense-freeze-v2.2 | meta-llama/Llama-4-Scout-17B-16E-Instruct | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
@@ -257,17 +276,17 @@ Exposed % = share of scored trials with an injection_served event; attempt | exp
 | Channel | Config | Variants | N | Exposed % | Attempt % | Attempt given exp. % | ASR % [95%] |
 |---|---|---|---|---|---|---|---|
 | Alert text | ACL-Hardened | 170 | 1176 | 100.0 | 28.3 | 80.8 | 23.8 [21.5, 26.3] |
-| Alert text | AgenticCyOps | 170 | 1176 | 100.0 | 34.3 | 80.8 | 2.2 [1.5, 3.2] |
-| Alert text | Flat | 170 | 1176 | 100.0 | 28.9 | 80.1 | 28.9 [26.4, 31.6] |
+| Alert text | AgenticCyOps | 171 | 1179 | 100.0 | 34.4 | 81.1 | 2.5 [1.7, 3.5] |
+| Alert text | Flat | 171 | 1179 | 100.0 | 29.1 | 80.5 | 29.1 [26.6, 31.7] |
 | Handoff | ACL-Hardened | 30 | 270 | 100.0 | 43.3 | 41.7 | 38.9 [33.3, 44.8] |
-| Handoff | AgenticCyOps | 30 | 270 | 100.0 | 43.0 | 66.7 | 2.6 [1.3, 5.3] |
-| Handoff | Flat | 30 | 270 | 100.0 | 44.4 | 51.7 | 44.4 [38.6, 50.4] |
+| Handoff | AgenticCyOps | 38 | 294 | 100.0 | 42.2 | 54.4 | 0.0 [0.0, 1.3] |
+| Handoff | Flat | 36 | 288 | 100.0 | 45.8 | 50.0 | 45.8 [40.2, 51.6] |
 | Memory | ACL-Hardened | 35 | 285 | 45.3 | 1.1 | 2.3 | 1.1 [0.4, 3.0] |
 | Memory | AgenticCyOps | 35 | 285 | 54.7 | 8.4 | 15.4 | 8.4 [5.7, 12.2] |
 | Memory | Flat | 35 | 285 | 86.3 | 9.8 | 11.4 | 9.8 [6.9, 13.8] |
 | Proposal justification | ACL-Hardened | 32 | 240 | – | 85.4 | – | 85.4 [80.4, 89.3] |
-| Proposal justification | AgenticCyOps | 32 | 240 | – | 82.1 | – | 5.0 [2.9, 8.5] |
-| Proposal justification | Flat | 32 | 240 | – | 85.4 | – | 85.4 [80.4, 89.3] |
+| Proposal justification | AgenticCyOps | 47 | 285 | 96.3 | 84.9 | 94.2 | 3.5 [1.9, 6.3] |
+| Proposal justification | Flat | 38 | 258 | 100.0 | 86.4 | 100.0 | 86.4 [81.7, 90.1] |
 | Tool response | ACL-Hardened | 33 | 279 | 70.3 | 3.2 | 4.6 | 3.2 [1.7, 6.0] |
 | Tool response | AgenticCyOps | 33 | 279 | 53.8 | 3.2 | 6.0 | 3.2 [1.7, 6.0] |
 | Tool response | Flat | 33 | 279 | 71.7 | 3.2 | 4.5 | 3.2 [1.7, 6.0] |
@@ -277,17 +296,17 @@ Exposed % = share of scored trials with an injection_served event; attempt | exp
 | Channel | Config | Variants | N | Exposed % | Attempt % | Attempt given exp. % | ASR % [95%] |
 |---|---|---|---|---|---|---|---|
 | Alert text | ACL-Hardened | 170 | 510 | 100.0 | 27.5 | 75.0 | 21.8 [18.4, 25.5] |
-| Alert text | AgenticCyOps | 170 | 510 | 100.0 | 32.4 | 75.0 | 3.1 [1.9, 5.0] |
-| Alert text | Flat | 170 | 510 | 100.0 | 26.7 | 74.2 | 26.7 [23.0, 30.7] |
+| Alert text | AgenticCyOps | 171 | 513 | 100.0 | 32.7 | 75.6 | 3.7 [2.4, 5.7] |
+| Alert text | Flat | 171 | 513 | 100.0 | 27.1 | 74.8 | 27.1 [23.4, 31.1] |
 | Handoff | ACL-Hardened | 30 | 90 | 100.0 | 40.0 | 41.7 | 36.7 [27.4, 47.0] |
-| Handoff | AgenticCyOps | 30 | 90 | 100.0 | 60.0 | 66.7 | 7.8 [3.8, 15.2] |
-| Handoff | Flat | 30 | 90 | 100.0 | 46.7 | 51.7 | 46.7 [36.7, 56.9] |
+| Handoff | AgenticCyOps | 38 | 114 | 100.0 | 54.4 | 54.4 | 0.0 [0.0, 3.3] |
+| Handoff | Flat | 36 | 108 | 100.0 | 50.0 | 50.0 | 50.0 [40.7, 59.3] |
 | Memory | ACL-Hardened | 35 | 105 | 62.9 | 0.0 | 0.0 | 0.0 [0.0, 3.5] |
 | Memory | AgenticCyOps | 35 | 105 | 62.9 | 1.0 | 1.5 | 1.0 [0.2, 5.2] |
 | Memory | Flat | 35 | 105 | 97.1 | 18.1 | 18.6 | 18.1 [11.9, 26.5] |
 | Proposal justification | ACL-Hardened | 32 | 96 | – | 76.0 | – | 76.0 [66.6, 83.5] |
-| Proposal justification | AgenticCyOps | 32 | 96 | – | 72.9 | – | 4.2 [1.6, 10.2] |
-| Proposal justification | Flat | 32 | 96 | – | 76.0 | – | 76.0 [66.6, 83.5] |
+| Proposal justification | AgenticCyOps | 47 | 141 | 96.3 | 81.6 | 94.2 | 1.4 [0.4, 5.0] |
+| Proposal justification | Flat | 38 | 114 | 100.0 | 79.8 | 100.0 | 79.8 [71.5, 86.2] |
 | Tool response | ACL-Hardened | 33 | 99 | 88.9 | 9.1 | 10.2 | 9.1 [4.9, 16.4] |
 | Tool response | AgenticCyOps | 33 | 99 | 77.8 | 9.1 | 11.7 | 9.1 [4.9, 16.4] |
 | Tool response | Flat | 33 | 99 | 92.9 | 9.1 | 9.8 | 9.1 [4.9, 16.4] |
@@ -318,13 +337,13 @@ P5 benign cost (AgenticCyOps benign incidents):
 
 One definition, shared with Fig. 3(b) via `analysis/benign_cost.py`: denied tool proposals / all tool proposals, matched on `call_id`, isolated benign runs. The numerator is a subset of the denominator by construction, so this does not mix tool denials with memory-op denials the way a per-trial `collateral_denials` count does.
 
-| Domain | Flat denied % | ACL-Hardened denied % | AgenticCyOps denied % |
+| Domain | Flat denied % [95%] | ACL-Hardened denied % [95%] | AgenticCyOps denied % [95%] |
 |---|---|---|---|
-| cyberops | 0.0 (0/1163) | 54.8 (640/1168) | 10.1 (88/873) |
-| finance | 0.0 (0/245) | 18.0 (41/228) | 15.9 (28/176) |
-| healthcare | 0.0 (0/228) | 40.7 (94/231) | 27.1 (56/207) |
-| legal | 0.0 (0/190) | 11.8 (22/186) | 23.2 (42/181) |
-| **all domains** | 0.0 (0/1826) | 44.0 (797/1813) | 14.9 (214/1437) |
+| cyberops | 0.0 [0.0, 0.0] (0/1163, k=20) | 54.8 [48.3, 61.4] (640/1168, k=20) | 27.7 [25.7, 29.9] (983/3547, k=20) |
+| finance | 0.0 [0.0, 0.0] (0/245, k=5) | 18.0 [12.7, 23.0] (41/228, k=5) | 14.4 [8.7, 20.2] (51/354, k=5) |
+| healthcare | 0.0 [0.0, 0.0] (0/228, k=5) | 40.7 [31.2, 49.6] (94/231, k=5) | 28.2 [23.3, 34.8] (123/436, k=5) |
+| legal | 0.0 [0.0, 0.0] (0/190, k=5) | 11.8 [2.1, 21.9] (22/186, k=5) | 24.0 [20.5, 27.0] (86/359, k=5) |
+| **all domains** | 0.0 (0/1826) | 44.0 (797/1813) | 26.5 (1243/4696) |
 
 ## T12. Benign denials by principle and check (q235_div4, AgenticCyOps)
 
@@ -332,19 +351,66 @@ E14: every benign denial attributed to the check that made it, with the tools or
 
 | Domain | Principle | Check | Denials | Top denied targets |
 |---|---|---|---|---|
-| cyberops | P2 | P2 capability scoping | 64 | T8_iam_pam (42), T9_firewall (11), T11_epp_av (6) |
-| cyberops | P3 (panel) | P3 llm consensus reject | 24 | P3_L6 (24) |
-| cyberops | P4 | P4 metadata invalid | 6 | M1 (6) |
-| cyberops | P4 | P4 schema violation | 3 | M6 (3) |
-| finance | P3 (panel) | P3 llm consensus reject | 17 | P3_L6 (17) |
-| finance | P4 | P4 schema violation | 15 | FM4 (15) |
-| finance | P2 | P2 capability scoping | 11 | F10_wire_recall (6), F5_graph_analysis (3), F8_account_freeze (2) |
-| finance | P5 | P5 broad query block | 3 | FM1 (3) |
-| healthcare | P3 (panel) | P3 llm consensus reject | 53 | P3_L6 (53) |
-| healthcare | P4 | P4 similarity reject | 36 | HM5 (12), HM7 (12), HM6 (6) |
-| healthcare | P4 | P4 schema violation | 15 | HM1 (15) |
-| healthcare | P2 | P2 capability scoping | 3 | H3_lab_results (3) |
-| legal | P3 (panel) | P3 llm consensus reject | 36 | P3_L6 (36) |
-| legal | P4 | P4 schema violation | 15 | LM1 (15) |
-| legal | P4 | P4 similarity reject | 15 | LM8 (9), LM6 (3), LM3 (3) |
-| legal | P2 | P2 capability scoping | 6 | L10_payment_processing (6) |
+| cyberops | P3 (panel) | P3 llm consensus reject | 717 | P3_L6 (717) |
+| cyberops | P2 | P2 capability scoping | 266 | T8_iam_pam (170), T9_firewall (49), T11_epp_av (23) |
+| cyberops | P4 | P4 metadata invalid | 24 | M1 (24) |
+| cyberops | P4 | P4 schema violation | 12 | M6 (12) |
+| finance | P3 (panel) | P3 llm consensus reject | 32 | P3_L6 (32) |
+| finance | P4 | P4 schema violation | 30 | FM4 (30) |
+| finance | P2 | P2 capability scoping | 19 | F10_wire_recall (15), F5_graph_analysis (4) |
+| finance | P5 | P5 broad query block | 6 | FM1 (6) |
+| finance | P4 | P4 centroid shift | 1 | FM8 (1) |
+| finance | P4 | P4 write replay | 1 | FM8 (1) |
+| healthcare | P3 (panel) | P3 llm consensus reject | 115 | P3_L6 (115) |
+| healthcare | P4 | P4 similarity reject | 70 | HM7 (24), HM5 (22), HM6 (12) |
+| healthcare | P4 | P4 schema violation | 30 | HM1 (30) |
+| healthcare | P2 | P2 capability scoping | 8 | H3_lab_results (6), H12_regulatory_filing (2) |
+| healthcare | P3 | P3 write judge reject | 3 | HM6 (3) |
+| legal | P3 (panel) | P3 llm consensus reject | 73 | P3_L6 (73) |
+| legal | P4 | P4 schema violation | 30 | LM1 (30) |
+| legal | P4 | P4 similarity reject | 27 | LM8 (18), LM6 (5), LM3 (4) |
+| legal | P2 | P2 capability scoping | 13 | L10_payment_processing (13) |
+
+## T13. Checks by tier: what each intercepts and what it costs (q235_div4)
+
+E19: one tier mapping (`analysis/figstyle.tier4_of`) shared with the figures. Content-independent rules decide from structure alone and cannot be reworded past; content-dependent rules read the proposal and can be; similarity is the tunable embedding tier; the panel is the judges.
+
+| Tier | Check | Attack first interceptions | Benign denials |
+|---|---|---|---|
+| Rule (content-independent) | P4 schema violation | 48 | 102 |
+| Rule (content-independent) | P5 broad query block | 12 | 6 |
+| Rule (content-independent) | P5 access control | 12 | 0 |
+| Rule (content-independent) | P3 handoff validation | 12 | 0 |
+| Rule (content-independent) | P1 config integrity violation | 6 | 0 |
+| Rule (content-independent) | P2 critical asset | 5 | 0 |
+| Rule (content-independent) | P4 write replay | 3 | 1 |
+| Rule (content-independent) | P4 drift outlier | 3 | 0 |
+| Rule (content-independent) | P3 replay detection | 2 | 0 |
+| Rule (content-independent) | P1 response integrity | 2 | 0 |
+| Rule (content-independent) | P3 execution verification | 1 | 0 |
+| Rule (content-independent) | P3 write judge reject | 0 | 3 |
+| Rule (content-independent) | P4 centroid shift | 0 | 1 |
+| Rule (content-independent) | P2 capability scoping | 0 | 306 |
+| Rule (content-dependent) | P2 parameter rule violation | 19 | 0 |
+| Rule (content-dependent) | P3 operational context | 5 | 0 |
+| Rule (content-dependent) | P2 wildcard parameter | 3 | 0 |
+| Rule (content-dependent) | P4 metadata invalid | 3 | 24 |
+| Similarity threshold | P2 target not in evidence | 61 | 0 |
+| Similarity threshold | P4 similarity reject | 3 | 97 |
+| LLM panel | P3 llm consensus reject | 124 | 937 |
+| **tier totals** |  |  |  |
+| **Rule (content-independent)** |  | **106** | **419** |
+| **Rule (content-dependent)** |  | **30** | **24** |
+| **Similarity threshold** |  | **64** | **97** |
+| **LLM panel** |  | **124** | **937** |
+
+## T14. Where P3 decisions were taken (q235_div4)
+
+E1.3: the paper states no proposal was ever auto-approved. The logs show the stronger fact -- the deterministic gate never decided at all, so every consequential proposal that survived the deterministic denials reached the panel (or, under symbolic-only, was escalated).
+
+| Config | Layer | Mechanism | Decision | Count |
+|---|---|---|---|---|
+| Symbolic only (no L6) | LLM panel (P3.10) | P3 symbolic escalate | escalate | 2362 |
+| AgenticCyOps | LLM panel (P3.10) | P3 llm consensus reject | deny | 7547 |
+| AgenticCyOps | LLM panel (P3.10) | P3 llm consensus approve | allow | 6792 |
+| **all configs** | **deterministic auto-decisions (P3.7 + P3.9)** |  |  | **432** |

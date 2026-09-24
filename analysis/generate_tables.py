@@ -157,8 +157,15 @@ def t3b_persistent(trials: list[dict], group: str) -> str:
     """E1b: benign incidents run after 30 attack incidents with state kept
     (persistent) vs the same scenarios with per-trial isolation."""
     rows = []
+    # Two independent carry-over passes (W6 asked for n=2 so the effect can be
+    # read as a range rather than a point). Pass 2 walks the attack paths in
+    # reverse order, so any drift that is really an artefact of one particular
+    # sequence shows up as a difference between the passes.
+    arms = (("isolated", group, True),
+            ("persistent (pass 1)", f"{group}_persistent", False),
+            ("persistent (pass 2, reversed)", f"{group}_persistent3", False))
     for dom in ("cyberops", "healthcare", "finance", "legal"):
-        for label, g, first_trial_only in (("isolated", group, True), ("persistent", f"{group}_persistent", False)):
+        for label, g, first_trial_only in arms:
             ts = [t for t in trials if t["group"] == g and t["domain"] == dom and t["config"] == "agenticcyops"
                   and t["ap"] == "benign" and t["outcome"] == "benign" and not t.get("suffix")
                   and (not first_trial_only or str(t["trial"]) == "1")]
