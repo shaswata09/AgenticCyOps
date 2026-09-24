@@ -459,7 +459,14 @@ def build(results_dir: Path, main_group: str) -> str:
              "stronger fact -- the deterministic gate never decided at all, so every "
              "consequential proposal that survived the deterministic denials reached the "
              "panel (or, under symbolic-only, was escalated).", "",
-             t14_p3_decisions(main_group), ""]
+             t14_p3_decisions(main_group), "",
+             "## T16. Validator availability: which results an out-of-credit API validator decided", "",
+             "GPT-4o was unavailable from about 09:00 UTC on 20 September and Claude Sonnet 4.5 from about "
+             "15:00 UTC on 22 September, both until about 18:00 UTC on 23 September; the panel counted "
+             "their errors as rejections. A round is open when the missing votes could have changed its "
+             "outcome; the direct bound credits every open panel rejection of an attack proposal as an "
+             "approval (analysis/outage.py).", "",
+             t16_validator_availability(main_group), ""]
     return "\n".join(parts)
 
 
@@ -509,11 +516,11 @@ def t11_benign_denials(group: str) -> str:
 def added_arms(group: str) -> list[tuple[str, str, str]]:
     """(paper name, group, exact config) for every arm added after the main
     configurations, in the group its runs were routed to."""
-    return [("permissive gate", group, "agenticcyops_gate_permissive"),
-            ("permissive gate, first rule (never fired)", f"{group}_e16null", "agenticcyops_gate_permissive"),
-            ("no auto-approve", group, "agenticcyops_noautoapprove"),
-            ("P2 + panel", group, "p2_judge"),
-            ("judged writes", f"{group}_e9", "agenticcyops_writejudge"),
+    # The permissive gate's benign runs, and every run of its first rule, of
+    # no auto-approve and of P2 + panel, took place while the API validators
+    # were out of credit and the panel could not approve (T16); their benign
+    # cost is not reported. Judged writes ran after credit was restored.
+    return [("judged writes", f"{group}_e9", "agenticcyops_writejudge"),
             ("FULL, E9 re-run (baseline for judged writes)", f"{group}_e9", "agenticcyops")]
 
 
@@ -569,6 +576,44 @@ def t13_tier_breakdown(trials: list[dict], group: str) -> str:
             continue
         rows.append([f"**{label[tier]}**", "", f"**{i}**", f"**{d}**"])
     return _md(["Tier", "Check", "Attack first interceptions", "Benign denials"], rows)
+
+
+def t16_validator_availability(group: str) -> str:
+    """Which arms an unavailable API validator affected, and how much.
+
+    See analysis/outage.py for the definitions. *Open*: trials with a panel
+    round the missing votes decided. *Direct bound*: attack success if every
+    open round in which the panel rejected the attack proposal had approved it.
+    """
+    import csv as _csv
+    from analysis import outage
+
+    trials = list(_csv.DictReader(open(outage.ALL_TRIALS)))
+    tr = ("finance", "healthcare", "legal")
+    arms = [("FULL, development", group, "agenticcyops", ("cyberops",), ""),
+            ("FULL, transfer", group, "agenticcyops", tr, ""),
+            ("JudgeOnly", group, "llm_judge", ("cyberops",), ""),
+            *[(f"FULL minus P{i}", group, "agenticcyops", ("cyberops",), f"_disabled_P{i}") for i in (1, 2, 4, 5)],
+            ("Llama-4-Scout, CyberOps", "scout_div4", "agenticcyops", ("cyberops",), ""),
+            ("Llama-4-Scout, finance", "scout_div4", "agenticcyops", ("finance",), ""),
+            ("Mistral-Small, CyberOps", "mistral_div3p", "agenticcyops", ("cyberops",), ""),
+            ("Mistral-Small, finance", "mistral_div3p", "agenticcyops", ("finance",), ""),
+            ("Llama-3.1-8B, CyberOps", "llama8b_div4", "agenticcyops", ("cyberops",), ""),
+            ("Llama-3.1-8B, finance", "llama8b_div4", "agenticcyops", ("finance",), ""),
+            ("permissive gate", group, "agenticcyops_gate_permissive", ("cyberops",), ""),
+            ("no auto-approve (not reported)", f"{group}_outage", "agenticcyops_noautoapprove", ("cyberops",), ""),
+            ("P2 + panel (not reported)", f"{group}_outage", "p2_judge", ("cyberops",), ""),
+            ("E2 siblings and parents, FULL", f"{group}_e2", "agenticcyops", outage.DOMAINS, ""),
+            ("judged writes (E9), FULL", f"{group}_e9", "agenticcyops", outage.DOMAINS, ""),
+            ("judged writes (E9), writejudge", f"{group}_e9", "agenticcyops_writejudge", outage.DOMAINS, "")]
+    rows = []
+    for label, g, cfg, doms, suf in arms:
+        a = outage.arm(g, cfg, doms, suf, trials=trials)
+        if not a.n:
+            continue
+        rows.append([label, a.n, f"{100 * a.open_share:.1f}", f"{100 * a.asr:.1f}",
+                     f"{100 * a.asr_direct_upper:.1f}", f"{100 * a.asr_determinate:.1f} ({a.n_determinate})"])
+    return _md(["Arm", "Trials", "Open %", "ASR as run %", "Direct bound %", "ASR, determinate trials % (n)"], rows)
 
 
 def t14_p3_decisions(group: str) -> str:

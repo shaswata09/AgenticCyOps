@@ -45,7 +45,7 @@ def test_file_prefix_never_selects_another_arm():
                    for f in files)
 
 
-@pytest.mark.parametrize("routed", ["q235_div4_e9", "q235_div4_e2", "q235_div4_e16null"])
+@pytest.mark.parametrize("routed", ["q235_div4_e9", "q235_div4_e2", "q235_div4_e16null", "q235_div4_outage"])
 def test_routed_experiments_leave_the_main_group(routed):
     """Later experiments that reused the main log directories and config
     labels (run_groups.yaml) must not be counted as the main group."""

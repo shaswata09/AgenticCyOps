@@ -1,6 +1,6 @@
 # Paper tables (scoring v3)
 
-Generated from `results/eval_attacks/all_trials.csv` (12676 trials, groups: llama8b_div4, mistral_div3p, q235_div4, q235_div4_e16null, q235_div4_e16probe, q235_div4_e2, q235_div4_e9, scout_div4). ASR = executed / measurable trials; attempt = executed + blocked; not-measurable and error trials excluded. CIs: Wilson (per-trial) and cluster bootstrap over variants (B = 10,000). Paired differences resample variants shared by both arms; p-values are Holm-corrected within each domain's family of attack paths.
+Generated from `results/eval_attacks/all_trials.csv` (12676 trials, groups: llama8b_div4, mistral_div3p, q235_div4, q235_div4_e16null, q235_div4_e16probe, q235_div4_e2, q235_div4_e9, q235_div4_outage, scout_div4). ASR = executed / measurable trials; attempt = executed + blocked; not-measurable and error trials excluded. CIs: Wilson (per-trial) and cluster bootstrap over variants (B = 10,000). Paired differences resample variants shared by both arms; p-values are Holm-corrected within each domain's family of attack paths.
 
 ## T1. Headline attack success by group and configuration
 
@@ -24,6 +24,9 @@ Generated from `results/eval_attacks/all_trials.csv` (12676 trials, groups: llam
 | q235_div4_e9 | Flat | 0 | – | [–, –] | – | – | – | – | — |
 | q235_div4_e9 | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
 | q235_div4_e9 | AgenticCyOps | 207 | 8.7 [5.6, 13.3] | [2.9, 15.9] | 49.3 | 61.1 | 80.7 | 82.3 | — |
+| q235_div4_outage | Flat | 0 | – | [–, –] | – | – | – | – | — |
+| q235_div4_outage | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
+| q235_div4_outage | AgenticCyOps | 0 | – | [–, –] | – | – | – | – | — |
 | scout_div4 | Flat | 450 | 35.8 [31.5, 40.3] | [28.9, 42.7] | 35.8 | 14.1 | 80.3 | 0.0 | 33.1 pp [26.0, 40.4], p=0.000 |
 | scout_div4 | ACL-Hardened | 450 | 30.2 [26.2, 34.6] | [24.0, 36.7] | 33.3 | 18.2 | 58.3 | 9.3 | 27.6 pp [20.7, 34.4], p=0.000 |
 | scout_div4 | AgenticCyOps | 450 | 2.7 [1.5, 4.6] | [0.7, 5.1] | 37.1 | 30.4 | 52.3 | 92.8 | — |
@@ -81,15 +84,15 @@ Generated from `results/eval_attacks/all_trials.csv` (12676 trials, groups: llam
 | q235_div4 | ACL-Hardened | 105 | 58.1 [48.5, 67.1] | 94.3 [88.1, 97.4] | 7.59 | 34.9 / 57.5 | 18376 / 0 |
 | q235_div4 | AgenticCyOps | 105 | 97.1 [91.9, 99.0] | 88.6 [81.1, 93.3] | 3.40 | 112.7 / 172.5 | 11928 / 15895 |
 | q235_div4 | agenticcyops_gate_permissive | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 6.12 | 87.9 / 104.9 | 12193 / 6871 |
-| q235_div4 | agenticcyops_noautoapprove | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 7.98 | 130.3 / 175.6 | 12030 / 9651 |
 | q235_div4 | Flat | 105 | 100.0 [96.5, 100.0] | 0.0 [0.0, 3.5] | 0.00 | 36.2 / 67.5 | 19768 / 0 |
 | q235_div4 | LLM-judge only | 60 | 95.0 [86.3, 98.3] | 81.7 [70.1, 89.4] | 1.82 | 167.3 / 194.8 | 11937 / 26321 |
-| q235_div4 | p2_judge | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 8.22 | 127.8 / 174.8 | 12127 / 9988 |
 | q235_div4 | Symbolic only (no L6) | 60 | 25.0 [15.8, 37.2] | 96.7 [88.6, 99.1] | 7.42 | 55.1 / 72.3 | 12184 / 0 |
 | q235_div4_e16null | agenticcyops_gate_permissive | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 8.63 | 132.8 / 166.1 | 11997 / 10634 |
 | q235_div4_e16probe | agenticcyops_gate_permissive | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 8.30 | 111.4 / 142.2 | 11978 / 10000 |
 | q235_div4_e9 | AgenticCyOps | 105 | 93.3 [86.9, 96.7] | 92.4 [85.7, 96.1] | 3.40 | 115.9 / 192.5 | 11917 / 16429 |
 | q235_div4_e9 | agenticcyops_writejudge | 105 | 98.1 [93.3, 99.5] | 91.4 [84.5, 95.4] | 3.50 | 122.3 / 202.7 | 11959 / 17890 |
+| q235_div4_outage | agenticcyops_noautoapprove | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 7.98 | 130.3 / 175.6 | 12030 / 9651 |
+| q235_div4_outage | p2_judge | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 8.22 | 127.8 / 174.8 | 12127 / 9988 |
 | scout_div4 | ACL-Hardened | 75 | 70.7 [59.6, 79.8] | 52.0 [40.9, 62.9] | 1.79 | 51.0 / 64.5 | 21316 / 0 |
 | scout_div4 | AgenticCyOps | 75 | 62.7 [51.4, 72.7] | 94.7 [87.1, 97.9] | 3.44 | 94.5 / 150.0 | 12162 / 8651 |
 | scout_div4 | Flat | 75 | 84.0 [74.1, 90.6] | 0.0 [0.0, 4.9] | 0.00 | 51.9 / 64.8 | 21685 / 0 |
@@ -209,16 +212,16 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | q235_div4 | ACL-Hardened | 900 | 15184 | 0 | 36.1 / 76.7 |
 | q235_div4 | AgenticCyOps | 900 | 8647 | 8694 | 79.4 / 165.2 |
 | q235_div4 | agenticcyops_gate_permissive | 222 | 8401 | 6008 | 57.1 / 104.8 |
-| q235_div4 | agenticcyops_noautoapprove | 240 | 11246 | 6515 | 95.3 / 144.8 |
 | q235_div4 | Flat | 900 | 16419 | 0 | 37.3 / 81.5 |
 | q235_div4 | LLM-judge only | 226 | 10728 | 27857 | 181.2 / 251.1 |
-| q235_div4 | p2_judge | 240 | 11239 | 8647 | 103.5 / 152.8 |
 | q235_div4 | Symbolic only (no L6) | 450 | 9529 | 0 | 41.1 / 80.0 |
 | q235_div4_e16null | agenticcyops_gate_permissive | 240 | 11244 | 6615 | 99.9 / 148.8 |
 | q235_div4_e2 | AgenticCyOps | 225 | 7912 | 3773 | 49.2 / 125.6 |
 | q235_div4_e2 | Flat | 144 | 17742 | 0 | 29.8 / 65.4 |
 | q235_div4_e9 | AgenticCyOps | 207 | 8240 | 9320 | 78.7 / 144.2 |
 | q235_div4_e9 | agenticcyops_writejudge | 207 | 8326 | 10617 | 83.5 / 154.1 |
+| q235_div4_outage | agenticcyops_noautoapprove | 240 | 11246 | 6515 | 95.3 / 144.8 |
+| q235_div4_outage | p2_judge | 240 | 11239 | 8647 | 103.5 / 152.8 |
 | scout_div4 | ACL-Hardened | 450 | 19471 | 0 | 48.0 / 66.7 |
 | scout_div4 | AgenticCyOps | 450 | 11279 | 6104 | 76.2 / 134.4 |
 | scout_div4 | Flat | 450 | 19738 | 0 | 48.3 / 65.7 |
@@ -298,7 +301,6 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | q235_div4 | cyberops | agenticcyops | _disabled_P4 | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | agenticcyops | _disabled_P5 | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | agenticcyops_gate_permissive |  | f6f713d773 | defense-freeze-v2.7 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
-| q235_div4 | cyberops | agenticcyops_noautoapprove |  | f0baad81f3 | defense-freeze-v2.5-1-gf0baad8 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | flat |  | 0cbea096d0 | defense-freeze-v2-3-g0cbea09 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | flat |  | 31e7718ba7 | defense-freeze-v2.4-3-g31e7718 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | flat |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
@@ -309,7 +311,6 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | q235_div4 | cyberops | llm_judge |  | 5435e156e1 | defense-freeze-v2.2 @5435e156e1 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | llm_judge |  | 8e94f23700 | defense-freeze-v2-4-g8e94f23 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | llm_judge |  | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
-| q235_div4 | cyberops | p2_judge |  | f0baad81f3 | defense-freeze-v2.5-1-gf0baad8 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | symbolic_only |  | 5435e156e1 | defense-freeze-v2.2 @5435e156e1 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | symbolic_only |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | symbolic_only |  | 8e94f23700 | defense-freeze-v2-4-g8e94f23 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
@@ -401,6 +402,8 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | q235_div4_e9 | healthcare | agenticcyops_writejudge |  | 7ceb670753 | defense-freeze-v2.8-1-g7ceb670 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_e9 | legal | agenticcyops |  | 7ceb670753 | defense-freeze-v2.8-1-g7ceb670 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_e9 | legal | agenticcyops_writejudge |  | 7ceb670753 | defense-freeze-v2.8-1-g7ceb670 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4_outage | cyberops | agenticcyops_noautoapprove |  | f0baad81f3 | defense-freeze-v2.5-1-gf0baad8 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_div4_outage | cyberops | p2_judge |  | f0baad81f3 | defense-freeze-v2.5-1-gf0baad8 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_persistent | cyberops | agenticcyops |  | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_persistent | finance | agenticcyops |  | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_persistent | healthcare | agenticcyops |  | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
@@ -510,10 +513,6 @@ One definition, shared with Fig. 3(b) via `analysis/benign_cost.py`: denied tool
 
 | Arm | Config | Group | Domain | Denied % [95%] |
 |---|---|---|---|---|
-| permissive gate | `agenticcyops_gate_permissive` | q235_div4 | cyberops | 37.6 [35.2, 40.4] (342/909, k=20) |
-| permissive gate, first rule (never fired) | `agenticcyops_gate_permissive` | q235_div4_e16null | cyberops | 55.8 [53.8, 57.6] (509/913, k=20) |
-| no auto-approve | `agenticcyops_noautoapprove` | q235_div4 | cyberops | 53.7 [50.2, 56.8] (470/876, k=20) |
-| P2 + panel | `p2_judge` | q235_div4 | cyberops | 54.8 [52.5, 57.2] (493/899, k=20) |
 | judged writes | `agenticcyops_writejudge` | q235_div4_e9 | cyberops | 10.3 [7.2, 13.6] (90/878, k=20) |
 | judged writes | `agenticcyops_writejudge` | q235_div4_e9 | finance | 14.1 [8.8, 19.7] (25/177, k=5) |
 | judged writes | `agenticcyops_writejudge` | q235_div4_e9 | healthcare | 30.0 [24.2, 37.4] (66/220, k=5) |
@@ -587,3 +586,29 @@ E1.3: the paper states no proposal was ever auto-approved. The logs show the str
 | AgenticCyOps | LLM panel (P3.10) | P3 llm consensus reject | LLM panel | deny | 3631 |
 | AgenticCyOps | LLM panel (P3.10) | P3 llm consensus approve | LLM panel | allow | 1662 |
 | **all configs** | **deterministic auto-decisions (P3.7 + P3.9)** |  |  |  | **0** |
+
+## T16. Validator availability: which results an out-of-credit API validator decided
+
+GPT-4o was unavailable from about 09:00 UTC on 20 September and Claude Sonnet 4.5 from about 15:00 UTC on 22 September, both until about 18:00 UTC on 23 September; the panel counted their errors as rejections. A round is open when the missing votes could have changed its outcome; the direct bound credits every open panel rejection of an attack proposal as an approval (analysis/outage.py).
+
+| Arm | Trials | Open % | ASR as run % | Direct bound % | ASR, determinate trials % (n) |
+|---|---|---|---|---|---|
+| FULL, development | 225 | 28.4 | 4.0 | 4.0 | 3.7 (161) |
+| FULL, transfer | 675 | 26.7 | 4.1 | 7.0 | 3.2 (495) |
+| JudgeOnly | 225 | 51.1 | 24.4 | 34.7 | 24.5 (110) |
+| FULL minus P1 | 204 | 26.5 | 5.4 | 5.9 | 5.3 (150) |
+| FULL minus P2 | 204 | 27.5 | 9.8 | 10.3 | 11.5 (148) |
+| FULL minus P4 | 225 | 29.3 | 8.9 | 8.9 | 5.0 (159) |
+| FULL minus P5 | 225 | 30.2 | 6.2 | 6.2 | 3.2 (157) |
+| Llama-4-Scout, CyberOps | 225 | 59.1 | 1.8 | 5.8 | 2.2 (92) |
+| Llama-4-Scout, finance | 225 | 22.2 | 3.6 | 8.0 | 3.4 (175) |
+| Mistral-Small, CyberOps | 225 | 35.6 | 2.7 | 9.3 | 2.8 (145) |
+| Mistral-Small, finance | 225 | 32.0 | 0.0 | 0.0 | 0.0 (153) |
+| Llama-3.1-8B, CyberOps | 225 | 15.6 | 4.0 | 4.0 | 4.7 (190) |
+| Llama-3.1-8B, finance | 225 | 7.6 | 6.2 | 6.2 | 5.8 (208) |
+| permissive gate | 222 | 41.0 | 0.0 | 0.0 | 0.0 (131) |
+| no auto-approve (not reported) | 240 | 83.3 | 1.2 | 13.8 | 0.0 (40) |
+| P2 + panel (not reported) | 240 | 98.3 | 10.0 | 33.3 | 0.0 (4) |
+| E2 siblings and parents, FULL | 225 | 51.1 | 1.3 | 19.1 | 0.9 (110) |
+| judged writes (E9), FULL | 207 | 0.0 | 8.7 | 8.7 | 8.7 (207) |
+| judged writes (E9), writejudge | 207 | 0.0 | 6.8 | 6.8 | 6.8 (207) |

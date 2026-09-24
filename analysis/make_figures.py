@@ -852,9 +852,20 @@ def fig_validator_behavior(trials: list[dict], outdir: Path) -> tuple[Path, dict
     import matplotlib.pyplot as plt
 
     panel, rounds = validator_rounds()
-    approve = {v: np.array([1 if r.get(v) == "approve" else 0 for r in rounds]) for v in panel}
+    # An API validator that was out of credit returned an error, which the
+    # panel counts as a rejection (analysis/outage.py). Treating those errors
+    # as votes would make the unavailable validators look strict and agree
+    # with each other; so kappa uses the rounds in which both validators of a
+    # pair actually voted, and reject rates and the quorum sweep use the
+    # rounds in which all four did.
+    voted = lambda r, v: r.get(v) in ("approve", "reject")
+    clean = [r for r in rounds if all(voted(r, v) for v in panel)]
+    approve = {v: np.array([1 if r.get(v) == "approve" else 0 for r in clean]) for v in panel}
 
-    def kappa(a, b):
+    def kappa(vi, vj):
+        both = [r for r in rounds if voted(r, vi) and voted(r, vj)]
+        a = np.array([r[vi] == "approve" for r in both], dtype=float)
+        b = np.array([r[vj] == "approve" for r in both], dtype=float)
         po = float((a == b).mean())
         pa, pb = a.mean(), b.mean()
         pe = pa * pb + (1 - pa) * (1 - pb)
@@ -864,7 +875,7 @@ def fig_validator_behavior(trials: list[dict], outdir: Path) -> tuple[Path, dict
     M = np.full((k, k), np.nan)
     for i, vi in enumerate(panel):
         for j, vj in enumerate(panel):
-            M[i, j] = 1 - approve[vi].mean() if i == j else kappa(approve[vi], approve[vj])
+            M[i, j] = 1 - approve[vi].mean() if i == j else kappa(vi, vj)
 
     fig, (ax, axq) = plt.subplots(
         1, 2, figsize=(fs.WIDTH_1COL, 2.2),
@@ -905,7 +916,9 @@ def fig_validator_behavior(trials: list[dict], outdir: Path) -> tuple[Path, dict
         "takeaway": ("The four judges agree only moderately with each other, so how many of "
                      "them must approve changes what gets through by tens of points."),
         "data_sources": [f"logs/*_eval_attacks_{DEV_GROUP}/agenticcyops_*.jsonl"],
-        "n": {"rounds": len(rounds), "panel": list(panel),
+        "n": {"rounds": len(rounds), "rounds_all_voted": len(clean), "panel": list(panel),
+              "kappa": {f"{a}|{b}": round(float(M[i, j]), 2) for i, a in enumerate(panel)
+                        for j, b in enumerate(panel) if i < j},
               "reject_rate_pct": {v: round(100 * (1 - approve[v].mean()), 1) for v in panel},
               "approved_pct_by_quorum": {int(q): round(s, 1) for q, s in zip(qs, share)}},
     }

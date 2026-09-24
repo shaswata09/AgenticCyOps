@@ -101,3 +101,44 @@ q235_div4_e16null:
     - cyberops_eval_attacks_q235_div4/agenticcyops_gate_permissive_20260923_091732.jsonl
     - cyberops_eval_attacks_q235_div4/agenticcyops_gate_permissive_20260923_094558.jsonl
     - cyberops_eval_attacks_q235_div4/agenticcyops_gate_permissive_20260923_101159.jsonl
+
+q235_div4_outage:
+  reason: >-
+    Invalid as measured. The no-auto-approve (E1) and P2 + panel (E17) arms ran on
+    23 September while both API validators were out of credit; the panel counted
+    their errors as rejections, could never reach its quorum, and approved no
+    proposal in either arm (T16). They measured a panel that denies everything,
+    not the arms they were meant to be, so no table reports them.
+  logs:
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_040947.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_041014.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_043702.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_050310.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_052954.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_060622.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_063248.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_065248.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_072527.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_074651.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_080213.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_083431.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_085012.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_090911.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_093736.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_noautoapprove_20260923_100406.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_040858.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_040924.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_044026.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_050501.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_053302.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_061459.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_065336.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_071944.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_075202.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_081644.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_085337.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_092747.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_094601.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_100714.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_102949.jsonl
+    - cyberops_eval_attacks_q235_div4/p2_judge_20260923_105134.jsonl
