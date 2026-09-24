@@ -238,3 +238,6 @@ benchmarks/tamas/results/budget.jsonl
 
 # Claude Code local settings (contain absolute paths)
 .claude/settings.local.json
+
+# camera-ready author block: identifies the authors, never committed during review
+paper/camera_ready_authors.tex
