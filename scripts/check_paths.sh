@@ -55,6 +55,15 @@ check "absolute repo paths" 1 -F "$ABS"
 check "API-key-shaped strings" 0 -E -e 'sk-[A-Za-z0-9]{20,}' -e 'ghp_[A-Za-z0-9]{20,}' \
                                   -e 'AKIA[0-9A-Z]{16}' -e 'Bearer [A-Za-z0-9._-]{20,}'
 
+# The paper source and the named author block identify a submission under
+# double-blind review; they stay local even if someone forces them in.
+for f in paper/main.tex paper/camera_ready_authors.tex; do
+    if git diff --cached --name-only | grep -qx "$f" || git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+        echo "[FAIL] $f is tracked or staged; it must stay local during review"
+        fail=1
+    fi
+done
+
 # .env must never be committed, whatever it contains.
 if git status --porcelain -uall | cut -c4- | grep -qx '.env'; then
     echo "[FAIL] .env is staged or untracked-and-would-be-added"
