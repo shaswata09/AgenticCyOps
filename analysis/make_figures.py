@@ -288,9 +288,9 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
     meta = {
         "name": "judgment_boundary",
         "file": path.name,
-        "takeaway": ("Never judging is the safest and the least usable; judging everything "
-                     "is neither safe nor cheap; DEFER sits near the safety of NoJudge at "
-                     "the usability of JudgeOnly."),
+        "takeaway": ("Never judging is the safest and escalates half of the legitimate work; "
+                     "the judges without the rules barely beat no checks; DEFER sits between "
+                     "them, at a cost set mostly by its rules."),
         "data_sources": ["results/eval_attacks/all_trials.csv",
                          f"logs/{DEV_DOMAIN}_eval_attacks_{DEV_GROUP}/*.jsonl"],
         "n": {
@@ -358,8 +358,8 @@ def tier_shares(mechs: list[str]) -> tuple[dict[str, float], int]:
 # --------------------------------------------------------------------- #
 #  F2. Who stops the attack: first interception by tier
 # --------------------------------------------------------------------- #
-# Takeaway: deterministic checks decide three quarters of the interceptions on
-# policy and structure attacks, and about a third on semantic third-party ones.
+# Takeaway: deterministic checks decide most interceptions on policy and
+# structure attacks, and well under half on semantic third-party ones.
 def fig_interception_tiers(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
@@ -376,12 +376,21 @@ def fig_interception_tiers(trials: list[dict], outdir: Path) -> tuple[Path, dict
     for g in ("A", "C", "D", "E"):
         live += asb_mechanisms(legacy / f"e2e_validator_group_{g}" / "general" / "results.csv")
 
+    replay = asb_mechanisms(asb_root / "e2e_validator_group_q235_div4_div4" / "general" / "results.csv")
+    if LOCAL4:
+        # the logged replay's panel rejected every round it saw; under Local4
+        # the rounds it approves are let through and leave the blocked set
+        from analysis.replay_panels import decide, load_all_votes, load_rounds, panel_for
+        V, R = load_all_votes(), load_rounds()
+        mem, q = panel_for("Local4", "asb")
+        let = sum(bool(decide(r["key"], mem, q, V)) for r in R["asb_replay405"])
+        panel = [m for m in replay if tiers.tier_of(m) == "panel"]
+        replay = [m for m in replay if tiers.tier_of(m) != "panel"] + panel[:len(panel) - let]
     sources = [
         ("Development", blocked_mechs({DEV_DOMAIN})),
         ("Transfer (3 domains)", blocked_mechs({"finance", "healthcare", "legal"})),
-        ("ASB replay", asb_mechanisms(
-            asb_root / "e2e_validator_group_q235_div4_div4" / "general" / "results.csv")),
-        ("ASB live", live),
+        ("ASB replay", replay),
+        ("ASB April (pre-freeze)" if LOCAL4 else "ASB live", live),
     ]
 
     fig, ax = plt.subplots(figsize=(fs.WIDTH_1COL, 2.3))
@@ -419,9 +428,9 @@ def fig_interception_tiers(trials: list[dict], outdir: Path) -> tuple[Path, dict
     path = fs.save(fig, "interception_tiers", outdir, fs.WIDTH_1COL)
     meta = {
         "name": "interception_tiers", "file": path.name,
-        "takeaway": ("Deterministic checks decide about three quarters of the interceptions "
-                     "on policy and structure attacks, and about a third on the semantic "
-                     "third-party benchmark."),
+        "takeaway": ("Deterministic checks decide most interceptions on policy and structure "
+                     "attacks, and well under half on the semantic third-party benchmark, "
+                     "there only through content-dependent rules."),
         "data_sources": ["results/eval_attacks/all_trials.csv",
                          "results/asb/e2e_validator_group_q235_div4_div4/general/results.csv",
                          "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"],
@@ -517,9 +526,9 @@ def fig_ap_heatmap(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     path = fs.save(fig, "ap_heatmap", outdir, fs.WIDTH_2COL)
     meta = {
         "name": "ap_heatmap", "file": path.name,
-        "takeaway": ("JudgeOnly leaves whole attack paths red that DEFER clears, and on "
-                     "several it scores worse than no checks at all; what survives DEFER is "
-                     "a short list of four paths, none above roughly 22%."),
+        "takeaway": ("JudgeOnly leaves whole attack paths red that DEFER clears; what "
+                     "survives DEFER is concentrated on a few paths, led by persuasion of "
+                     "the judges through the proposal's rationale (AP-10)."),
         "data_sources": ["results/eval_attacks/all_trials.csv"],
         "n": {"variants": {a: nvar[a] for a in ordered if a != SEP},
               "harness_proposed": harness,
@@ -1188,8 +1197,9 @@ def fig_transfer(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
 # --------------------------------------------------------------------- #
 #  F10. State carry-over
 # --------------------------------------------------------------------- #
-# Takeaway: the pipeline is already saturated at the first benign incident
-# after the attack sequence; state has to expire.
+# Takeaway: the first benign incident after the attacks is at the isolated
+# level; from the second on, benign incidents deny each other through state
+# that never expires.
 def fig_state_carryover(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     import matplotlib.pyplot as plt
 
@@ -1246,9 +1256,9 @@ def fig_state_carryover(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     path = fs.save(fig, "state_carryover", outdir, fs.WIDTH_1COL)
     meta = {
         "name": "state_carryover", "file": path.name,
-        "takeaway": ("With state carried across incidents the pipeline is already saturated "
-                     "at the first benign incident after the attacks and never recovers, so "
-                     "accumulated state has to expire."),
+        "takeaway": ("With state carried across incidents the first benign incident after the "
+                     "attacks is at the isolated level; from the second on, legitimate incidents "
+                     "deny each other through replay and ledger state that never expires."),
         "data_sources": [f"logs/*_eval_attacks_{pers_group}/*.jsonl",
                          "results/eval_attacks/all_trials.csv"],
         "n": {"isolated_mean_denials": round(iso_mean, 2),

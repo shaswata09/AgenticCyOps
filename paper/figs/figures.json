@@ -2,7 +2,7 @@
   {
     "name": "judgment_boundary",
     "file": "judgment_boundary.pdf",
-    "takeaway": "Never judging is the safest and the least usable; judging everything is neither safe nor cheap; DEFER sits near the safety of NoJudge at the usability of JudgeOnly.",
+    "takeaway": "Never judging is the safest and escalates half of the legitimate work; the judges without the rules barely beat no checks; DEFER sits between them, at a cost set mostly by its rules.",
     "data_sources": [
       "results/eval_attacks/all_trials.csv",
       "logs/cyberops_eval_attacks_q235_div4/*.jsonl"
@@ -50,7 +50,7 @@
   {
     "name": "interception_tiers",
     "file": "interception_tiers.pdf",
-    "takeaway": "Deterministic checks decide about three quarters of the interceptions on policy and structure attacks, and about a third on the semantic third-party benchmark.",
+    "takeaway": "Deterministic checks decide most interceptions on policy and structure attacks, and well under half on the semantic third-party benchmark, there only through content-dependent rules.",
     "data_sources": [
       "results/eval_attacks/all_trials.csv",
       "results/asb/e2e_validator_group_q235_div4_div4/general/results.csv",
@@ -59,8 +59,8 @@
     "n": {
       "Development": 54,
       "Transfer (3 domains)": 184,
-      "ASB replay": 405,
-      "ASB live": 1606,
+      "ASB replay": 387,
+      "ASB April (pre-freeze)": 1606,
       "Development tier %": {
         "content_independent": 31.5,
         "content_dependent": 51.9,
@@ -75,11 +75,11 @@
       },
       "ASB replay tier %": {
         "content_independent": 0.0,
-        "content_dependent": 38.3,
+        "content_dependent": 40.1,
         "similarity": 0.0,
-        "panel": 61.7
+        "panel": 59.9
       },
-      "ASB live tier %": {
+      "ASB April (pre-freeze) tier %": {
         "content_independent": 0.0,
         "content_dependent": 37.0,
         "similarity": 0.0,
@@ -90,7 +90,7 @@
   {
     "name": "ap_heatmap",
     "file": "ap_heatmap.pdf",
-    "takeaway": "JudgeOnly leaves whole attack paths red that DEFER clears, and on several it scores worse than no checks at all; what survives DEFER is a short list of four paths, none above roughly 22%.",
+    "takeaway": "JudgeOnly leaves whole attack paths red that DEFER clears; what survives DEFER is concentrated on a few paths, led by persuasion of the judges through the proposal's rationale (AP-10).",
     "data_sources": [
       "results/eval_attacks/all_trials.csv"
     ],
@@ -350,7 +350,7 @@
   {
     "name": "state_carryover",
     "file": "state_carryover.pdf",
-    "takeaway": "With state carried across incidents the pipeline is already saturated at the first benign incident after the attacks and never recovers, so accumulated state has to expire.",
+    "takeaway": "With state carried across incidents the first benign incident after the attacks is at the isolated level; from the second on, legitimate incidents deny each other through replay and ledger state that never expires.",
     "data_sources": [
       "logs/*_eval_attacks_q235_div4_persistent/*.jsonl",
       "results/eval_attacks/all_trials.csv"
