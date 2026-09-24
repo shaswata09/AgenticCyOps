@@ -74,3 +74,20 @@ def test_no_other_mapping_exists():
         assert "from analysis import tiers" in src, name
         for old in ("def tier_of", "def tier4_of", "_CONTENT_DEPENDENT", "_SIM_MECHS", "_LLM_MECHS"):
             assert old not in src, f"{name} still defines {old}"
+
+
+def test_cascade_annotation_is_everything_but_the_panel():
+    """The pipeline figure's "deterministic %" must be 100 minus the panel's
+    share of development interceptions (it once summed a tier key that the
+    four-way mapping no longer has, and printed the similarity share alone)."""
+    import re
+    import tempfile
+    from pathlib import Path
+
+    from analysis.make_figures import ALL_TRIALS, load_trials, write_cascade_defs
+    with tempfile.TemporaryDirectory() as d:
+        write_cascade_defs(load_trials(ALL_TRIALS), Path(d))
+        tex = (Path(d) / "cascade_pipeline_defs.tex").read_text()
+    det = int(re.search(r"\\def\\deterministicpct\{(\d+)\}", tex).group(1))
+    shares, _n, _u = tiers.shares(_populations()["development"])
+    assert det == round(100 * (1 - shares["panel"]))
