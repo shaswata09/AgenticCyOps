@@ -32,6 +32,7 @@ from pathlib import Path
 
 from analysis.statistical_tests import MEASURABLE, SYSTEM_CONFIGS, wilson
 from config import BASE_DIR, RESULTS_DIR
+from analysis.runlogs import run_logs
 
 CONFIG_LABEL = {"flat": "Flat", "acl_hardened": "ACL-Hardened", "agenticcyops": "AgenticCyOps",
                 "llm_judge": "LLM-judge only", "symbolic_only": "Symbolic only (no L6)"}
@@ -461,7 +462,7 @@ def build(results_dir: Path, main_group: str) -> str:
 
 def t11_benign_denials(group: str) -> str:
     """E7: the canonical benign denial rate, per domain and configuration."""
-    from analysis.benign_cost import DOMAINS as BC_DOMAINS, benign_denial_rates
+    from analysis.benign_cost import DOMAINS as BC_DOMAINS, benign_denial_rates, proposal_denials
 
     from analysis.benign_cost import denial_rate_ci
 
@@ -482,7 +483,35 @@ def t11_benign_denials(group: str) -> str:
                 pt, lo, hi, ns = denial_rate_ci(group, dom, cfg)
                 row.append(f"{100 * pt:.1f} [{100 * lo:.1f}, {100 * hi:.1f}] ({d}/{p}, k={ns})")
         rows.append(row)
-    return _md(["Domain"] + [f"{CONFIG_LABEL.get(c, c)} denied % [95%]" for c in configs], rows)
+    table = _md(["Domain"] + [f"{CONFIG_LABEL.get(c, c)} denied % [95%]" for c in configs], rows)
+
+    # Every added arm is its own row, keyed on its exact config string and
+    # read from the group its runs belong to (run_groups.yaml). Pooling them
+    # into agenticcyops is what made CyberOps FULL read 27.7 % instead of 10.1 %.
+    arm_rows = []
+    for label, g, cfg in added_arms(group):
+        for dom in BC_DOMAINS:
+            d, p = proposal_denials(g, dom, cfg)
+            if not p:
+                continue
+            pt, lo, hi, ns = denial_rate_ci(g, dom, cfg)
+            arm_rows.append([label, f"`{cfg}`", g, dom,
+                             f"{100 * pt:.1f} [{100 * lo:.1f}, {100 * hi:.1f}] ({d}/{p}, k={ns})"])
+    if arm_rows:
+        table += ("\n\n**Added arms.** One row per arm and domain, each from its own runs.\n\n"
+                  + _md(["Arm", "Config", "Group", "Domain", "Denied % [95%]"], arm_rows))
+    return table
+
+
+def added_arms(group: str) -> list[tuple[str, str, str]]:
+    """(paper name, group, exact config) for every arm added after the main
+    configurations, in the group its runs were routed to."""
+    return [("permissive gate", group, "agenticcyops_gate_permissive"),
+            ("permissive gate, first rule (never fired)", f"{group}_e16null", "agenticcyops_gate_permissive"),
+            ("no auto-approve", group, "agenticcyops_noautoapprove"),
+            ("P2 + panel", group, "p2_judge"),
+            ("judged writes", f"{group}_e9", "agenticcyops_writejudge"),
+            ("FULL, E9 re-run (baseline for judged writes)", f"{group}_e9", "agenticcyops")]
 
 
 def t12_benign_denials_by_check(group: str) -> str:
@@ -548,8 +577,13 @@ def t14_p3_decisions(group: str) -> str:
 
     LAYER = {"L0.7": "adaptive consent (P3.7)", "L2": "auto-gate (P3.9)", "L6": "LLM panel (P3.10)"}
     by: dict[str, dict] = defaultdict(lambda: defaultdict(int))
-    for f in glob.glob(str(BASE_DIR / "logs" / f"*_eval_attacks_{group}*" / "*.jsonl")):
-        cfg = Path(f).name.split("_2026")[0]
+    # exactly this group (after run_groups.yaml routing) and exactly each
+    # config from the run header -- not every directory whose name starts
+    # with the group, nor every file whose name starts with the config
+    files = [(cfg, f) for cfg in ("flat", "acl_hardened", "symbolic_only", "agenticcyops", "llm_judge")
+             for d in ("cyberops", "finance", "healthcare", "legal")
+             for f in run_logs(group, d, cfg)]
+    for cfg, f in files:
         with open(f, errors="ignore") as fh:
             for ln in fh:
                 if '"P3' not in ln:

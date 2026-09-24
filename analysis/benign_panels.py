@@ -26,7 +26,6 @@ ASB security let-through so the security/usability trade-off reads in one table.
 from __future__ import annotations
 
 import csv
-import glob
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -34,6 +33,7 @@ from pathlib import Path
 import yaml
 
 from config import BASE_DIR, CONFIGS_DIR
+from analysis.runlogs import run_logs
 
 DOMAINS = ("cyberops", "finance", "healthcare", "legal")
 PANEL_ORDER = ("single", "div3", "div4", "lin3", "div3x")
@@ -70,7 +70,7 @@ def _benign_rounds(domain: str) -> list[tuple[dict[str, str], bool]]:
     the deployed panel's actual ``auth_decision`` for that round (used to prove
     the recomposition is faithful).
     """
-    files = sorted(glob.glob(str(BASE_DIR / f"logs/{domain}_eval_attacks_{BENIGN_GROUP}/agenticcyops_*.jsonl")))
+    files = [str(f) for f in run_logs(BENIGN_GROUP, domain, "agenticcyops")]
     rounds_by_tf: dict[tuple[str, str], list[tuple[dict, bool]]] = defaultdict(list)
     newest_file: dict[str, str] = {}
     for f in files:

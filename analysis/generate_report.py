@@ -30,6 +30,7 @@ import numpy as np
 import seaborn as sns
 
 from config import BASE_DIR
+from analysis.runlogs import config_files
 
 sns.set_theme(style="whitegrid", font_scale=1.0, palette="muted")
 plt.rcParams.update({
@@ -52,7 +53,7 @@ ACCENT = "#2980b9"
 def load_logs(domain: str, config: str) -> list[dict]:
     log_dir = BASE_DIR / "logs" / f"{domain}_baseline"
     events = []
-    for f in sorted(log_dir.glob(f"{config}*.jsonl")):
+    for f in sorted(config_files(log_dir, config)):
         with open(f) as fh:
             for line in fh:
                 line = line.strip()

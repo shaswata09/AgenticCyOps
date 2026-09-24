@@ -9,10 +9,10 @@
     ],
     "n": {
       "attack_trials": {
-        "Flat": 240,
+        "Flat": 225,
         "ACL": 225,
         "NoJudge": 225,
-        "DEFER": 240,
+        "DEFER": 225,
         "JudgeOnly": 225
       },
       "attack_variants": 80,
@@ -28,21 +28,21 @@
         "Flat": 0.0,
         "ACL": 0.0,
         "NoJudge": 0.0,
-        "DEFER": 31.3,
+        "DEFER": 33.4,
         "JudgeOnly": 99.9
       },
       "benign_denied_pct": {
         "Flat": 0.0,
         "ACL": 54.8,
         "NoJudge": 51.7,
-        "DEFER": 27.7,
+        "DEFER": 10.1,
         "JudgeOnly": 12.9
       },
       "benign_tasks_completed_pct": {
         "Flat": 100.0,
         "ACL": 26.7,
         "NoJudge": 25.0,
-        "DEFER": 90.0,
+        "DEFER": 95.0,
         "JudgeOnly": 95.0
       }
     }
@@ -57,19 +57,19 @@
       "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"
     ],
     "n": {
-      "Development": 78,
-      "Transfer (3 domains)": 246,
+      "Development": 67,
+      "Transfer (3 domains)": 195,
       "ASB replay": 405,
       "ASB live": 1606,
       "Development tier %": {
-        "rule": 56.4,
-        "similarity": 15.4,
-        "llm": 28.2
+        "rule": 61.2,
+        "similarity": 16.4,
+        "llm": 22.4
       },
       "Transfer (3 domains) tier %": {
-        "rule": 37.4,
-        "similarity": 21.1,
-        "llm": 41.5
+        "rule": 45.1,
+        "similarity": 26.7,
+        "llm": 28.2
       },
       "ASB replay tier %": {
         "rule": 38.3,
@@ -117,6 +117,7 @@
       "defer_nonzero": [
         "ap7",
         "ap13",
+        "ap10",
         "ap15"
       ]
     }
@@ -130,8 +131,8 @@
     ],
     "n": {
       "variants": 80,
-      "JudgeOnly fails, DEFER holds": 21,
-      "both fail": 2,
+      "JudgeOnly fails, DEFER holds": 20,
+      "both fail": 3,
       "DEFER fails, JudgeOnly holds": 1
     }
   },
@@ -145,7 +146,7 @@
     "n": {
       "shared_variants": 68,
       "asr_pct": {
-        "DEFER (subset)": 3.4,
+        "DEFER (subset)": 4.4,
         "minus P1": 5.4,
         "minus P2": 9.8,
         "minus P3": 19.1,
@@ -153,7 +154,7 @@
         "minus P5": 3.4
       },
       "benign_any_denial_pct": {
-        "DEFER (subset)": 86.7,
+        "DEFER (subset)": 80.0,
         "minus P1": 76.7,
         "minus P2": 73.3,
         "minus P3": 65.0,
@@ -232,7 +233,7 @@
       "logs/*_eval_attacks_q235_div4/agenticcyops_*.jsonl"
     ],
     "n": {
-      "rounds": 8531,
+      "rounds": 4101,
       "panel": [
         "V1_qwen",
         "V5_mistral",
@@ -240,16 +241,16 @@
         "V6_gpt4o"
       ],
       "reject_rate_pct": {
-        "V1_qwen": 29.6,
-        "V5_mistral": 26.2,
-        "V4_claude": 78.5,
-        "V6_gpt4o": 65.6
+        "V1_qwen": 38.8,
+        "V5_mistral": 38.9,
+        "V4_claude": 77.3,
+        "V6_gpt4o": 66.4
       },
       "approved_pct_by_quorum": {
-        "1": 81.8,
-        "2": 67.5,
-        "3": 33.2,
-        "4": 17.7
+        "1": 72.4,
+        "2": 56.5,
+        "3": 33.8,
+        "4": 15.8
       }
     }
   },
@@ -264,59 +265,53 @@
     "n": {
       "denied_pct_of_proposals": {
         "P2 parameter/scope": {
-          "cyberops": 7.5,
-          "finance": 5.37,
-          "healthcare": 1.83,
-          "legal": 3.62
+          "cyberops": 7.33,
+          "finance": 6.25,
+          "healthcare": 1.45,
+          "legal": 3.31
         },
         "P3 LLM panel": {
-          "cyberops": 20.21,
-          "finance": 9.04,
-          "healthcare": 26.38,
-          "legal": 20.33
-        },
-        "P3 deterministic": {
-          "cyberops": 0.0,
-          "finance": 0.0,
-          "healthcare": 0.69,
-          "legal": 0.0
+          "cyberops": 2.75,
+          "finance": 9.66,
+          "healthcare": 25.6,
+          "legal": 19.89
         },
         "P4 memory": {
-          "cyberops": 1.01,
-          "finance": 9.04,
-          "healthcare": 22.94,
-          "legal": 15.88
+          "cyberops": 1.03,
+          "finance": 8.52,
+          "healthcare": 24.64,
+          "legal": 16.57
         },
         "P5 store policy": {
           "cyberops": 0.0,
-          "finance": 1.69,
+          "finance": 1.7,
           "healthcare": 0.0,
           "legal": 0.0
         },
         "redactions": {
-          "cyberops": 4.85,
-          "finance": 1.69,
+          "cyberops": 8.25,
+          "finance": 1.7,
           "healthcare": 0.0,
-          "legal": 10.03
+          "legal": 11.05
         }
       },
       "median_latency_s": {
         "primary model": {
           "Flat": 32.7,
           "NoJudge": 49.68,
-          "DEFER": 36.48,
+          "DEFER": 38.48,
           "JudgeOnly": 34.02
         },
         "deterministic checks": {
           "Flat": 0.1,
           "NoJudge": 0.04,
-          "DEFER": 0.07,
+          "DEFER": 0.09,
           "JudgeOnly": 0.08
         },
         "LLM panel": {
           "Flat": 0.0,
           "NoJudge": 0.0,
-          "DEFER": 69.28,
+          "DEFER": 76.28,
           "JudgeOnly": 132.31
         }
       },
@@ -324,21 +319,21 @@
         "primary": {
           "Flat": 20645,
           "NoJudge": 12184,
-          "DEFER": 12218,
+          "DEFER": 12292,
           "JudgeOnly": 11937
         },
         "validator": {
           "Flat": 0,
           "NoJudge": 0,
-          "DEFER": 17870,
+          "DEFER": 17348,
           "JudgeOnly": 26321
         }
       },
       "benign_proposals": {
-        "cyberops": 3547,
-        "finance": 354,
-        "healthcare": 436,
-        "legal": 359
+        "cyberops": 873,
+        "finance": 176,
+        "healthcare": 207,
+        "legal": 181
       }
     }
   },
@@ -351,7 +346,7 @@
       "results/eval_attacks/all_trials.csv"
     ],
     "n": {
-      "isolated_mean_denials": 1.82,
+      "isolated_mean_denials": 1.87,
       "sequence_len": {
         "cyberops": 20,
         "finance": 5,
@@ -375,19 +370,19 @@
     ],
     "n": {
       "Qwen3-235B / cyberops": {
-        "Flat": 39.2,
+        "Flat": 36.4,
         "ACL": 24.0,
-        "DEFER": 2.9,
-        "benign any-denial": 86.7
+        "DEFER": 4.0,
+        "benign any-denial": 80.0
       },
       "Qwen3-235B / finance": {
-        "Flat": 32.5,
+        "Flat": 32.0,
         "ACL": 26.2,
-        "DEFER": 1.2,
+        "DEFER": 4.4,
         "benign any-denial": 100.0
       },
       "Qwen3-235B / healthcare": {
-        "Flat": 27.2,
+        "Flat": 21.3,
         "ACL": 17.8,
         "DEFER": 0.0,
         "benign any-denial": 100.0
@@ -395,7 +390,7 @@
       "Qwen3-235B / legal": {
         "Flat": 34.2,
         "ACL": 32.4,
-        "DEFER": 9.3,
+        "DEFER": 8.0,
         "benign any-denial": 100.0
       },
       "Llama-4-Scout / cyberops": {
@@ -428,7 +423,7 @@
     "n": {
       "Flat": {
         "C1 task input": {
-          "asr_pct": 27.1,
+          "asr_pct": 26.7,
           "exposure_pct": 100.0
         },
         "C2 tool response": {
@@ -440,17 +435,17 @@
           "exposure_pct": 97.1
         },
         "C4 handoff": {
-          "asr_pct": 50.0,
+          "asr_pct": 46.7,
           "exposure_pct": 100.0
         },
         "C5 rationale": {
-          "asr_pct": 79.8,
-          "exposure_pct": 100.0
+          "asr_pct": 76.0,
+          "exposure_pct": null
         }
       },
       "DEFER": {
         "C1 task input": {
-          "asr_pct": 3.7,
+          "asr_pct": 3.1,
           "exposure_pct": 100.0
         },
         "C2 tool response": {
@@ -462,20 +457,20 @@
           "exposure_pct": 62.9
         },
         "C4 handoff": {
-          "asr_pct": 0.0,
+          "asr_pct": 7.8,
           "exposure_pct": 100.0
         },
         "C5 rationale": {
-          "asr_pct": 1.4,
-          "exposure_pct": 96.3
+          "asr_pct": 4.2,
+          "exposure_pct": null
         }
       },
       "channels": {
-        "C1 task input": 2289,
-        "C2 tool response": 555,
-        "C3 memory": 538,
-        "C4 handoff": 534,
-        "C5 rationale": 480
+        "C1 task input": 2160,
+        "C2 tool response": 516,
+        "C3 memory": 493,
+        "C4 handoff": 492,
+        "C5 rationale": 417
       },
       "defer_tool_response_residual": {
         "legal ap2": 9

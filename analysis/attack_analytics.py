@@ -30,6 +30,7 @@ import numpy as np
 import seaborn as sns
 
 from config import BASE_DIR
+from analysis.runlogs import run_logs
 
 # ---------------------------------------------------------------------------
 # Style constants — consistent with generate_report.py / baseline_analytics.py
@@ -188,12 +189,8 @@ def load_cost_metrics(domain: str, group: str) -> list[dict]:
         memory_writes, latency_tool_ms, latency_llm_ms, e2e_latency_ms,
         events_total.
     """
-    log_dir = BASE_DIR / "logs" / f"{domain}_eval_attacks_{group}"
-    if not log_dir.exists():
-        return []
-
     per_trial: dict[str, dict] = {}
-    for path in sorted(log_dir.glob("*.jsonl")):
+    for path in run_logs(group, domain):
         with open(path) as fh:
             for line in fh:
                 try:

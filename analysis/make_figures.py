@@ -31,6 +31,7 @@ from analysis import figstyle as fs
 from analysis.statistical_tests import (MEASURABLE, _clusters, _CLUSTER, _EXEC,
                                         cluster_bootstrap, load_trials)
 from config import BASE_DIR
+from analysis.runlogs import run_logs
 
 ALL_TRIALS = BASE_DIR / "results" / "eval_attacks" / "all_trials.csv"
 LOGS = BASE_DIR / "logs"
@@ -131,10 +132,9 @@ def scan_proposals(group: str, domain: str, configs: list[str],
     """
     out: dict[str, dict[str, tuple[int, int]]] = {}
     for cfg in configs:
-        pattern = str(LOGS / f"{domain}_eval_attacks_{group}" / f"{cfg}_*.jsonl")
         per_tf: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0])
         newest: dict[str, str] = {}
-        for f in sorted(glob.glob(pattern)):
+        for f in map(str, run_logs(group, domain, cfg)):
             with open(f, errors="ignore") as fh:
                 for ln in fh:
                     if not ln.strip():
@@ -817,7 +817,7 @@ def validator_rounds(group: str = DEV_GROUP) -> tuple[list[str], list[dict[str, 
     newest: dict[str, str] = {}
     panel: tuple[str, ...] | None = None
     for d in ("cyberops", "finance", "healthcare", "legal"):
-        for f in sorted(glob.glob(str(LOGS / f"{d}_eval_attacks_{group}" / "agenticcyops_*.jsonl"))):
+        for f in map(str, run_logs(group, d, "agenticcyops")):
             for ln in open(f, errors="ignore"):
                 if not ln.strip():
                     continue
@@ -1148,7 +1148,7 @@ def fig_state_carryover(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     # first timestamp per benign trial, from the persistent logs
     order: dict[tuple[str, str], str] = {}
     for d in ("cyberops", "finance", "healthcare", "legal"):
-        for f in sorted(glob.glob(str(LOGS / f"{d}_eval_attacks_{pers_group}" / "*.jsonl"))):
+        for f in map(str, run_logs(pers_group, d)):
             for ln in open(f, errors="ignore"):
                 if '"benign"' not in ln:
                     continue
@@ -1251,11 +1251,10 @@ def benign_cost_from_logs(group: str, domains, configs) -> dict:
                                      "lat": defaultdict(list)})
     for d in domains:
         for cfg in configs:
-            pat = str(LOGS / f"{d}_eval_attacks_{group}" / f"{cfg}_*.jsonl")
             newest: dict[str, str] = {}
             per_tf: dict[tuple[str, str], dict] = defaultdict(
                 lambda: {"deny": defaultdict(int), "redact": 0, "lat": defaultdict(float)})
-            for f in sorted(glob.glob(pat)):
+            for f in map(str, run_logs(group, d, cfg)):
                 for ln in open(f, errors="ignore"):
                     if not ln.strip():
                         continue

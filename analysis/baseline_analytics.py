@@ -28,6 +28,7 @@ import numpy as np
 import seaborn as sns
 
 from config import BASE_DIR
+from analysis.runlogs import config_files
 
 # ---------------------------------------------------------------------------
 # Style constants — consistent with generate_report.py / baseline_dashboard.py
@@ -105,7 +106,7 @@ def load_logs(domain: str, config: str, group: str = "F") -> list[dict]:
     for log_dir in candidates:
         if not log_dir.is_dir():
             continue
-        for f in sorted(log_dir.glob(f"{config}*.jsonl")):
+        for f in sorted(config_files(log_dir, config)):
             with open(f) as fh:
                 for line in fh:
                     line = line.strip()

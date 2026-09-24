@@ -23,7 +23,6 @@ each trial, the newest log file that carries it wins.
 """
 from __future__ import annotations
 
-import glob
 import json
 from collections import defaultdict
 
