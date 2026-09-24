@@ -192,6 +192,23 @@ def build() -> dict:
         r = outcomes("full", "q235_div4", "agenticcyops", D4, "", panel, V, R["full"])
         lin[panel] = {"dev": _ci(A(r, ("cyberops",)))[0], "transfer": _ci(A(r, TR))[0]}
     out["lineage"] = lin
+
+    # ---- rule-evading siblings (E2): variants appended after each path's
+    # original variants in the E2 runs; held = never executed under the panel
+    orig = defaultdict(set)
+    for t in A(full):
+        orig[(t["domain"], t["ap"])].add(t["variant"])
+    e2 = outcomes("e2", "q235_div4_e2", "agenticcyops", D4, "", MAIN, V, R["e2"])
+    sib = [t for t in A(e2) if t["variant"] not in orig[(t["domain"], t["ap"])]]
+    by_var = defaultdict(list)
+    for t in sib:
+        by_var[(t["domain"], t["ap"], t["variant"])].append(t["outcome"])
+    out["e2_siblings"] = {
+        "siblings": len(by_var), "trials": len(sib),
+        "executed_trials": sum(t["outcome"] == "executed" for t in sib),
+        "held": sum("executed" not in v for v in by_var.values()),
+        "executed": sorted(f"{d}:{ap}:{v}" for (d, ap, v), o in by_var.items() if "executed" in o),
+    }
     return out
 
 

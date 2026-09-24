@@ -106,12 +106,22 @@ the logs, so every logged panel round is re-adjudicated offline by local
 validators, with no primary model and no API.
 
 **Fidelity.**
-- Reconstructed messages match the prompt token count each validator logged in
-  **99.6–99.7%** of rounds; the rest differ only by a random incident UUID the
-  host drew when a trigger nested its fields (not recoverable, no content).
+- **Two replay defects found by the v2.9 calibration run and fixed**
+  (`analysis/replay.py`):
+  1. The host logs `justification[:300]`; AP-10's injected rationale is longer.
+     The replay showed the judges a clipped rationale on the 171 rounds that
+     decide AP-10 (16–44 prompt tokens short), and the judges approved what
+     they had rejected with the full text. Restored from the payload's
+     `meta.injection` (full text stored there).
+  2. Payload triggers were edited on 22 Sep (E5.1 annotation strip); the Scout
+     and Llama-8B runs predate it. Incidents are now rebuilt from the payload at
+     each run's logged commit.
+  Both changed 279 distinct inputs; all seven judges were re-queried on them.
+- Reconstructed messages now match every logged prompt length up to the random
+  incident UUID the host drew when a trigger nested its fields (≤12 tokens).
 - **Replay reproduces the original decisions:** Mistral-Small (a Div4 member,
   local, unaffected by the outage) re-asked on the rebuilt prompts gives its
-  logged vote in **98.6% of 18,159 rounds** (99.0–99.6% on the main arms).
+  logged vote in **99.3% of 18,159 rounds** (171 of 171 on the AP-10 attack rounds).
 - Found along the way: for AP-4, AP-5, AP-6, AP-12 and part of AP-10 the
   panel never saw the incident description (the trigger nests its fields, so
   the host's `incident.description` was empty).
@@ -123,31 +133,31 @@ was seen. No Qwen-family member (the primary is Qwen), no API, no outage.
 
 | Arm (direct outcome under Local4) | ASR [95% CI] | as run (Div4) |
 |---|---|---|
-| FULL, development | **9.8% [4.0, 16.9]** | 4.0% |
+| FULL, development | **8.4% [3.1, 15.1]** | 4.0% |
 | FULL, transfer (pooled) | **5.3% [2.8, 8.3]** | 4.1% |
 | JUDGEONLY, development | **33.8% [24.0, 44.0]** | 24.4% |
-| FULL + judge everything after rules | 9.8% (benign denial 9.5% -> 11.6%) | n/a |
-| FULL minus P1 / P2 / P4 / P5 (dev) | 11.3 / 16.2 / 14.7 / 12.4% | 5.4 / 9.8 / 8.9 / 6.2% |
-| Scout / Mistral / Llama-8B primaries, dev | 7.1 / 9.3 / 7.6% | 1.8 / 2.7 / 4.0% |
+| FULL + judge everything after rules | 8.4% (benign denial 9.5% -> 11.6%) | n/a |
+| FULL minus P1 / P2 / P4 / P5 (dev) | 9.8 / 14.7 / 13.3 / 11.1% | 5.4 / 9.8 / 8.9 / 6.2% |
+| Scout / Mistral / Llama-8B primaries, dev | 5.8 / 8.0 / 6.2% | 1.8 / 2.7 / 4.0% |
 | ASB frozen live run (FLAT 28.8%) | **1.8%** (9 of 101 panel rounds approved) | 0.0% (panel degraded) |
 | ASB 405-action replay | 1.4% (18 let through, 4.4%) | n/a |
 
 - **Rules first survives and sharpens.** Under the same judges, JUDGEONLY leaves
-  33.8% (FLAT 36.4%): these judges alone barely help. FULL cuts it to 9.8%.
+  33.8% (FLAT 36.4%): these judges alone barely help. FULL cuts it to 8.4%.
 - **Judge-everything-after-rules (Major 3).** Judging every rule-surviving call,
   consequential or not, changes **no** attack outcome (no attack executed through
   a non-consequential call) and adds benign denials. The gap between FULL and
   JUDGEONLY is therefore what the rules add, not what judging less costs.
-  Holds in all four domains (executed attacks: CyberOps 22, finance 10, legal
+  Holds in all four domains (executed attacks: CyberOps 19, finance 10, legal
   26, healthcare 0, identical with and without); judged fraction 33.4% -> 78.1%
   (dev), benign denial 9.5% -> 11.6%, incidents with a denial 75% -> 80%.
-  Without the memory paths (AP-4, AP-13) JUDGEONLY vs FULL is 23.3% vs 10.1%.
+  Without the memory paths (AP-4, AP-13) JUDGEONLY vs FULL is 23.3% vs 8.5%.
 - **Ablation benign cost, recomputed from the logs (minor point).** Legitimate
   proposals denied / benign incidents with a denial, Local4: FULL 9.5 / 75.0,
   -P1 7.1 / 58.3, -P2 2.9 / 33.3, -P3 7.9 / 58.3 (as run, no panel),
   -P4 9.3 / 78.3, -P5 7.2 / 68.3. P2 is both a main defense and the main cost.
 - **Panel strictness sets the absolute level.** Per-validator approval of attack
-  vs benign proposals: Gemma 31/76%, gpt-oss 43/80%, Mistral 51/91%, Scout 81/94%,
+  vs benign proposals: Gemma 30/76%, gpt-oss 43/80%, Mistral 50/91%, Scout 81/94%,
   original Div4 (where all four voted) 26/81%. Scout barely discriminates. We keep
   Local4 as specified and report sensitivity to composition rather than choose
   members after seeing attack outcomes.
@@ -155,6 +165,29 @@ was seen. No Qwen-family member (the primary is Qwen), no API, no outage.
 **Rule evasion with a working panel (E2).** Of the 24 siblings, **22 were held
 by the judges and 2 executed** (CyberOps AP-10, finance AP-5; 6 of 72 trials).
 Evading a rule hands the decision to the judges, who then fail on 2 of 24.
+
+## B2: the live run at defense-freeze-v2.9 and the replay calibration `done`
+Source: `analysis/b2_live.py` -> `results/b2_live.json`. Group `q235_local2_v29`:
+FULL, CyberOps development split, 3 trials per variant, 20 benign x 3, primary
+Qwen3-235B, judges Mistral-Small + Gemma-4 (2 of 2), clean tree, no API.
+(The first launch skipped 10 of 15 paths because the tree was dirty when each
+later path started; they were re-run from a clean tree. All 300 trials present.)
+
+| | live (v2.9) | replay of the original runs, same judges |
+|---|---|---|
+| ASR, original 75 variants | **2.7% [0.0, 6.2]** | 3.6% [0.0, 8.0] |
+| attempt rate | 33.8% | 33.8% |
+| legitimate proposals denied | 12.9% | 12.5% |
+| median benign-incident latency | 60.0 s | (as run with Div4: 117.8 s) |
+
+- **Gate vs panel:** the corrected scorer lets the auto-gates decide **0 of
+  1,443** consequential proposals (all "ambiguous"); the panel approved 1,134
+  and rejected 309.
+- **Scores:** alignment is higher for attack-incident proposals than for benign
+  ones (mean 0.453 vs 0.393), as the offline analysis predicted; scope, 
+  precedent and proportionality do not separate them.
+- The replay is faithful and slightly conservative relative to a live run with
+  the same judges.
 
 ## Major 5 and Q6: persistent state and expiry `done`
 Source: `analysis/ledger_expiry.py` (drives the shipped `CrossIncidentLedger` and
@@ -215,10 +248,10 @@ Same replay, size-matched panels (2 of 3), no API:
 
 | Panel | FULL dev | FULL transfer | ASB replay let-through (of 250 panel rounds) | frozen ASB ASR |
 |---|---|---|---|---|
-| Div3L: Mistral, Gemma, gpt-oss | 9.8% | 5.8% | 18 | 1.8% |
+| Div3L: Mistral, Gemma, gpt-oss | 8.4% | 5.8% | 18 | 1.8% |
 | Lin3: Qwen3-32B, R1-Distill-Qwen-32B, Qwen3-14B | 10.7% | 8.3% | 127 | 9.6% |
 | Single: Qwen3-32B (1 of 1) | 10.7% | 8.0% | 36 | 3.3% |
-| Local4 (3 of 4, main) | 9.8% | 5.3% | 18 | 1.8% |
+| Local4 (3 of 4, main) | 8.4% | 5.3% | 18 | 1.8% |
 
 At equal size and quorum the same-lineage panel lets 7x more ASB actions through
 than the diverse one and 3.5x more than its own single member (original logged

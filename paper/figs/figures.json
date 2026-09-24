@@ -57,15 +57,15 @@
       "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"
     ],
     "n": {
-      "Development": 54,
+      "Development": 57,
       "Transfer (3 domains)": 184,
       "ASB replay": 387,
       "ASB April (pre-freeze)": 1606,
       "Development tier %": {
-        "content_independent": 31.5,
-        "content_dependent": 51.9,
-        "similarity": 5.6,
-        "panel": 11.1
+        "content_independent": 29.8,
+        "content_dependent": 49.1,
+        "similarity": 5.3,
+        "panel": 15.8
       },
       "Transfer (3 domains) tier %": {
         "content_independent": 35.3,
@@ -137,9 +137,9 @@
     ],
     "n": {
       "variants": 80,
-      "JudgeOnly fails, DEFER holds": 22,
+      "JudgeOnly fails, DEFER holds": 23,
       "DEFER fails, JudgeOnly holds": 2,
-      "both fail": 7
+      "both fail": 6
     }
   },
   {
@@ -152,12 +152,12 @@
     "n": {
       "shared_variants": 68,
       "asr_pct": {
-        "DEFER (subset)": 10.8,
-        "minus P1": 11.3,
-        "minus P2": 16.2,
+        "DEFER (subset)": 9.3,
+        "minus P1": 9.8,
+        "minus P2": 14.7,
         "minus P3": 19.1,
-        "minus P4": 16.2,
-        "minus P5": 10.3
+        "minus P4": 14.7,
+        "minus P5": 8.8
       },
       "benign_any_denial_pct": {
         "DEFER (subset)": 80.0,
@@ -259,8 +259,8 @@
       "approved_pct_by_quorum": {
         "1": 80.6,
         "2": 68.3,
-        "3": 52.1,
-        "4": 37.5
+        "3": 52.0,
+        "4": 37.4
       }
     }
   },
@@ -382,7 +382,7 @@
       "Qwen3-235B / cyberops": {
         "Flat": 36.4,
         "ACL": 24.0,
-        "DEFER": 9.8,
+        "DEFER": 8.4,
         "benign any-denial": 80.0
       },
       "Qwen3-235B / finance": {
@@ -406,19 +406,19 @@
       "Llama-4-Scout / cyberops": {
         "Flat": 35.1,
         "ACL": 29.8,
-        "DEFER": 7.1,
+        "DEFER": 5.8,
         "benign any-denial": 93.3
       },
       "Mistral-Small / cyberops": {
         "Flat": 21.8,
         "ACL": 19.6,
-        "DEFER": 9.3,
+        "DEFER": 8.0,
         "benign any-denial": 53.3
       },
       "Llama-3.1-8B / cyberops": {
         "Flat": 36.0,
         "ACL": 33.3,
-        "DEFER": 7.6,
+        "DEFER": 6.2,
         "benign any-denial": 50.0
       }
     }
@@ -471,7 +471,7 @@
           "exposure_pct": 100.0
         },
         "C5 rationale": {
-          "asr_pct": 14.6,
+          "asr_pct": 11.5,
           "exposure_pct": null
         }
       },

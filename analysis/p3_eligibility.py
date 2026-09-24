@@ -51,6 +51,25 @@ def trials(group: str, domain: str, config: str, suffix: str = "") -> dict[str, 
     return {tid: per[(tid, f)] for tid, f in newest.items()}
 
 
+def trial_commits(group: str, domain: str, config: str, suffix: str = "") -> dict[str, str]:
+    """``trial_id -> git_sha`` of the run that produced the events ``trials``
+    returns for it (same newest-log rule)."""
+    out: dict[str, str] = {}
+    for f in run_logs(group, domain, config, suffix=suffix):
+        sha = ""
+        with open(f, errors="ignore") as fh:
+            for ln in fh:
+                try:
+                    e = json.loads(ln)
+                except json.JSONDecodeError:
+                    continue
+                if e.get("action") == "run_header":
+                    sha = e.get("git_sha") or ""
+                elif e.get("trial_id"):
+                    out[e["trial_id"]] = sha
+    return out
+
+
 def call_path(call: Call, events: list[dict]) -> str:
     """The single path a tool call took, from the events between its
     proposal and its decision."""

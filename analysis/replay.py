@@ -24,10 +24,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from dataclasses import dataclass, field
 
 from analysis.gate_offline import _incident, p3_proposal
-from analysis.p3_eligibility import _payload, call_path, trials
+from analysis.p3_eligibility import _payload, call_path, trial_commits, trials
 from attacks.effects import build_calls, evaluate_effects
 from consensus.validator import VALIDATOR_SYSTEM_PROMPT
 from consensus.verified_execution import VerifiedExecution
@@ -83,14 +84,73 @@ def _proposal(call) -> dict:
     return p
 
 
+_PAYLOAD_AT: dict[tuple[str, str, str], list] = {}
+
+
+def incident_at(domain: str, trial_id: str, sha: str) -> dict:
+    """The incident as the run saw it: the trigger from the payload file at the
+    run's commit. Payload triggers were edited after some runs (the E5.1 strip
+    of experiment annotations, 22 Sep), and the judges read the trigger, so the
+    replay must use the version the run used. Falls back to the current file
+    when the commit is unknown or lacks the file."""
+    import subprocess
+    parts = trial_id.split("_")
+    ap, variant = parts[1], int(parts[2].lstrip("v"))
+    if not sha or ap == "benign":
+        return _incident(domain, trial_id)
+    name = f"{ap}_variants.json"
+    key = (sha, domain, name)
+    if key not in _PAYLOAD_AT:
+        rc = subprocess.run(["git", "show", f"{sha}:domains/{domain}/payloads/{name}"],
+                            capture_output=True, text=True, cwd=Path(__file__).resolve().parents[1])
+        try:
+            data = json.loads(rc.stdout) if rc.returncode == 0 else None
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict):
+            data = data.get("variants") or data.get("payloads") or data.get("attacks")
+        _PAYLOAD_AT[key] = data if isinstance(data, list) else []
+    payloads = _PAYLOAD_AT[key]
+    if not 0 < variant <= len(payloads):
+        return _incident(domain, trial_id)
+    return (payloads[variant - 1] or {}).get("trigger", {})
+
+
+LOGGED_JUSTIFICATION_CHARS = 300      # host/orchestrator.py logs justification[:300]
+
+
+def _full_justification(logged: str, call, domain: str, trial_id: str) -> str:
+    """The justification the judges saw. The host logs it cut to 300
+    characters; a proposal injected on the ``proposal_justification`` channel
+    (AP-10) carries a longer, attacker-written rationale whose full text is in
+    the payload's ``meta.injection``. Restore it when the logged text is a
+    300-character prefix of an injected proposal's justification for the same
+    tool. An agent's own justification longer than 300 characters cannot be
+    restored and stays cut."""
+    if len(logged) < LOGGED_JUSTIFICATION_CHARS or "_benign_" in trial_id:
+        return logged
+    p = _payload(domain, trial_id)
+    if not p:
+        return logged
+    inj = ((p[1].get("meta") or {}).get("injection") or {})
+    specs = [inj["proposal"]] if isinstance(inj.get("proposal"), dict) else []
+    specs += [s for s in (inj.get("proposals") or []) if isinstance(s, dict)]
+    for spec in specs:
+        full = str(spec.get("justification") or "")
+        if spec.get("tool") == call.target and full.startswith(logged):
+            return full
+    return logged
+
+
 def rounds(group: str, config: str, domains=DOMAINS, suffix: str = "",
            include_unjudged: bool = False) -> list[Round]:
     host_config = "llm_judge" if config == "llm_judge" else "agenticcyops"
     sanitize = config != "llm_judge"
     out: list[Round] = []
     for d in domains:
+        commits = trial_commits(group, d, config, suffix)
         for tid, events in trials(group, d, config, suffix).items():
-            incident = _incident(d, tid)
+            incident = incident_at(d, tid, commits.get(tid, ""))
             benign = "_benign_" in tid
             attack_ids: set[str] = set()
             if not benign:
@@ -104,7 +164,7 @@ def rounds(group: str, config: str, domains=DOMAINS, suffix: str = "",
                 judged = path in ("p3_panel_approved", "p3_panel_rejected")
                 if not (judged or (include_unjudged and path == "allowed_no_p3")):
                     continue
-                c.justification = just.get(c.call_id, "")
+                c.justification = _full_justification(just.get(c.call_id, ""), c, d, tid)
                 msg = message(_proposal(c), incident, host_config, sanitize, tid)
                 votes, toks = {}, {}
                 if judged:
