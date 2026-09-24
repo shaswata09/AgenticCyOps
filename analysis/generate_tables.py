@@ -251,17 +251,43 @@ def t7_cost(trials: list[dict]) -> str:
 
 
 def t8_runs(runs: list[dict]) -> str:
+    experiments = [r for r in runs
+                   if not any(t in r["group"] for t in ("_smoke", "_debug"))]
+
+    # A freeze tag is supposed to name one tree. defense-freeze-v2.2 does not:
+    # it was re-cut onto a later commit after six runs had already used it, and
+    # the move changed a frozen file (attacks/harness.py). Rather than print one
+    # commit and hide the other, find every tag that resolves to more than one
+    # commit and qualify it, so a reader can check out what each run used.
+    shas_per_tag: dict[str, set[str]] = {}
+    for r in experiments:
+        tag, sha = r.get("freeze_tag") or "", (r.get("git_sha") or "")[:10]
+        if tag and sha:
+            shas_per_tag.setdefault(tag, set()).add(sha)
+    ambiguous = {t: s for t, s in shas_per_tag.items() if len(s) > 1}
+
+    def tag_of(r: dict) -> str:
+        tag, sha = r.get("freeze_tag") or "", (r.get("git_sha") or "")[:10]
+        return f"{tag} @{sha}" if tag in ambiguous else tag
+
+    # The git sha is part of the identity: two runs of the same cell against
+    # different trees are two provenance rows, not one.
     seen = {}
-    for r in runs:
-        if any(t in r["group"] for t in ("_smoke", "_debug")):     # not experiments
-            continue
-        key = (r["group"], r["domain"], r["config"], r.get("suffix", ""))
-        seen[key] = r
+    for r in experiments:
+        seen[(r["group"], r["domain"], r["config"], r.get("suffix", ""),
+              (r.get("git_sha") or "")[:10])] = r
     rows = [[r["group"], r["domain"], r["config"], r.get("suffix") or "", (r.get("git_sha") or "")[:10],
-             r.get("freeze_tag") or "", r.get("primary_model") or "", r.get("primary_quantization") or "",
+             tag_of(r), r.get("primary_model") or "", r.get("primary_quantization") or "",
              r.get("consensus_config") or "", r.get("primary_temperature") or "", r.get("state_mode") or "",
-             r.get("vllm_version") or ""] for r in sorted(seen.values(), key=lambda r: (r["group"], r["domain"], r["config"]))]
-    return _md(["Group", "Domain", "Config", "Suffix", "Git", "Freeze tag", "Primary", "Quant", "Panel", "T", "State", "vLLM"], rows)
+             r.get("vllm_version") or ""] for r in sorted(seen.values(), key=lambda r: (r["group"], r["domain"], r["config"], (r.get("git_sha") or "")))]
+    table = _md(["Group", "Domain", "Config", "Suffix", "Git", "Freeze tag", "Primary", "Quant", "Panel", "T", "State", "vLLM"], rows)
+    if ambiguous:
+        notes = "\n".join(
+            f"- `{t}` resolves to {len(s)} commits in this data ({', '.join(sorted(s))}); "
+            "rows above are qualified with the commit actually used."
+            for t, s in sorted(ambiguous.items()))
+        table += "\n\n**Freeze tags that do not name a single tree:**\n\n" + notes + "\n"
+    return table
 
 
 CHANNEL_LABEL = {"tool_response": "Tool response", "memory": "Memory", "alert_text": "Alert text",

@@ -3,7 +3,9 @@ Group: q235_div4  primary=Qwen/Qwen3-235B-A22B-Instruct-2507
 Attacks: ['DPI', 'IPI', 'MP', 'POT']  Configs: ['agenticcyops']  Trials: 5
 Cases: 255  -> live LLM calls: 1275
 
-Loading weights:   0%|          | 0/310 [00:00<?, ?it/s]Loading weights: 100%|██████████| 310/310 [00:00<00:00, 7823.73it/s]
+
+Loading weights:   0%|          | 0/310 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 310/310 [00:00<00:00, 7823.73it/s]
 Building pipelines for group q235_div4  domain=general
   P3-L6 consensus profile: div4  (override)  replaying 3825 recorded primary outputs
    group q235_div4: 20/1275 cells  elapsed 0s  ETA 0s
@@ -71,8 +73,8 @@ Building pipelines for group q235_div4  domain=general
    group q235_div4: 1260/1275 cells  elapsed 642s  ETA 8s
    group q235_div4: 1275/1275 cells  elapsed 654s  ETA 0s
 
-  wrote /storage/data/AgenticCyOps_Private/results/asb/e2e_validator_group_q235_div4_div4/general/results.csv  (1275 rows)
-  wrote /storage/data/AgenticCyOps_Private/results/asb/e2e_validator_group_q235_div4_div4/general/summary.csv  (5 per-(subtype,config) cells)
+  wrote <REPO_ROOT>/results/asb/e2e_validator_group_q235_div4_div4/general/results.csv  (1275 rows)
+  wrote <REPO_ROOT>/results/asb/e2e_validator_group_q235_div4_div4/general/summary.csv  (5 per-(subtype,config) cells)
 
 === ASB DPI ASR (group q235_div4) ===
 subtype               config              n  LLM ASR% Defended ASR%
@@ -85,27 +87,27 @@ trigger_phrase        agenticcyops       75    36.00         0.00
 replay exit=0
 2026-09-20 18:45:23  tables
 python -m analysis.parse_logs
-[llama8b_div4/cyberops] 837 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_llama8b_div4/cyberops/results.csv
-[q235_div4/cyberops] 1395 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4/cyberops/results.csv
-[q235_div4_disabled_P1/cyberops] 279 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_disabled_P1/cyberops/results.csv
-[q235_div4_disabled_P2/cyberops] 279 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_disabled_P2/cyberops/results.csv
-[q235_div4_disabled_P3/cyberops] 279 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_disabled_P3/cyberops/results.csv
-[q235_div4_disabled_P4/cyberops] 279 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_disabled_P4/cyberops/results.csv
-[q235_div4_disabled_P5/cyberops] 279 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_disabled_P5/cyberops/results.csv
-[q235_div4_persistent/cyberops] 50 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_persistent/cyberops/results.csv
-[q235_div4_smoke/cyberops] 105 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_smoke/cyberops/results.csv
-[q235_div4_smoke2/cyberops] 15 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_smoke2/cyberops/results.csv
-[llama8b_div4/finance] 702 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_llama8b_div4/finance/results.csv
-[q235_div4/finance] 702 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4/finance/results.csv
-[q235_div4_persistent/finance] 35 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_persistent/finance/results.csv
-[q235_div4/healthcare] 702 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4/healthcare/results.csv
-[q235_div4_persistent/healthcare] 35 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_persistent/healthcare/results.csv
-[q235_div4/legal] 702 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4/legal/results.csv
-[q235_div4_persistent/legal] 35 trials -> /storage/data/AgenticCyOps_Private/results/eval_attacks/group_q235_div4_persistent/legal/results.csv
-wrote /storage/data/AgenticCyOps_Private/results/eval_attacks/all_trials.csv (6710 rows) and runs.csv (581 log files)
+[llama8b_div4/cyberops] 837 trials -> <REPO_ROOT>/results/eval_attacks/group_llama8b_div4/cyberops/results.csv
+[q235_div4/cyberops] 1395 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4/cyberops/results.csv
+[q235_div4_disabled_P1/cyberops] 279 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_disabled_P1/cyberops/results.csv
+[q235_div4_disabled_P2/cyberops] 279 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_disabled_P2/cyberops/results.csv
+[q235_div4_disabled_P3/cyberops] 279 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_disabled_P3/cyberops/results.csv
+[q235_div4_disabled_P4/cyberops] 279 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_disabled_P4/cyberops/results.csv
+[q235_div4_disabled_P5/cyberops] 279 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_disabled_P5/cyberops/results.csv
+[q235_div4_persistent/cyberops] 50 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_persistent/cyberops/results.csv
+[q235_div4_smoke/cyberops] 105 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_smoke/cyberops/results.csv
+[q235_div4_smoke2/cyberops] 15 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_smoke2/cyberops/results.csv
+[llama8b_div4/finance] 702 trials -> <REPO_ROOT>/results/eval_attacks/group_llama8b_div4/finance/results.csv
+[q235_div4/finance] 702 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4/finance/results.csv
+[q235_div4_persistent/finance] 35 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_persistent/finance/results.csv
+[q235_div4/healthcare] 702 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4/healthcare/results.csv
+[q235_div4_persistent/healthcare] 35 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_persistent/healthcare/results.csv
+[q235_div4/legal] 702 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4/legal/results.csv
+[q235_div4_persistent/legal] 35 trials -> <REPO_ROOT>/results/eval_attacks/group_q235_div4_persistent/legal/results.csv
+wrote <REPO_ROOT>/results/eval_attacks/all_trials.csv (6710 rows) and runs.csv (581 log files)
 python -m analysis.statistical_tests
-wrote /storage/data/AgenticCyOps_Private/results/eval_attacks/stats.csv (173 rows, B=10000)
+wrote <REPO_ROOT>/results/eval_attacks/stats.csv (173 rows, B=10000)
 python -m analysis.generate_tables
-wrote /storage/data/AgenticCyOps_Private/results/paper_tables.md
+wrote <REPO_ROOT>/results/paper_tables.md
 2026-09-20 18:45:28  tables written to results/paper_tables.md
 tables exit=0

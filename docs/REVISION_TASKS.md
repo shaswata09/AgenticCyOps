@@ -39,7 +39,7 @@ An audit of the committed results found these problems. Each task below referenc
 | P13 | No ablation reruns, no judge-only baseline, no adaptive attacker, no held-out attacks. | no `_disabled_` dirs |
 | P14 | Transfer-domain payloads for 10 of 15 APs are terse templates. | `scripts/generate_cross_domain_payloads.py` |
 | P15 | `analysis/statistical_tests.py`, `generate_tables.py`, `parse_logs.py` are one-line stubs. | `wc -l` |
-| P16 | Logs and scripts leak `/storage/data/AgenticCyOps_Private/...` and 10.116.x.x addresses. | logs `model` field; `scripts/run_attack_paths.sh` |
+| P16 | Logs and scripts leak `<REPO_ROOT>/...` and 10.116.x.x addresses. | logs `model` field; `scripts/run_attack_paths.sh` |
 
 ---
 
