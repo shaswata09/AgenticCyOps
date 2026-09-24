@@ -548,14 +548,12 @@ E14: every benign denial attributed to the check that made it, with the tools or
 
 ## T13. Checks by tier: what each intercepts and what it costs (q235_div4)
 
-E19: one tier mapping (`analysis/figstyle.tier4_of`) shared with the figures. Content-independent rules decide from structure alone and cannot be reworded past; content-dependent rules read the proposal and can be; similarity is the tunable embedding tier; the panel is the judges.
+One tier mapping (`analysis/tiers.py`) shared with the figures. Content-independent rules decide from structure alone and cannot be reworded past; content-dependent rules read the proposal and can be; similarity is the tunable embedding tier; the panel is the judges. P2.2 (target not in evidence) has a substring and a cosine branch that the committed logs do not tell apart; it is counted as content-dependent here.
 
 | Tier | Check | Attack first interceptions | Benign denials |
 |---|---|---|---|
 | Rule (content-independent) | P4 schema violation | 48 | 48 |
 | Rule (content-independent) | P5 access control | 12 | 0 |
-| Rule (content-independent) | P5 broad query block | 12 | 3 |
-| Rule (content-independent) | P3 handoff validation | 8 | 0 |
 | Rule (content-independent) | P2 critical asset | 5 | 0 |
 | Rule (content-independent) | P1 config integrity violation | 4 | 0 |
 | Rule (content-independent) | P4 write replay | 3 | 0 |
@@ -564,26 +562,28 @@ E19: one tier mapping (`analysis/figstyle.tier4_of`) shared with the figures. Co
 | Rule (content-independent) | P3 bulk action | 1 | 0 |
 | Rule (content-independent) | P3 execution verification | 1 | 0 |
 | Rule (content-independent) | P2 capability scoping | 0 | 84 |
+| Rule (content-dependent) | P2 target not in evidence | 60 | 0 |
 | Rule (content-dependent) | P2 parameter rule violation | 20 | 0 |
+| Rule (content-dependent) | P5 broad query block | 12 | 3 |
+| Rule (content-dependent) | P3 handoff validation | 8 | 0 |
 | Rule (content-dependent) | P3 operational context | 5 | 0 |
 | Rule (content-dependent) | P2 wildcard parameter | 3 | 0 |
 | Rule (content-dependent) | P4 metadata invalid | 3 | 6 |
-| Similarity threshold | P2 target not in evidence | 60 | 0 |
 | Similarity threshold | P4 similarity reject | 3 | 51 |
 | LLM panel | P3 llm consensus reject | 70 | 130 |
 | **tier totals** |  |  |  |
-| **Rule (content-independent)** |  | **98** | **135** |
-| **Rule (content-dependent)** |  | **31** | **6** |
-| **Similarity threshold** |  | **63** | **51** |
+| **Rule (content-independent)** |  | **78** | **132** |
+| **Rule (content-dependent)** |  | **111** | **9** |
+| **Similarity threshold** |  | **3** | **51** |
 | **LLM panel** |  | **70** | **130** |
 
 ## T14. Where P3 decisions were taken (q235_div4)
 
 E1.3: the paper states no proposal was ever auto-approved. The logs show the stronger fact -- the deterministic gate never decided at all, so every consequential proposal that survived the deterministic denials reached the panel (or, under symbolic-only, was escalated).
 
-| Config | Layer | Mechanism | Decision | Count |
-|---|---|---|---|---|
-| Symbolic only (no L6) | LLM panel (P3.10) | P3 symbolic escalate | escalate | 2362 |
-| AgenticCyOps | LLM panel (P3.10) | P3 llm consensus reject | deny | 3631 |
-| AgenticCyOps | LLM panel (P3.10) | P3 llm consensus approve | allow | 1662 |
-| **all configs** | **deterministic auto-decisions (P3.7 + P3.9)** |  |  | **0** |
+| Config | Layer | Mechanism | Tier | Decision | Count |
+|---|---|---|---|---|---|
+| Symbolic only (no L6) | LLM panel (P3.10) | P3 symbolic escalate | — | escalate | 2362 |
+| AgenticCyOps | LLM panel (P3.10) | P3 llm consensus reject | LLM panel | deny | 3631 |
+| AgenticCyOps | LLM panel (P3.10) | P3 llm consensus approve | LLM panel | allow | 1662 |
+| **all configs** | **deterministic auto-decisions (P3.7 + P3.9)** |  |  |  | **0** |

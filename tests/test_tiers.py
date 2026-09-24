@@ -1,0 +1,76 @@
+"""A2: one tier mapping, total over every interception the logs contain."""
+import csv
+from pathlib import Path
+
+import pytest
+
+from analysis import tiers
+from analysis.make_figures import DEV_DOMAIN, DEV_GROUP, asb_mechanisms
+from config import BASE_DIR
+
+
+def _populations() -> dict[str, list[str]]:
+    rows = list(csv.DictReader(open(BASE_DIR / "results/eval_attacks/all_trials.csv")))
+
+    def blocked(domains):
+        return [t["blocked_by"] for t in rows
+                if t["group"] == DEV_GROUP and t["domain"] in domains and t["ap"] != "benign"
+                and not t.get("suffix") and t["config"] == "agenticcyops" and t["outcome"] == "blocked"]
+
+    live = []
+    for g in ("A", "C", "D", "E"):
+        live += asb_mechanisms(BASE_DIR / "results_legacy_v1/asb" / f"e2e_validator_group_{g}"
+                               / "general" / "results.csv")
+    return {
+        "development": blocked({DEV_DOMAIN}),
+        "transfer": blocked({"finance", "healthcare", "legal"}),
+        "asb_replay": asb_mechanisms(BASE_DIR / "results/asb/e2e_validator_group_q235_div4_div4"
+                                     / "general" / "results.csv"),
+        "asb_live": live,
+    }
+
+
+@pytest.mark.parametrize("population", ["development", "transfer", "asb_replay", "asb_live"])
+def test_every_first_interception_in_the_logs_is_mapped(population):
+    mechs = _populations()[population]
+    assert mechs, f"{population}: no interceptions found"
+    _shares, n, unmapped = tiers.shares(mechs)
+    assert not unmapped, f"{population}: unmapped {sorted(set(unmapped))}"
+    assert n == len(mechs)
+
+
+@pytest.mark.parametrize("mechanism,tier", [
+    # the two the earlier mapping had wrong
+    ("P3_handoff_validation", "content_dependent"),
+    ("P2_target_not_in_evidence", "content_dependent"),
+    # one from each tier
+    ("P4_schema_violation", "content_independent"),
+    ("P2_parameter_rule_violation", "content_dependent"),
+    ("P4_similarity_reject", "similarity"),
+    ("P3_llm_consensus_reject", "panel"),
+    ("P3_write_judge_reject", "panel"),
+    # embedding thresholds are similarity, whichever principle they sit in
+    ("P2_sensitive_content_detected", "similarity"),
+    ("P5_irrelevant_query", "similarity"),
+])
+def test_tier_of(mechanism, tier):
+    assert tiers.tier_of(mechanism) == tier
+
+
+def test_p2_2_branch_decides_its_tier_once_logged():
+    assert tiers.tier_of("P2_target_not_in_evidence", deny_branch="cosine") == "similarity"
+    assert tiers.tier_of("P2_target_not_in_evidence", deny_branch="substring") == "content_dependent"
+
+
+def test_unknown_and_empty_labels_are_not_given_a_tier():
+    for m in ("", None, "nan", "P9_not_a_check"):
+        assert tiers.tier_of(m) is None
+
+
+def test_no_other_mapping_exists():
+    """figstyle, generate_tables and make_figures import tiers; none defines its own."""
+    for name in ("figstyle.py", "generate_tables.py", "make_figures.py"):
+        src = (BASE_DIR / "analysis" / name).read_text()
+        assert "from analysis import tiers" in src, name
+        for old in ("def tier_of", "def tier4_of", "_CONTENT_DEPENDENT", "_SIM_MECHS", "_LLM_MECHS"):
+            assert old not in src, f"{name} still defines {old}"

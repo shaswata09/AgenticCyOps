@@ -31,98 +31,11 @@ HEIGHT_2COL = (2.6, 3.2)   # allowed height range, double column
 # --------------------------------------------------------------------- #
 #  Colours (Okabe--Ito)
 # --------------------------------------------------------------------- #
-TIER_COLOR = {
-    "rule": "#0072B2",          # deterministic / rule-based checks
-    "similarity": "#56B4E9",    # similarity-threshold checks
-    "llm": "#E69F00",           # LLM panel
-}
-TIER_LABEL = {
-    "rule": "Rule-based",
-    "similarity": "Similarity threshold",
-    "llm": "LLM panel",
-}
-TIER_ORDER = ("rule", "similarity", "llm")
+# Tier colours, labels and the mechanism -> tier mapping are defined once, in
+# analysis/tiers.py, and every table and figure uses that module.
+from analysis import tiers  # noqa: E402,F401
 
-# Which tier a first interception belongs to. Defined here (rather than in
-# generate_tables.py) because no table reports tiers today; every figure that
-# splits interceptions by tier must use this one mapping.
-#   * the LLM panel is the only non-deterministic check
-#   * P4's embedding-similarity gate is the one threshold check
-#   * everything else -- registry, manifest, parameter, sequence, ledger,
-#     store-policy and query-scope checks -- is deterministic
-_LLM_MECHS = {"P3_llm_consensus_reject", "P3_consensus_reject"}
-_SIM_MECHS = {"P4_similarity_reject", "P2_target_not_in_evidence"}
-
-# --------------------------------------------------------------------- #
-#  E19: four-way tier taxonomy, shared by the tables and the figures
-# --------------------------------------------------------------------- #
-# The paper argues the embedding tier is pure cost, so the split it rests on
-# has to be explicit and used in exactly one place.
-#
-#   content-independent rule : decides from structure alone -- is this tool
-#       registered, in the manifest, the right shape, a replay. It never reads
-#       what the proposal says, so an attacker cannot reword past it.
-#   content-dependent rule   : a deterministic rule that does read the content
-#       (parameter values, an output classifier, a sanitisation regex). It can
-#       be reworded past, which is what E3 tests.
-#   similarity               : an embedding threshold (P4.2 write similarity,
-#       P2.2 target-in-evidence when an embedder is loaded). Tunable, and the
-#       tier E6 sweeps.
-#   panel                    : the LLM validators.
-TIER4_LABEL = {
-    "rule_independent": "Rule (content-independent)",
-    "rule_dependent": "Rule (content-dependent)",
-    "similarity": "Similarity threshold",
-    "panel": "LLM panel",
-}
-TIER4_ORDER = ("rule_independent", "rule_dependent", "similarity", "panel")
-TIER4_COLOR = {
-    "rule_independent": "#0072B2",   # deep blue: the structural floor
-    "rule_dependent": "#56B4E9",     # light blue: still deterministic
-    "similarity": "#CC79A7",         # purple: the tunable tier
-    "panel": "#E69F00",              # orange: the judges
-}
-
-# mechanisms whose decision reads the proposal's content
-_CONTENT_DEPENDENT = {
-    "P2_parameter_rule_violation", "P2_sensitive_content_detected",
-    "P2_sensitive_pattern_detected", "P2_output_safe", "P2_wildcard_parameter",
-    "P3_operational_context", "P4_metadata_invalid",
-    "P5_injection_sanitization", "P5_irrelevant_query",
-}
-
-
-def tier4_of(mechanism: str | None) -> str | None:
-    """Four-way tier of a ``blocked_by`` / ``defense_mechanism`` value."""
-    if not mechanism:
-        return None
-    m = str(mechanism).strip()
-    if m.lower() in ("", "nan", "none"):
-        return None
-    if m in _LLM_MECHS:
-        return "panel"
-    if m in _SIM_MECHS:
-        return "similarity"
-    if m in _CONTENT_DEPENDENT:
-        return "rule_dependent"
-    return "rule_independent"
-
-
-def tier_of(mechanism: str | None) -> str | None:
-    """``'rule'`` / ``'similarity'`` / ``'llm'`` for a ``blocked_by`` or ASB
-    ``defense_mechanism`` value; ``None`` when the trial was not blocked."""
-    if not mechanism:
-        return None
-    m = str(mechanism).strip()
-    if m in _LLM_MECHS:
-        return "llm"
-    if m in _SIM_MECHS:
-        return "similarity"
-    if m.lower() in ("", "nan", "none"):
-        return None
-    return "rule"
-
-# Paper configuration labels -> colour. JudgeOnly shares the LLM-tier orange
+# Paper configuration labels -> colour. JudgeOnly shares the panel-tier orange
 # and NoJudge the rule-tier blue on purpose: the arm *is* that tier alone.
 CONFIG_COLOR = {
     "Flat": "#999999",

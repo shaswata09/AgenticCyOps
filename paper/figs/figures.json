@@ -62,24 +62,28 @@
       "ASB replay": 405,
       "ASB live": 1606,
       "Development tier %": {
-        "rule": 61.2,
-        "similarity": 16.4,
-        "llm": 22.4
+        "content_independent": 29.9,
+        "content_dependent": 43.3,
+        "similarity": 4.5,
+        "panel": 22.4
       },
       "Transfer (3 domains) tier %": {
-        "rule": 45.1,
-        "similarity": 26.7,
-        "llm": 28.2
+        "content_independent": 29.7,
+        "content_dependent": 42.1,
+        "similarity": 0.0,
+        "panel": 28.2
       },
       "ASB replay tier %": {
-        "rule": 38.3,
+        "content_independent": 0.0,
+        "content_dependent": 38.3,
         "similarity": 0.0,
-        "llm": 61.7
+        "panel": 61.7
       },
       "ASB live tier %": {
-        "rule": 37.0,
+        "content_independent": 0.0,
+        "content_dependent": 37.0,
         "similarity": 0.0,
-        "llm": 63.0
+        "panel": 63.0
       }
     }
   },

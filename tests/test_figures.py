@@ -89,13 +89,3 @@ def test_cascade_defs_are_regenerated_from_data(built):
     assert all(v >= 0 for v in vals) and vals, "no numbers written"
 
 
-def test_tier_mapping_is_total_and_stable():
-    """Every mechanism the data can produce lands in exactly one tier."""
-    assert fs.tier_of("P3_llm_consensus_reject") == "llm"
-    assert fs.tier_of("P3_consensus_reject") == "llm"
-    assert fs.tier_of("P4_similarity_reject") == "similarity"
-    for m in ("P1_response_integrity", "P2_critical_asset", "P3_replay_detection",
-              "P4_schema_violation", "P5_access_control"):
-        assert fs.tier_of(m) == "rule", m
-    for empty in ("", None, "nan"):
-        assert fs.tier_of(empty) is None

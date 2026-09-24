@@ -28,6 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from analysis import figstyle as fs
+from analysis import tiers
 from analysis.statistical_tests import (MEASURABLE, _clusters, _CLUSTER, _EXEC,
                                         cluster_bootstrap, load_trials)
 from config import BASE_DIR
@@ -218,7 +219,7 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
     def _band(ax):
         """Light band over the arms that involve judgment (NoJudge..JudgeOnly)."""
         ax.axvspan(x[labels.index("NoJudge")] - 0.5, x[labels.index("JudgeOnly")] + 0.5,
-                   color=fs.TIER_COLOR["llm"], alpha=0.07, zorder=0, lw=0)
+                   color=tiers.COLOR["panel"], alpha=0.07, zorder=0, lw=0)
 
     def _bars(ax, vals, ylab, headroom):
         _band(ax)
@@ -261,16 +262,16 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
 
     # "judgment boundary" label on panel (a)
     axa.text(x[labels.index("DEFER")], axa.get_ylim()[1] * 0.985, "judgment boundary",
-             ha="center", va="top", fontsize=7, color=fs.TIER_COLOR["llm"])
+             ha="center", va="top", fontsize=7, color=tiers.COLOR["panel"])
 
     # judged fraction under the x labels of panel (a)
     for xi, c in zip(x, cfgs):
         axa.annotate(f"{100 * judged[c]:.0f}", xy=(xi, 0), xycoords=("data", "axes fraction"),
                      xytext=(0, -22), textcoords="offset points", ha="center",
-                     va="top", fontsize=6, color=fs.TIER_COLOR["llm"])
+                     va="top", fontsize=6, color=tiers.COLOR["panel"])
     axa.annotate("judged (%)", xy=(0, 0), xycoords=("axes fraction", "axes fraction"),
                  xytext=(-4, -22), textcoords="offset points", ha="right", va="top",
-                 fontsize=6, color=fs.TIER_COLOR["llm"])
+                 fontsize=6, color=tiers.COLOR["panel"])
 
     fs.panel_label(axa, "(a)")
     fs.panel_label(axb, "(b)")
@@ -338,13 +339,12 @@ def asb_mechanisms(path: Path) -> list[str]:
 
 
 def tier_shares(mechs: list[str]) -> tuple[dict[str, float], int]:
-    counts = defaultdict(int)
-    for m in mechs:
-        tier = fs.tier_of(m)
-        if tier:
-            counts[tier] += 1
-    n = sum(counts.values())
-    return ({t: counts.get(t, 0) / n for t in fs.TIER_ORDER} if n else {}), n
+    """Shares over the four tiers of analysis/tiers.py. Refuses to report
+    shares that would silently leave an unmapped interception out."""
+    s, n, unmapped = tiers.shares(mechs)
+    if unmapped:
+        raise ValueError(f"unmapped first-interception labels: {sorted(set(unmapped))}")
+    return s, n
 
 
 # --------------------------------------------------------------------- #
@@ -384,10 +384,10 @@ def fig_interception_tiers(trials: list[dict], outdir: Path) -> tuple[Path, dict
         ns.append(n)
     y = np.arange(len(sources))[::-1]        # first source at the top
     left = np.zeros(len(sources))
-    for tier in fs.TIER_ORDER:
+    for tier in tiers.TIERS:
         vals = np.array([100 * s.get(tier, 0.0) for s in shares])
-        ax.barh(y, vals, left=left, height=0.62, color=fs.TIER_COLOR[tier],
-                label=fs.TIER_LABEL[tier], zorder=2)
+        ax.barh(y, vals, left=left, height=0.62, color=tiers.COLOR[tier],
+                label=tiers.LABEL[tier], zorder=2)
         for yi, v, l in zip(y, vals, left):
             if v >= 7:
                 ax.text(l + v / 2, yi, f"{v:.0f}", ha="center", va="center",
@@ -403,9 +403,9 @@ def fig_interception_tiers(trials: list[dict], outdir: Path) -> tuple[Path, dict
     ax.set_xticks([0, 20, 40, 60, 80, 100])
     ax.set_ylim(-0.6, len(sources) - 0.4)
     fs.style_axes(ax, ygrid=False, xgrid=True)
-    ax.legend(handles=[Patch(facecolor=fs.TIER_COLOR[t], label=fs.TIER_LABEL[t])
-                       for t in fs.TIER_ORDER],
-              loc="lower center", bbox_to_anchor=(0.5, 1.01), ncol=3,
+    ax.legend(handles=[Patch(facecolor=tiers.COLOR[t], label=tiers.LABEL[t])
+                       for t in tiers.TIERS],
+              loc="lower center", bbox_to_anchor=(0.5, 1.01), ncol=2,
               handlelength=1.1, columnspacing=0.9, borderpad=0.2)
 
     path = fs.save(fig, "interception_tiers", outdir, fs.WIDTH_1COL)
@@ -418,7 +418,7 @@ def fig_interception_tiers(trials: list[dict], outdir: Path) -> tuple[Path, dict
                          "results/asb/e2e_validator_group_q235_div4_div4/general/results.csv",
                          "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"],
         "n": {lbl: n for (lbl, _m), n in zip(sources, ns)}
-        | {f"{lbl} tier %": {t: round(100 * s.get(t, 0), 1) for t in fs.TIER_ORDER}
+        | {f"{lbl} tier %": {t: round(100 * s.get(t, 0), 1) for t in tiers.TIERS}
            for (lbl, _m), s in zip(sources, shares)},
     }
     return path, meta
@@ -498,11 +498,11 @@ def fig_ap_heatmap(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     axm.axis("off")
     for i, ap in enumerate(ordered):
         m = modal[ap]
-        tier = fs.tier_of(m)
+        tier = tiers.tier_of(m)
         if not tier:
             continue
         axm.add_patch(plt.Rectangle((0.02, i - 0.34), 0.1, 0.68,
-                                    color=fs.TIER_COLOR[tier], lw=0))
+                                    color=tiers.COLOR[tier], lw=0))
         axm.text(0.16, i, str(m).replace("_", " "), fontsize=5.2, va="center", ha="left")
     axm.set_title("first interceptor (DEFER)", fontsize=6, loc="left", pad=4)
 
@@ -635,7 +635,7 @@ def fig_ablation(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
         pts = [100 * v[0] for v in vals]
         lo = [100 * (v[0] - v[1]) for v in vals]
         hi = [100 * (v[2] - v[0]) for v in vals]
-        colors = [fs.CONFIG_COLOR["DEFER"]] + [fs.TIER_COLOR["rule"]] * (len(arms) - 1)
+        colors = [fs.CONFIG_COLOR["DEFER"]] + [tiers.COLOR["content_independent"]] * (len(arms) - 1)
         ax_.barh(y, pts, height=0.6, color=colors, zorder=2)
         ax_.errorbar(pts, y, xerr=[lo, hi], fmt="none", zorder=3, **fs.ERRORBAR_KW)
         ax_.set_xlabel(xlabel)
@@ -693,7 +693,7 @@ def fig_p5_reads(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
         pts = [100 * v[0] for v in vals]
         lo = [100 * (v[0] - v[1]) for v in vals]
         hi = [100 * (v[2] - v[0]) for v in vals]
-        colr = fs.CONFIG_COLOR["DEFER"] if ap == "ap4" else fs.TIER_COLOR["similarity"]
+        colr = fs.CONFIG_COLOR["DEFER"] if ap == "ap4" else tiers.COLOR["similarity"]
         ax.bar(x + off, pts, width=w * 0.92, color=colr, zorder=2,
                label=ap.replace("ap", "AP-"))
         ax.errorbar(x + off, pts, yerr=[lo, hi], fmt="none", zorder=3, **fs.ERRORBAR_KW)
@@ -779,10 +779,10 @@ def fig_panel_composition(trials: list[dict], outdir: Path) -> tuple[Path, dict]
     if "div3x" in pts and math.isnan(pts["div3x"][1]):
         ben = pts["div3x"][0]
         ax.plot(ben, 0, marker="s", markersize=5, markerfacecolor="none",
-                markeredgecolor=fs.TIER_COLOR["rule"], markeredgewidth=1.2, zorder=3)
+                markeredgecolor=tiers.COLOR["content_independent"], markeredgewidth=1.2, zorder=3)
         ax.annotate("Div3x - security n/a\nDiv4 without the Qwen validator",
                     (ben, 0), textcoords="offset points", xytext=(6, 8),
-                    fontsize=6, color=fs.TIER_COLOR["rule"], va="bottom")
+                    fontsize=6, color=tiers.COLOR["content_independent"], va="bottom")
     _bx = [v[0] for v in pts.values() if not math.isnan(v[0])]
     _by = [v[1] for v in pts.values() if not math.isnan(v[1])]
     ax.set_xlim(0, (max(_bx) if _bx else 1) * 1.45)
@@ -887,7 +887,7 @@ def fig_validator_behavior(trials: list[dict], outdir: Path) -> tuple[Path, dict
     app = np.vstack([approve[v] for v in panel]).sum(axis=0)
     qs = np.arange(1, k + 1)
     share = [100 * float((app >= q).mean()) for q in qs]
-    axq.plot(qs, share, marker="o", color=fs.TIER_COLOR["llm"], zorder=3)
+    axq.plot(qs, share, marker="o", color=tiers.COLOR["panel"], zorder=3)
     deployed = 3
     axq.axvline(deployed, color=fs.EMPHASIS, linestyle="--", linewidth=0.8, zorder=2)
     axq.annotate("deployed", (deployed, max(share)), textcoords="offset points",
@@ -1218,10 +1218,10 @@ def fig_state_carryover(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
 DOMAIN_SHORT = {"cyberops": "CyberOps", "finance": "Finance",
                 "healthcare": "Health", "legal": "Legal"}
 
-DENY_BUCKET = [("P2", "P2 parameter/scope", fs.TIER_COLOR["rule"]),
-               ("P3_llm", "P3 LLM panel", fs.TIER_COLOR["llm"]),
+DENY_BUCKET = [("P2", "P2 parameter/scope", tiers.COLOR["content_independent"]),
+               ("P3_llm", "P3 LLM panel", tiers.COLOR["panel"]),
                ("P3_det", "P3 deterministic", "#5a9bd4"),
-               ("P4", "P4 memory", fs.TIER_COLOR["similarity"]),
+               ("P4", "P4 memory", tiers.COLOR["similarity"]),
                ("P5", "P5 store policy", "#7fd4bd")]
 
 
@@ -1345,8 +1345,8 @@ def fig_cost(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     bottom = np.zeros(len(lat_cfgs))
     b_out = {}
     for key, lbl, col in (("primary", "primary model", "#999999"),
-                          ("deterministic", "deterministic checks", fs.TIER_COLOR["rule"]),
-                          ("panel", "LLM panel", fs.TIER_COLOR["llm"])):
+                          ("deterministic", "deterministic checks", tiers.COLOR["content_independent"]),
+                          ("panel", "LLM panel", tiers.COLOR["panel"])):
         vals = np.array([float(np.median(latc[(DEV_DOMAIN, c)]["lat"].get(key) or [0]))
                          for _l, c in lat_cfgs])
         axb.bar(xb, vals, bottom=bottom, width=0.62, color=col, label=lbl, zorder=2)
@@ -1373,7 +1373,7 @@ def fig_cost(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     c_out = {}
     bottom = np.zeros(len(lat_cfgs))
     for key, lbl, col in (("primary_tokens", "primary", "#999999"),
-                          ("validator_tokens", "validator", fs.TIER_COLOR["llm"])):
+                          ("validator_tokens", "validator", tiers.COLOR["panel"])):
         vals = []
         for _l, cfg in lat_cfgs:
             bt = [t for t in benign_trials(trials) if t["config"] == cfg]

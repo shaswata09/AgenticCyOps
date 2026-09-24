@@ -33,6 +33,7 @@ from pathlib import Path
 from analysis.statistical_tests import MEASURABLE, SYSTEM_CONFIGS, wilson
 from config import BASE_DIR, RESULTS_DIR
 from analysis.runlogs import run_logs
+from analysis import tiers
 
 CONFIG_LABEL = {"flat": "Flat", "acl_hardened": "ACL-Hardened", "agenticcyops": "AgenticCyOps",
                 "llm_judge": "LLM-judge only", "symbolic_only": "Symbolic only (no L6)"}
@@ -446,10 +447,12 @@ def build(results_dir: Path, main_group: str) -> str:
              "counted twice.", "",
              t12_benign_denials_by_check(main_group), "",
              f"## T13. Checks by tier: what each intercepts and what it costs ({main_group})", "",
-             "E19: one tier mapping (`analysis/figstyle.tier4_of`) shared with the figures. "
+             "One tier mapping (`analysis/tiers.py`) shared with the figures. "
              "Content-independent rules decide from structure alone and cannot be reworded "
              "past; content-dependent rules read the proposal and can be; similarity is the "
-             "tunable embedding tier; the panel is the judges.", "",
+             "tunable embedding tier; the panel is the judges. P2.2 (target not in evidence) "
+             "has a substring and a cosine branch that the committed logs do not tell apart; "
+             "it is counted as content-dependent here.", "",
              t13_tier_breakdown(trials, main_group), "",
              f"## T14. Where P3 decisions were taken ({main_group})", "",
              "E1.3: the paper states no proposal was ever auto-approved. The logs show the "
@@ -531,12 +534,13 @@ def t12_benign_denials_by_check(group: str) -> str:
 
 
 def t13_tier_breakdown(trials: list[dict], group: str) -> str:
-    """E19: every check, its tier, what it intercepts and what it costs.
+    """E19 / A2: every check, its tier, what it intercepts and what it costs.
 
-    One mapping (``figstyle.tier4_of``) serves this table and the figures, so
-    the "embedding tier is pure cost" claim can be read off a single source.
+    The tier comes from analysis/tiers.py, the one mapping the figures use too.
+    A label that module does not map is listed under "unmapped" instead of
+    being filed under a default tier.
     """
-    from analysis import figstyle as fs
+    from analysis import tiers
     from analysis.benign_cost import DOMAINS as BC_DOMAINS, benign_denials_by_check
 
     intercept: dict[str, int] = defaultdict(int)
@@ -549,19 +553,21 @@ def t13_tier_breakdown(trials: list[dict], group: str) -> str:
         for mech, rec in benign_denials_by_check(group, dom).items():
             denials[mech] += rec["n"]
 
+    order = (*tiers.TIERS, None)
+    label = {**tiers.LABEL, None: "unmapped"}
     rows = []
     for mech in sorted(set(intercept) | set(denials),
-                       key=lambda m: (fs.TIER4_ORDER.index(fs.tier4_of(m) or "rule_independent"),
-                                      -intercept.get(m, 0))):
-        tier = fs.tier4_of(mech)
-        rows.append([fs.TIER4_LABEL.get(tier, tier), mech.replace("_", " "),
+                       key=lambda m: (order.index(tiers.tier_of(m)), -intercept.get(m, 0), m)):
+        rows.append([label[tiers.tier_of(mech)], mech.replace("_", " "),
                      intercept.get(mech, 0), denials.get(mech, 0)])
     # tier totals make the cost/benefit per tier explicit
     rows.append(["**tier totals**", "", "", ""])
-    for tier in fs.TIER4_ORDER:
-        i = sum(v for m, v in intercept.items() if fs.tier4_of(m) == tier)
-        d = sum(v for m, v in denials.items() if fs.tier4_of(m) == tier)
-        rows.append([f"**{fs.TIER4_LABEL[tier]}**", "", f"**{i}**", f"**{d}**"])
+    for tier in order:
+        i = sum(v for m, v in intercept.items() if tiers.tier_of(m) == tier)
+        d = sum(v for m, v in denials.items() if tiers.tier_of(m) == tier)
+        if tier is None and not (i or d):
+            continue
+        rows.append([f"**{label[tier]}**", "", f"**{i}**", f"**{d}**"])
     return _md(["Tier", "Check", "Attack first interceptions", "Benign denials"], rows)
 
 
@@ -604,10 +610,11 @@ def t14_p3_decisions(group: str) -> str:
         if not c:
             continue
         for (lay, m, dec), v in sorted(c.items(), key=lambda kv: -kv[1]):
-            rows.append([CONFIG_LABEL.get(cfg, cfg), lay, m.replace("_", " "), dec, v])
+            rows.append([CONFIG_LABEL.get(cfg, cfg), lay, m.replace("_", " "),
+                         tiers.LABEL.get(tiers.tier_of(m), "—"), dec, v])
     auto = sum(v for c in by.values() for (lay, _m, _d), v in c.items() if "panel" not in lay)
-    rows.append(["**all configs**", "**deterministic auto-decisions (P3.7 + P3.9)**", "", "", f"**{auto}**"])
-    return _md(["Config", "Layer", "Mechanism", "Decision", "Count"], rows)
+    rows.append(["**all configs**", "**deterministic auto-decisions (P3.7 + P3.9)**", "", "", "", f"**{auto}**"])
+    return _md(["Config", "Layer", "Mechanism", "Tier", "Decision", "Count"], rows)
 
 
 def main() -> None:
