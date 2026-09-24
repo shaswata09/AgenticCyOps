@@ -110,7 +110,15 @@ class VersionedLedger:
             "struct_hash": self._hash_structural(proposal),
             "incident_id": context.get("incident_id", ""),
             "timestamp": datetime.now(timezone.utc),
+            # v2.9: what was approved, so the risk scorer can count precedent
+            "proposal": {"tool_id": proposal.get("tool_id", ""),
+                         "action": proposal.get("action", (proposal.get("arguments") or {}).get("action", ""))},
+            "decision": "approve",
         }
+
+    def get_entries(self) -> list[dict]:
+        """Approved proposals, in the shape ``ProposalScorer._score_precedent`` reads."""
+        return list(self._ledger.values())
 
     def reset(self):
         """Clear ledger (for testing)."""

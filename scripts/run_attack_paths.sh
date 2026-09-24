@@ -89,10 +89,14 @@ GP_PRIMARY[llama8b_div4]="${REMOTE_5090_URL:-}"; GP_PROVIDER[llama8b_div4]="open
 GP_DESC[llama8b_div4]="Llama-3.1-8B-Instruct BF16 on the RTX 5090 node (REMOTE_5090_URL) + div4"
 GP_PRIMARY[claude_loc]="anthropic"; GP_PROVIDER[claude_loc]="anthropic"; GP_PORTS[claude_loc]="8002 8003 8004"; GP_CONSENSUS[claude_loc]="claude_loc"
 GP_DESC[claude_loc]="claude-sonnet-4-5 (API) + [V1 Qwen, V5 Mistral, V3 Llama-4-Scout, V6 GPT-4o] 3/4"
+# v2.9 live calibration: Qwen3-235B primary, the two local validators that fit
+# beside it (Mistral-Small :8101, Gemma-4 :8102), 2 of 2. No API validator.
+GP_PRIMARY[q235_local2]="http://localhost:8000/v1"; GP_PROVIDER[q235_local2]="openai"; GP_PORTS[q235_local2]="8000 8101 8102"; GP_CONSENSUS[q235_local2]="local2"
+GP_DESC[q235_local2]="Qwen3-235B-A22B BF16 TP=4 + local2 [L1 Mistral, L2 Gemma] 2/2"
 GP_PRIMARY[glm_div4]="http://localhost:8001/v1"; GP_PROVIDER[glm_div4]="openai"; GP_PORTS[glm_div4]="8001 8002 8003"; GP_CONSENSUS[glm_div4]="div4"
 GP_DESC[glm_div4]="GLM-4.7-FP8 TP=4 + div4 (optional, lowest priority)"
 
-ALL_GROUPS=("q235_div4" "scout_div4" "mistral_div3p" "llama8b_div4" "claude_loc" "glm_div4" "A" "B" "C" "D" "E" "F" "G" "H" "I" "J")
+ALL_GROUPS=("q235_div4" "q235_local2" "scout_div4" "mistral_div3p" "llama8b_div4" "claude_loc" "glm_div4" "A" "B" "C" "D" "E" "F" "G" "H" "I" "J")
 
 # ---- Per-(group, domain) port + ChromaDB allocator -----------------------
 # Multiple groups can now run in parallel without their tool/MMA servers
@@ -114,7 +118,7 @@ declare -A GROUP_OFFSET DOMAIN_OFFSET
 GROUP_OFFSET[A]=0;  GROUP_OFFSET[B]=1; GROUP_OFFSET[C]=2; GROUP_OFFSET[D]=3
 GROUP_OFFSET[E]=4;  GROUP_OFFSET[F]=5; GROUP_OFFSET[G]=6; GROUP_OFFSET[H]=7
 GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9
-GROUP_OFFSET[q235_div4]=10; GROUP_OFFSET[scout_div4]=11; GROUP_OFFSET[mistral_div3p]=12
+GROUP_OFFSET[q235_div4]=10; GROUP_OFFSET[q235_local2]=10; GROUP_OFFSET[scout_div4]=11; GROUP_OFFSET[mistral_div3p]=12
 GROUP_OFFSET[llama8b_div4]=13; GROUP_OFFSET[claude_loc]=14; GROUP_OFFSET[glm_div4]=15
 DOMAIN_OFFSET[cyberops]=0; DOMAIN_OFFSET[healthcare]=1
 DOMAIN_OFFSET[finance]=2;  DOMAIN_OFFSET[legal]=3
@@ -140,7 +144,7 @@ compute_tool_base() {
 # mask, so pinning also bounds them.  PIN_CPUS=0 disables; CPU_WIDTH = cores
 # per stream; cores above 108 are left to the vLLM API servers.
 declare -A CPU_BASE PIN_DOMAIN_IDX
-CPU_BASE[q235_div4]=0; CPU_BASE[glm_div4]=0; CPU_BASE[claude_loc]=0
+CPU_BASE[q235_div4]=0; CPU_BASE[q235_local2]=0; CPU_BASE[glm_div4]=0; CPU_BASE[claude_loc]=0
 CPU_BASE[scout_div4]=0; CPU_BASE[mistral_div3p]=36; CPU_BASE[llama8b_div4]=72
 PIN_DOMAIN_IDX[cyberops]=0; PIN_DOMAIN_IDX[finance]=1; PIN_DOMAIN_IDX[healthcare]=2; PIN_DOMAIN_IDX[legal]=3
 CPUSET=""

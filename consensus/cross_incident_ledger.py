@@ -98,7 +98,9 @@ class CrossIncidentLedger:
         if len(combo_entries) >= self._same_action_threshold:
             details = {
                 "tool_id": tool_id,
-                "action": action,
+                # v2.9: not "action", which the logger's own ``action`` field
+                # would be overwritten by, hiding the P3_L4_check event
+                "proposal_action": action,
                 "count": len(combo_entries),
             }
             if self.logger:

@@ -395,7 +395,7 @@ class ParameterValidator:
             for t in targets:
                 if str(t).lower() not in incident_evidence.lower():
                     return False, "P2_target_not_in_evidence", {
-                        "target": str(t), "check": "literal_only"}
+                        "target": str(t), "check": "literal_only", "deny_branch": "substring"}
             return True, "", {}
 
         for t in targets:
@@ -413,9 +413,12 @@ class ParameterValidator:
             score = float(np.dot(embeddings[0], embeddings[1]))
 
             if score < self._evidence_threshold:
+                # v2.9: the substring test failed first, so a denial here is
+                # decided by the cosine threshold
                 return False, "P2_target_not_in_evidence", {
                     "target": t_str,
                     "similarity": round(score, 4),
+                    "deny_branch": "cosine",
                 }
 
         return True, "", {}

@@ -34,6 +34,29 @@ validators:
     model: "Qwen3-14B"
     type: "openai"
 
+  # ---- v2.9: all-local, open-weight validators (no API, no Qwen lineage) ----
+  # The panel of the reviewed results after the API validators ran out of
+  # credit. Served locally; the same model id never judges its own proposals.
+  L1_mistral:
+    url: "${VALIDATOR_URL_L1:-http://localhost:8101/v1}"
+    model: "Mistral-Small-3.2-24B-Instruct-2506"
+    type: "openai"
+
+  L2_gemma:
+    url: "${VALIDATOR_URL_L2:-http://localhost:8102/v1}"
+    model: "gemma-4-31B-it"
+    type: "openai"
+
+  L3_gptoss:
+    url: "${VALIDATOR_URL_L3:-http://localhost:8103/v1}"
+    model: "gpt-oss-120b"
+    type: "openai"
+
+  L4_scout:
+    url: "${VALIDATOR_URL_L4:-http://localhost:8104/v1}"
+    model: "Llama-4-Scout-17B-16E-Instruct"
+    type: "openai"
+
 # ---- Revision-v2 panels (H9) -------------------------------------------
 # Group -> panel: q235_div4 / scout_div4 / llama8b_div4 / glm_div4 -> div4;
 # mistral_div3p -> mistral_div3p; claude_loc -> claude_loc.  div3 / lin3 /
@@ -174,3 +197,16 @@ panel_3_qwen_claude_gpt4o:
   threshold: 2
 # panel_4 == default_consensus (validators+threshold identical), kept
 # implicit so existing runs and the panel sweep share the same row.
+
+# ---- v2.9 local panels -------------------------------------------------
+# Four lineages (Mistral, Google, OpenAI open weights, Meta), 3 of 4: the main
+# panel of the replayed results (analysis/replay_panels.py).
+local4:
+  validators: ["L1_mistral", "L2_gemma", "L3_gptoss", "L4_scout"]
+  threshold: 3
+
+# The two local validators that fit beside the 235B primary on one GPU: the
+# panel of the live calibration run, 2 of 2.
+local2:
+  validators: ["L1_mistral", "L2_gemma"]
+  threshold: 2

@@ -86,8 +86,12 @@ class VerifiedExecution:
             domain=domain, logger=logger,
             persist_path=adaptive_consent_path, persist=adaptive_consent_persist,
         )
+        # v2.9 (B1): the scorer is handed the replay ledger (precedent) and,
+        # through the P3 context, the incident evidence (alignment). Before
+        # v2.9 it received neither, so both scores sat at their 0.5 fallback.
         self.scorer = ProposalScorer(
-            domain=domain, embedding_model=embedding_model, logger=logger
+            domain=domain, embedding_model=embedding_model, logger=logger,
+            ledger=self.versioned_ledger,
         )
         self.auto_gates = AutoGates(logger=logger, mode=gate_mode)
         self.global_monitor = GlobalActionMonitor(logger=logger)  # TA-22
@@ -213,6 +217,10 @@ class VerifiedExecution:
 
         # ── L1: Quantified Scoring ──
         scores = self.scorer.score(proposal, context)
+        if self.logger:                 # v2.9: every P3 decision logs all five scores
+            self.logger.log(source="scorer", destination="P3_L1", action="P3_L1_scores",
+                            auth_decision="scored", mechanism="P3_scores",
+                            extra={k: round(float(v), 4) for k, v in scores.items()})
 
         # ── L2: Auto-Gates ──
         decided, reason, details = self.auto_gates.evaluate(scores)

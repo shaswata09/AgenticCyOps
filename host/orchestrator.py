@@ -880,7 +880,10 @@ class SOARHost:
                               "target_users", "account_id", "patient_id", "case_id"):
                     if field in args and field not in proposal:
                         proposal[field] = args[field]
-                p3_context = {**context, "current_phase": phase}
+                # v2.9 (B1): the evidence the risk scorer's alignment reads,
+                # as P2's parameter check uses it
+                p3_context = {**context, "current_phase": phase,
+                              "incident_evidence": json.dumps(context.get("incident", {}), default=str)}
                 _p3_approved_at = _time.time()  # Fix #3: timestamp for L7
                 approved = await self.verified_execution.validate(
                     proposal, p3_context
