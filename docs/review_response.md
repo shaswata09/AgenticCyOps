@@ -138,6 +138,14 @@ was seen. No Qwen-family member (the primary is Qwen), no API, no outage.
   consequential or not, changes **no** attack outcome (no attack executed through
   a non-consequential call) and adds benign denials. The gap between FULL and
   JUDGEONLY is therefore what the rules add, not what judging less costs.
+  Holds in all four domains (executed attacks: CyberOps 22, finance 10, legal
+  26, healthcare 0, identical with and without); judged fraction 33.4% -> 78.1%
+  (dev), benign denial 9.5% -> 11.6%, incidents with a denial 75% -> 80%.
+  Without the memory paths (AP-4, AP-13) JUDGEONLY vs FULL is 23.3% vs 10.1%.
+- **Ablation benign cost, recomputed from the logs (minor point).** Legitimate
+  proposals denied / benign incidents with a denial, Local4: FULL 9.5 / 75.0,
+  -P1 7.1 / 58.3, -P2 2.9 / 33.3, -P3 7.9 / 58.3 (as run, no panel),
+  -P4 9.3 / 78.3, -P5 7.2 / 68.3. P2 is both a main defense and the main cost.
 - **Panel strictness sets the absolute level.** Per-validator approval of attack
   vs benign proposals: Gemma 31/76%, gpt-oss 43/80%, Mistral 51/91%, Scout 81/94%,
   original Div4 (where all four voted) 26/81%. Scout barely discriminates. We keep
@@ -157,7 +165,9 @@ Source: `analysis/ledger_expiry.py` (drives the shipped `CrossIncidentLedger` an
   reached the benign tail. In both passes the **first benign incident has no
   stateful denial**; from the second on, almost every consequential proposal is
   denied. The collapse is **legitimate work denying itself**, not a denial of
-  service by the attacks. The paper's "saturated at the first benign incident,
+  service by the attacks (the CyberOps carry-over figure agrees: 2.0 denials at
+  the first benign position against an isolated mean of 1.9, then 4 to 16).
+  The paper's "saturated at the first benign incident,
   so the degradation happens during the attack incidents" is withdrawn.
 - Cause: replay detection keys on the proposal's **skeleton** (tool, argument
   names, action) and never expires, so one incident's `block_ip` makes every later
