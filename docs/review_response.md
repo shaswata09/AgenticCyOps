@@ -150,12 +150,13 @@ was seen. No Qwen-family member (the primary is Qwen), no API, no outage.
   JUDGEONLY is therefore what the rules add, not what judging less costs.
   Holds in all four domains (executed attacks: CyberOps 19, finance 10, legal
   26, healthcare 0, identical with and without); judged fraction 33.4% -> 78.1%
-  (dev), benign denial 9.5% -> 11.6%, incidents with a denial 75% -> 80%.
+  (dev), benign denial 9.5% -> 11.6%, benign incidents with any denied proposal 76.7% -> 80.0%.
   Without the memory paths (AP-4, AP-13) JUDGEONLY vs FULL is 23.3% vs 8.5%.
 - **Ablation benign cost, recomputed from the logs (minor point).** Legitimate
-  proposals denied / benign incidents with a denial, Local4: FULL 9.5 / 75.0,
-  -P1 7.1 / 58.3, -P2 2.9 / 33.3, -P3 7.9 / 58.3 (as run, no panel),
-  -P4 9.3 / 78.3, -P5 7.2 / 68.3. P2 is both a main defense and the main cost.
+  tool proposals denied / benign incidents with any denied proposal (tool or
+  memory), Local4: FULL 9.5 / 76.7, -P1 7.1 / 63.3, -P2 2.9 / 46.7,
+  -P3 7.9 / 65.0 (as run, no panel), -P4 9.3 / 78.3, -P5 7.2 / 68.3.
+  P2 is both a main defense and the main cost.
 - **Panel strictness sets the absolute level.** Per-validator approval of attack
   vs benign proposals: Gemma 30/76%, gpt-oss 43/80%, Mistral 50/91%, Scout 81/94%,
   original Div4 (where all four voted) 26/81%. Scout barely discriminates. We keep

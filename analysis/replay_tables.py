@@ -229,8 +229,9 @@ if __name__ == "__main__":
 
 def write_local4_trials(path=None) -> int:
     """``all_trials.csv`` with the outcome and first interceptor of every
-    panel-using configuration replaced by its Local4 replay. Panel-free
-    configurations and benign rows are unchanged. Figures build from it."""
+    panel-using configuration replaced by its Local4 replay, and the benign
+    rows' denied tool calls re-counted under it. Panel-free configurations are
+    unchanged. Figures build from it."""
     V, R = load_all_votes(), load_rounds()
     arms = [("full", "q235_div4", "agenticcyops", D4, ""),
             ("judgeonly", "q235_div4", "llm_judge", ("cyberops",), ""),
@@ -238,12 +239,15 @@ def write_local4_trials(path=None) -> int:
             ("scout", "scout_div4", "agenticcyops", ("cyberops", "finance"), ""),
             ("mistral", "mistral_div3p", "agenticcyops", ("cyberops", "finance"), ""),
             ("llama8b", "llama8b_div4", "agenticcyops", ("cyberops", "finance"), "")]
-    new = {}
+    new, ben = {}, {}
     for arm, g, cfg, doms, suf in arms:
         res = outcomes(arm, g, cfg, doms, suf, MAIN, V, R[arm])
         for d, v in res["domains"].items():
             for t in v["attack"]:
                 new[(g, suf, d, cfg, t["ap"], t["variant"].lstrip("v"), t["trial"].lstrip("t"))] = t
+            for tid, (den, as_run) in v.get("benign_trials", {}).items():
+                parts = tid.split("_")
+                ben[(g, suf, d, cfg, parts[2].lstrip("v"), parts[3].lstrip("t"))] = (den, as_run)
     rows = list(csv.DictReader(open(ALL_TRIALS)))
     n = 0
     for r in rows:
@@ -251,6 +255,13 @@ def write_local4_trials(path=None) -> int:
         if t:
             r["outcome"], r["blocked_by"] = t["outcome"], t["blocked_by"]
             n += 1
+        b = r["ap"] == "benign" and ben.get((r["group"], r.get("suffix") or "", r["domain"], r["config"],
+                                               r["variant"], r["trial"]))
+        if b:
+            # collateral_denials counts denied proposals of every kind; replace
+            # its tool-call part, the only part the panel decides
+            den, as_run = b
+            r["collateral_denials"] = str(max(0, int(float(r["collateral_denials"] or 0)) - as_run + den))
     out = path or ALL_TRIALS.with_name("all_trials_local4.csv")
     with open(out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))

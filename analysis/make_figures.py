@@ -53,12 +53,18 @@ CFG_BY_LABEL = {v: k for k, v in fs.CONFIG_LABEL.items()}
 # --------------------------------------------------------------------- #
 #  Selection helpers -- same filters as the tables
 # --------------------------------------------------------------------- #
+# the five configurations of the judgment boundary; targeted arms (permissive
+# gate, judged writes, ...) share the group but carry their own config names
+MAIN_CONFIGS = {"flat", "acl_hardened", "llm_judge", "symbolic_only", "agenticcyops"}
+
+
 def dev_attacks(trials: list[dict], group: str = DEV_GROUP,
                 domain: str = DEV_DOMAIN) -> list[dict]:
     """Measurable attack trials on the development split, main arms only."""
     return [t for t in trials
             if t["group"] == group and t["domain"] == domain
             and t["ap"] != "benign" and not t.get("suffix")
+            and t["config"] in MAIN_CONFIGS
             and t.get("outcome") in MEASURABLE]
 
 
@@ -68,7 +74,7 @@ def benign_trials(trials: list[dict], group: str = DEV_GROUP,
     return [t for t in trials
             if t["group"] == group and t["domain"] == domain
             and t["ap"] == "benign" and t["outcome"] == "benign"
-            and not t.get("suffix")]
+            and not t.get("suffix") and t["config"] in MAIN_CONFIGS]
 
 
 def by_config(trials: list[dict]) -> dict[str, list[dict]]:
@@ -216,6 +222,10 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
         units = [(k, float(d), float(p)) for k, (d, p) in by_var.items() if p]
         denied.append(_ratio_bootstrap(units))
         done = [t for t in ts if str(t.get("task_completed", "")).strip() != ""]
+        if LOCAL4 and c == "llm_judge":
+            # completion is a property of the live run; JudgeOnly's ran during
+            # the validator outage and cannot be re-adjudicated
+            done = []
         completed.append(rate_ci(done, lambda t: str(t["task_completed"]).lower() == "true"))
 
     fig, (axa, axb) = plt.subplots(
@@ -302,7 +312,7 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
             # E7: same definition as table T11 (analysis/benign_cost.py)
             "benign_denied_pct": {fs.CONFIG_LABEL[c]: round(100 * d[0], 1)
                                   for c, d in zip(cfgs, denied)},
-            "benign_tasks_completed_pct": {fs.CONFIG_LABEL[c]: round(100 * v[0], 1)
+            "benign_tasks_completed_pct": {fs.CONFIG_LABEL[c]: (None if math.isnan(v[0]) else round(100 * v[0], 1))
                                            for c, v in zip(cfgs, completed)},
         },
     }
@@ -1248,6 +1258,8 @@ def fig_state_carryover(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     ax.annotate(f"isolated-state mean ({iso_mean:.1f})", (len(series.get(DEV_DOMAIN, [1])), iso_mean),
                 textcoords="offset points", xytext=(-2, 4), ha="right", fontsize=6)
     ax.set_xlabel("Benign incident position in persistent sequence")
+    from matplotlib.ticker import MaxNLocator
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.set_ylabel("Denials per incident")
     ax.set_ylim(0, top * 1.12)
     fs.style_axes(ax)

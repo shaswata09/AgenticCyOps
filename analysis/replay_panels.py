@@ -89,6 +89,7 @@ def outcomes(arm: str, group: str, config: str, domains, suffix: str, panel: str
     for dom in domains:
         attack, benign = [], Counter()
         by_scen: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+        per_benign: dict[str, tuple[int, int]] = {}   # trial -> (denied tool calls, as run)
         for tid, events in trials(group, dom, config, suffix).items():
             ev = copy.deepcopy(events)
             calls = build_calls(events)
@@ -106,6 +107,8 @@ def outcomes(arm: str, group: str, config: str, domains, suffix: str, panel: str
                 scen = tid.split("_")[2]                      # v<scenario>
                 by_scen[scen][0] += den
                 by_scen[scen][1] += prop
+                as_run = sum(1 for c in calls if c.kind == "tool" and c.denied)
+                per_benign[tid] = (den, as_run)
                 continue
             p = _payload(dom, tid)
             if not p:
@@ -119,7 +122,8 @@ def outcomes(arm: str, group: str, config: str, domains, suffix: str, panel: str
                            "outcome": new.outcome, "blocked_by": new.blocked_by,
                            "as_run": base.outcome, "as_run_blocked_by": base.blocked_by})
         res["domains"][dom] = {"attack": attack, "benign": dict(benign),
-                               "benign_by_scenario": {k: tuple(v) for k, v in by_scen.items()}}
+                               "benign_by_scenario": {k: tuple(v) for k, v in by_scen.items()},
+                               "benign_trials": per_benign}
     return res
 
 
