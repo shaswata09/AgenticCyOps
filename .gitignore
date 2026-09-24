@@ -241,3 +241,6 @@ benchmarks/tamas/results/budget.jsonl
 
 # camera-ready author block: identifies the authors, never committed during review
 paper/camera_ready_authors.tex
+paper/main.tex
+# paper source: kept local, never committed during review
+paper/main.tex
