@@ -784,14 +784,28 @@ def fig_panel_composition(trials: list[dict], outdir: Path) -> tuple[Path, dict]
         pts[p] = (ben, sec)
 
     fig, ax = plt.subplots(figsize=(fs.WIDTH_1COL, 2.4))
-    path_order = [p for p in ("single", "div3", "div4") if p in pts]
+    if LOCAL4:
+        # every panel is re-adjudicated on the same rounds: plot all four,
+        # single-lineage panels in the "executed" colour, mixed ones in DEFER's
+        style = {"single": (fs.OUTCOME_COLOR["executed"], (6, 3), "Single (Qwen3-32B)"),
+                 "lin3": (fs.OUTCOME_COLOR["executed"], (6, 3), "Lin3 (three Qwen-lineage)"),
+                 "div3l": (fs.CONFIG_COLOR["DEFER"], (-6, -10), "Div3L"),
+                 "local4": (fs.CONFIG_COLOR["DEFER"], (6, -9), "Local4 (reported)")}
+        for p, (col, off, name) in style.items():
+            if p not in pts:
+                continue
+            ben, sec = pts[p]
+            ax.plot(ben, sec, marker="o", markersize=5, color=col, zorder=3)
+            ax.annotate(name, (ben, sec), textcoords="offset points", xytext=off,
+                        fontsize=7, ha="right" if off[0] < 0 else "left")
+    path_order = [p for p in ("single", "div3", "div4") if p in pts and not LOCAL4]
     ax.plot([pts[p][0] for p in path_order], [pts[p][1] for p in path_order],
             color="#999999", linewidth=0.8, zorder=1)
     for p in path_order:
         ben, sec = pts[p]
         ax.plot(ben, sec, marker="o", markersize=5, color=fs.CONFIG_COLOR["DEFER"], zorder=3)
         ax.annotate(label[p], (ben, sec), textcoords="offset points", xytext=(5, 4), fontsize=7)
-    if "lin3" in pts and math.isnan(pts["lin3"][0]):
+    if "lin3" in pts and math.isnan(pts["lin3"][0]) and not LOCAL4:
         # no benign estimate for lin3: park it on the left edge, open marker
         sec = pts["lin3"][1]
         ax.plot(0.6, sec, marker="o", markersize=5, markerfacecolor="none",
