@@ -33,6 +33,7 @@ from pathlib import Path
 from attacks.harness import RESULT_COLUMNS
 from config import LOGS_DIR, RESULTS_DIR
 from logging_utils.run_metadata import HEADER_FIELDS
+from analysis.runlogs import load_run_groups
 
 DOMAINS = ("cyberops", "healthcare", "finance", "legal")
 _DIR_RE = re.compile(r"^(cyberops|healthcare|finance|legal)_eval_attacks_(.+?)(_disabled_[A-Z0-9]+)?$")
@@ -40,23 +41,6 @@ _DIR_RE = re.compile(r"^(cyberops|healthcare|finance|legal)_eval_attacks_(.+?)(_
 # the header's own group/config/domain are the same except for the tag
 RUN_COLUMNS = ["log_file", "domain", "group", "suffix", "config"] + [
     k for k in HEADER_FIELDS if k not in ("domain", "group", "config")]
-
-
-RUN_GROUPS_FILE = Path(__file__).with_name("run_groups.yaml")
-
-
-def load_run_groups(path: Path = RUN_GROUPS_FILE) -> dict[str, str]:
-    """``<log dir>/<file>`` -> group, for runs listed in run_groups.yaml.
-
-    A run normally takes its group from its log directory. The file lists the
-    exceptions: later experiments whose logs share a main group's directory
-    and config label, and would otherwise replace that group's rows.
-    """
-    if not path.exists():
-        return {}
-    import yaml
-    spec = yaml.safe_load(path.read_text()) or {}
-    return {log: group for group, entry in spec.items() for log in entry.get("logs", [])}
 
 
 def units_of(runs: list[tuple[str, str, str, Path]],

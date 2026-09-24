@@ -28,6 +28,7 @@ import json
 from collections import defaultdict
 
 from config import BASE_DIR
+from analysis.runlogs import run_logs
 
 LOGS = BASE_DIR / "logs"
 DOMAINS = ("cyberops", "finance", "healthcare", "legal")
@@ -39,8 +40,7 @@ def proposal_denials(group: str, domain: str, config: str = "agenticcyops",
     per: dict[tuple[str, str], dict[str, set]] = defaultdict(
         lambda: {"prop": set(), "deny": set()})
     newest: dict[str, str] = {}
-    pattern = str(LOGS / f"{domain}_eval_attacks_{group}" / f"{config}_*.jsonl")
-    for f in sorted(glob.glob(pattern)):
+    for f in run_logs(group, domain, config):
         with open(f, errors="ignore") as fh:
             for ln in fh:
                 if not ln.strip():
@@ -84,8 +84,7 @@ def proposal_denials_by_variant(group: str, domain: str, config: str = "agenticc
     per: dict[tuple[str, str], dict[str, set]] = defaultdict(
         lambda: {"prop": set(), "deny": set()})
     newest: dict[str, str] = {}
-    pattern = str(LOGS / f"{domain}_eval_attacks_{group}" / f"{config}_*.jsonl")
-    for f in sorted(glob.glob(pattern)):
+    for f in run_logs(group, domain, config):
         with open(f, errors="ignore") as fh:
             for ln in fh:
                 if not ln.strip():
@@ -138,8 +137,7 @@ def benign_denials_by_check(group: str, domain: str, config: str = "agenticcyops
     """
     per: dict[tuple[str, str], list[tuple[str, str]]] = defaultdict(list)
     newest: dict[str, str] = {}
-    pattern = str(LOGS / f"{domain}_eval_attacks_{group}" / f"{config}_*.jsonl")
-    for f in sorted(glob.glob(pattern)):
+    for f in run_logs(group, domain, config):
         with open(f, errors="ignore") as fh:
             for ln in fh:
                 if not ln.strip():
