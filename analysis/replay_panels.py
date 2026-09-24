@@ -109,8 +109,9 @@ def outcomes(arm: str, group: str, config: str, domains, suffix: str, panel: str
                 continue
             new = evaluate_effects(p[1], ev, config=config)
             parts = tid.split("_")
-            attack.append({"domain": dom, "ap": parts[1], "variant": parts[2], "outcome": new.outcome,
-                           "as_run": base.outcome})
+            attack.append({"domain": dom, "ap": parts[1], "variant": parts[2], "trial": parts[3],
+                           "outcome": new.outcome, "blocked_by": new.blocked_by,
+                           "as_run": base.outcome, "as_run_blocked_by": base.blocked_by})
         res["domains"][dom] = {"attack": attack, "benign": dict(benign)}
     return res
 
