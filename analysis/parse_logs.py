@@ -42,6 +42,35 @@ RUN_COLUMNS = ["log_file", "domain", "group", "suffix", "config"] + [
     k for k in HEADER_FIELDS if k not in ("domain", "group", "config")]
 
 
+RUN_GROUPS_FILE = Path(__file__).with_name("run_groups.yaml")
+
+
+def load_run_groups(path: Path = RUN_GROUPS_FILE) -> dict[str, str]:
+    """``<log dir>/<file>`` -> group, for runs listed in run_groups.yaml.
+
+    A run normally takes its group from its log directory. The file lists the
+    exceptions: later experiments whose logs share a main group's directory
+    and config label, and would otherwise replace that group's rows.
+    """
+    if not path.exists():
+        return {}
+    import yaml
+    spec = yaml.safe_load(path.read_text()) or {}
+    return {log: group for group, entry in spec.items() for log in entry.get("logs", [])}
+
+
+def units_of(runs: list[tuple[str, str, str, Path]],
+             overrides: dict[str, str]) -> list[tuple[str, str, str, list[Path]]]:
+    """Split each log directory into (domain, group, suffix, files) units,
+    sending every file listed in ``overrides`` to its own group."""
+    units: dict[tuple[str, str, str], list[Path]] = {}
+    for domain, group, suffix, d in runs:
+        for path in sorted(d.glob("*.jsonl")):
+            g = overrides.get(f"{d.name}/{path.name}", group)
+            units.setdefault((domain, g, suffix), []).append(path)
+    return [(dom, g, suf, files) for (dom, g, suf), files in units.items()]
+
+
 def discover_runs(logs_dir: Path = LOGS_DIR) -> list[tuple[str, str, str, Path]]:
     """(domain, group, suffix, dir) for every attack/benign log directory."""
     out = []
@@ -95,8 +124,9 @@ def _p5_attribution(events: list[dict]) -> dict:
     return {"p5_denied": denied, "p5_redacted": redacted}
 
 
-def parse_run_dir(domain: str, group: str, suffix: str, log_dir: Path,
-                  rescore: bool = False) -> tuple[list[dict], list[dict], list[dict]]:
+def parse_run_dir(domain: str, group: str, suffix: str, log_dir: Path | None,
+                  rescore: bool = False, paths: list[Path] | None = None,
+                  ) -> tuple[list[dict], list[dict], list[dict]]:
     """Returns (result rows, trial detail rows, run header rows).
 
     ``exposed`` and ``channel`` (T2) come from the ``trial_complete`` event;
@@ -107,7 +137,7 @@ def parse_run_dir(domain: str, group: str, suffix: str, log_dir: Path,
     details: dict[tuple, dict] = {}
     runs: list[dict] = []
     events_by_trial: dict[str, list[dict]] = defaultdict(list)
-    for path in sorted(log_dir.glob("*.jsonl")):
+    for path in (sorted(paths) if paths is not None else sorted(log_dir.glob("*.jsonl"))):
         for e in read_events(path):
             if e.get("action") == "run_header":
                 runs.append({**{k: e.get(k) for k in HEADER_FIELDS}, "log_file": path.name,
@@ -202,12 +232,16 @@ def main() -> None:
 
     all_rows: list[dict] = []
     all_runs: list[dict] = []
-    for domain, group, suffix, d in discover_runs(args.logs_dir):
+    units = units_of(discover_runs(args.logs_dir), load_run_groups())
+    # same order as the log directories, so all_trials.csv keeps its row order
+    for domain, group, suffix, files in sorted(
+            units, key=lambda u: f"{u[0]}_eval_attacks_{u[1]}{u[2]}"):
         if args.group and group != args.group:
             continue
         if args.domain and domain != args.domain:
             continue
-        rows, details, runs = parse_run_dir(domain, group, suffix, d, rescore=args.rescore)
+        rows, details, runs = parse_run_dir(domain, group, suffix, None,
+                                            rescore=args.rescore, paths=files)
         if not rows:
             continue
         path = write_run(domain, group, suffix, rows, details, args.results_dir)

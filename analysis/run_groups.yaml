@@ -1,0 +1,49 @@
+# Runs whose logs sit in a main group's log directory but belong to a
+# separate experiment. parse_logs names a run's group after its log
+# directory and keeps the last run per (ap, variant, trial, config), so a
+# later experiment that reuses a directory and a config label silently
+# replaces the earlier rows. Listing the log files here routes them to
+# their own group instead; the log files themselves are never moved or
+# edited.
+
+q235_div4_e9:
+  reason: >-
+    E9 (judged writes to critical stores). Both arms, agenticcyops and
+    agenticcyops_writejudge, ran at defense-freeze-v2.8 in the main
+    q235_div4 log directories on the same AP-2/AP-4/AP-13 and benign cells
+    as the reported FULL runs, so the agenticcyops arm replaced those rows.
+    E9 compares its two arms with each other, not with the reported FULL.
+  logs:
+    - cyberops_eval_attacks_q235_div4/agenticcyops_20260923_220625.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_20260923_223605.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_20260923_231611.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_20260923_235038.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_220438.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_223337.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_231512.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_234851.jsonl
+    - cyberops_eval_attacks_q235_div4/agenticcyops_writejudge_20260924_030638.jsonl
+    - finance_eval_attacks_q235_div4/agenticcyops_20260923_220640.jsonl
+    - finance_eval_attacks_q235_div4/agenticcyops_20260923_222945.jsonl
+    - finance_eval_attacks_q235_div4/agenticcyops_20260923_224838.jsonl
+    - finance_eval_attacks_q235_div4/agenticcyops_20260923_235057.jsonl
+    - finance_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_220501.jsonl
+    - finance_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_222552.jsonl
+    - finance_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_224854.jsonl
+    - finance_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_234917.jsonl
+    - healthcare_eval_attacks_q235_div4/agenticcyops_20260923_220707.jsonl
+    - healthcare_eval_attacks_q235_div4/agenticcyops_20260923_223958.jsonl
+    - healthcare_eval_attacks_q235_div4/agenticcyops_20260923_225755.jsonl
+    - healthcare_eval_attacks_q235_div4/agenticcyops_20260923_235122.jsonl
+    - healthcare_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_220524.jsonl
+    - healthcare_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_223834.jsonl
+    - healthcare_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_225901.jsonl
+    - healthcare_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_234941.jsonl
+    - legal_eval_attacks_q235_div4/agenticcyops_20260923_220731.jsonl
+    - legal_eval_attacks_q235_div4/agenticcyops_20260923_222839.jsonl
+    - legal_eval_attacks_q235_div4/agenticcyops_20260923_225158.jsonl
+    - legal_eval_attacks_q235_div4/agenticcyops_20260923_235147.jsonl
+    - legal_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_220550.jsonl
+    - legal_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_222546.jsonl
+    - legal_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_225018.jsonl
+    - legal_eval_attacks_q235_div4/agenticcyops_writejudge_20260923_235007.jsonl

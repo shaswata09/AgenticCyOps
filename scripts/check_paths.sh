@@ -12,7 +12,9 @@
 set -uo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 
-ABS="/storage/data/AgenticCyOps"
+# The absolute path of this checkout, derived here so it is never written
+# into the repository itself.
+ABS="$(pwd -P)"
 fail=0
 
 # Every path a commit would touch: staged, modified, and untracked --
@@ -20,20 +22,23 @@ fail=0
 mapfile -t files < <(git status --porcelain -uall | cut -c4- | sed 's/^"//; s/"$//')
 [ "${#files[@]}" -eq 0 ] && { echo "[  ok] nothing to check"; exit 0; }
 
-# These two define the pattern, so they are the one place it may appear.
-is_exempt() {
+# Run records (logs, per-trial results) are kept byte-identical to what the
+# runs wrote, absolute paths included, and are scrubbed only when the release
+# snapshot is built (scripts/build_snapshot.sh). The path check therefore skips
+# them; the secret check below still covers them.
+is_run_record() {
     case "$1" in
-        scripts/check_paths.sh|scripts/scrub_paths.py) return 0 ;;
+        logs/*|logs_legacy_v1/*|results_legacy_v1/*|results/eval_attacks/*) return 0 ;;
         *) return 1 ;;
     esac
 }
 
-check() {  # check <label> <grep-args...>
-    local label="$1"; shift
+check() {  # check <label> <skip-run-records:0|1> <grep-args...>
+    local label="$1" skip_records="$2"; shift 2
     local hits=()
     for f in "${files[@]}"; do
         [ -f "$f" ] || continue
-        is_exempt "$f" && continue
+        [ "$skip_records" = 1 ] && is_run_record "$f" && continue
         grep -Iq "$@" -- "$f" 2>/dev/null && hits+=("$f")
     done
     if [ "${#hits[@]}" -gt 0 ]; then
@@ -46,8 +51,8 @@ check() {  # check <label> <grep-args...>
     fi
 }
 
-check "absolute repo paths"  -F "$ABS"
-check "API-key-shaped strings" -E -e 'sk-[A-Za-z0-9]{20,}' -e 'ghp_[A-Za-z0-9]{20,}' \
+check "absolute repo paths" 1 -F "$ABS"
+check "API-key-shaped strings" 0 -E -e 'sk-[A-Za-z0-9]{20,}' -e 'ghp_[A-Za-z0-9]{20,}' \
                                   -e 'AKIA[0-9A-Z]{16}' -e 'Bearer [A-Za-z0-9._-]{20,}'
 
 # .env must never be committed, whatever it contains.

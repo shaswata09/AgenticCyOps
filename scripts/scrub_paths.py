@@ -18,12 +18,18 @@ import subprocess
 import sys
 from pathlib import Path
 
-ABS = "/storage/data/AgenticCyOps_Private"
 PLACEHOLDER = "<REPO_ROOT>"
 # Extensions worth rewriting; anything else is left alone so we never touch
 # a binary or a checked-in model artefact.
 TEXT_SUFFIXES = {".jsonl", ".json", ".csv", ".ipynb", ".md", ".out", ".log",
                  ".txt", ".py", ".sh", ".yaml", ".yml", ".tex"}
+
+
+def repo_root() -> str:
+    """The absolute path of this checkout -- the string to remove. Derived at
+    run time so the path never has to be written into the repository."""
+    return subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True,
+                          text=True, check=True).stdout.strip()
 
 
 def tracked_files() -> list[Path]:
@@ -38,6 +44,7 @@ def main() -> int:
                     help="report files that still contain the path; exit 1 if any")
     args = ap.parse_args()
 
+    ABS = repo_root()
     hits: list[tuple[Path, int]] = []
     for f in tracked_files():
         if f.suffix not in TEXT_SUFFIXES or not f.is_file():
