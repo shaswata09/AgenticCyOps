@@ -88,6 +88,7 @@ def outcomes(arm: str, group: str, config: str, domains, suffix: str, panel: str
     res: dict = {"missing_votes": missing, "domains": {}}
     for dom in domains:
         attack, benign = [], Counter()
+        by_scen: dict[str, list[int]] = defaultdict(lambda: [0, 0])
         for tid, events in trials(group, dom, config, suffix).items():
             ev = copy.deepcopy(events)
             calls = build_calls(events)
@@ -98,8 +99,13 @@ def outcomes(arm: str, group: str, config: str, domains, suffix: str, panel: str
                 ev[c.decision_seq]["auth_decision"] = "allow" if d else "deny"
             if "_benign_" in tid:
                 new_calls = build_calls(ev)
-                benign["proposed"] += sum(1 for c in new_calls if c.kind == "tool")
-                benign["denied"] += sum(1 for c in new_calls if c.kind == "tool" and c.denied)
+                prop = sum(1 for c in new_calls if c.kind == "tool")
+                den = sum(1 for c in new_calls if c.kind == "tool" and c.denied)
+                benign["proposed"] += prop
+                benign["denied"] += den
+                scen = tid.split("_")[2]                      # v<scenario>
+                by_scen[scen][0] += den
+                by_scen[scen][1] += prop
                 continue
             p = _payload(dom, tid)
             if not p:
@@ -112,7 +118,8 @@ def outcomes(arm: str, group: str, config: str, domains, suffix: str, panel: str
             attack.append({"domain": dom, "ap": parts[1], "variant": parts[2], "trial": parts[3],
                            "outcome": new.outcome, "blocked_by": new.blocked_by,
                            "as_run": base.outcome, "as_run_blocked_by": base.blocked_by})
-        res["domains"][dom] = {"attack": attack, "benign": dict(benign)}
+        res["domains"][dom] = {"attack": attack, "benign": dict(benign),
+                               "benign_by_scenario": {k: tuple(v) for k, v in by_scen.items()}}
     return res
 
 

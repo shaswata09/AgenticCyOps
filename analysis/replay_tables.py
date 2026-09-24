@@ -208,3 +208,57 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def write_local4_trials(path=None) -> int:
+    """``all_trials.csv`` with the outcome and first interceptor of every
+    panel-using configuration replaced by its Local4 replay. Panel-free
+    configurations and benign rows are unchanged. Figures build from it."""
+    V, R = load_all_votes(), load_rounds()
+    arms = [("full", "q235_div4", "agenticcyops", D4, ""),
+            ("judgeonly", "q235_div4", "llm_judge", ("cyberops",), ""),
+            *[(f"full_minus_p{i}", "q235_div4", "agenticcyops", ("cyberops",), f"_disabled_P{i}") for i in (1, 2, 4, 5)],
+            ("scout", "scout_div4", "agenticcyops", ("cyberops", "finance"), ""),
+            ("mistral", "mistral_div3p", "agenticcyops", ("cyberops", "finance"), ""),
+            ("llama8b", "llama8b_div4", "agenticcyops", ("cyberops", "finance"), "")]
+    new = {}
+    for arm, g, cfg, doms, suf in arms:
+        res = outcomes(arm, g, cfg, doms, suf, MAIN, V, R[arm])
+        for d, v in res["domains"].items():
+            for t in v["attack"]:
+                new[(g, suf, d, cfg, t["ap"], t["variant"].lstrip("v"), t["trial"].lstrip("t"))] = t
+    rows = list(csv.DictReader(open(ALL_TRIALS)))
+    n = 0
+    for r in rows:
+        t = new.get((r["group"], r.get("suffix") or "", r["domain"], r["config"], r["ap"], r["variant"], r["trial"]))
+        if t:
+            r["outcome"], r["blocked_by"] = t["outcome"], t["blocked_by"]
+            n += 1
+    out = path or ALL_TRIALS.with_name("all_trials_local4.csv")
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    return n
+
+
+def write_local_panel_csv() -> None:
+    """The panel-composition figure's input for the local panels: ASB let-through
+    on the 405-action replay (1,275 trials) and benign rejection on the rounds
+    that reached the judges under FULL, per domain."""
+    V, R = load_all_votes(), load_rounds()
+    judged = [r for r in R["full"] if r["path"] != "allowed_no_p3" and r["role"] == "benign"]
+    rows = []
+    for panel, label in (("Single", "single"), ("Lin3", "lin3"), ("Div3L", "div3l"), ("Local4", "local4")):
+        mem, q = panel_for(panel, "asb")
+        let = sum(bool(decide(r["key"], mem, q, V)) for r in R["asb_replay405"])
+        for d in D4:
+            rs = [r for r in judged if r["domain"] == d]
+            rej = sum(not decide(r["key"], mem, q, V) for r in rs)
+            rows.append({"panel": label, "domain": d, "security_letthrough": let, "security_n": 1275,
+                         "benign_rejected": rej, "benign_n": len(rs)})
+    out = BASE_DIR / "results" / "benign_panel_rejection_local.csv"
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)

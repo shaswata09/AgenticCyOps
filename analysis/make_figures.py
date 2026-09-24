@@ -34,7 +34,13 @@ from analysis.statistical_tests import (MEASURABLE, _clusters, _CLUSTER, _EXEC,
 from config import BASE_DIR
 from analysis.runlogs import run_logs
 
-ALL_TRIALS = BASE_DIR / "results" / "eval_attacks" / "all_trials.csv"
+# DEFER_PANEL=local4 builds every figure under the all-local main panel: the
+# panel-using configurations from their Local4 replay (analysis/replay_tables.py),
+# the validator figure from the cached local votes, the panel figure from the
+# local panels. Without it, figures show the runs as recorded (Div4).
+import os as _os
+LOCAL4 = _os.environ.get("DEFER_PANEL", "") == "local4"
+ALL_TRIALS = BASE_DIR / "results" / "eval_attacks" / ("all_trials_local4.csv" if LOCAL4 else "all_trials.csv")
 LOGS = BASE_DIR / "logs"
 
 DEV_GROUP = "q235_div4"
@@ -205,6 +211,8 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
     for c in cfgs:
         ts = ben.get(c, [])
         by_var = proposal_denials_by_variant(DEV_GROUP, DEV_DOMAIN, c)
+        if LOCAL4 and c in ("agenticcyops", "llm_judge"):
+            by_var = _local4_benign_by_scenario(c)
         units = [(k, float(d), float(p)) for k, (d, p) in by_var.items() if p]
         denied.append(_ratio_bootstrap(units))
         done = [t for t in ts if str(t.get("task_completed", "")).strip() != ""]
@@ -738,7 +746,7 @@ def fig_panel_composition(trials: list[dict], outdir: Path) -> tuple[Path, dict]
     import csv
     import matplotlib.pyplot as plt
 
-    src = BASE_DIR / "results" / "benign_panel_rejection.csv"
+    src = BASE_DIR / "results" / ("benign_panel_rejection_local.csv" if LOCAL4 else "benign_panel_rejection.csv")
     agg: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for r in csv.DictReader(open(src, newline="")):
         p = r["panel"]
@@ -749,7 +757,7 @@ def fig_panel_composition(trials: list[dict], outdir: Path) -> tuple[Path, dict]
             agg[p]["ben_n"] += float(r["benign_n"])
 
     label = {"single": "Single", "div3": "Div3", "div4": "Div4", "lin3": "Lin3",
-             "div3x": "Div3x"}
+             "div3x": "Div3x", "div3l": "Div3L", "local4": "Local4"}
     pts = {}
     for p, d in agg.items():
         sec = 100 * d["sec_k"] / d["sec_n"] if d["sec_n"] else float("nan")
@@ -792,10 +800,13 @@ def fig_panel_composition(trials: list[dict], outdir: Path) -> tuple[Path, dict]
     path = fs.save(fig, "panel_composition", outdir, fs.WIDTH_1COL)
     meta = {
         "name": "panel_composition", "file": path.name,
-        "takeaway": ("Diversity buys security: Div4 lets nothing through, and the last points "
-                     "of it cost a few points of benign rejection. A same-size panel of one "
-                     "model lineage (Lin3) gives the security back."),
-        "data_sources": ["results/benign_panel_rejection.csv",
+        "takeaway": (("Lineage, not size, buys security: the mixed-lineage panels let through "
+                      "about 1% of replayed attack actions, a same-size single-lineage panel "
+                      "(Lin3) about 10%, at similar benign rejection.") if LOCAL4 else
+                     ("Diversity buys security: Div4 lets nothing through, and the last points "
+                      "of it cost a few points of benign rejection. A same-size panel of one "
+                      "model lineage (Lin3) gives the security back.")),
+        "data_sources": [src.relative_to(BASE_DIR).as_posix(),
                          "results/asb/e2e_validator_group_q235_div4_*/general/results.csv"],
         "n": {label[p]: {"benign_rejected_pct": None if math.isnan(v[0]) else round(v[0], 1),
                          "letthrough_pct": None if math.isnan(v[1]) else round(v[1], 1),
@@ -808,6 +819,31 @@ def fig_panel_composition(trials: list[dict], outdir: Path) -> tuple[Path, dict]
 #  Validator votes (F8)
 # --------------------------------------------------------------------- #
 def validator_rounds(group: str = DEV_GROUP) -> tuple[list[str], list[dict[str, str]]]:
+    if LOCAL4:
+        return _local4_rounds()
+    return _logged_rounds(group)
+
+
+def _local4_benign_by_scenario(config: str) -> dict:
+    """Per benign scenario (denied, proposed) under the Local4 replay."""
+    from analysis.replay_panels import load_all_votes, load_rounds, outcomes
+    arm = "full" if config == "agenticcyops" else "judgeonly"
+    res = outcomes(arm, DEV_GROUP, config, (DEV_DOMAIN,), "", "Local4",
+                   load_all_votes(), load_rounds()[arm])
+    return dict(res["domains"][DEV_DOMAIN]["benign_by_scenario"])
+
+
+def _local4_rounds() -> tuple[list[str], list[dict[str, str]]]:
+    """Every judged FULL round (four domains) with the four local votes."""
+    from analysis.replay_panels import PANELS, load_all_votes, load_rounds
+    members = list(PANELS["Local4"][0])
+    V = load_all_votes()
+    rounds = [{m: V[m].get(r["key"], "error") for m in members}
+              for r in load_rounds()["full"] if r["path"] != "allowed_no_p3"]
+    return members, rounds
+
+
+def _logged_rounds(group: str = DEV_GROUP) -> tuple[list[str], list[dict[str, str]]]:
     """Per-round validator -> vote maps from every domain of a group.
 
     Deduped per trial the way ``parse_logs`` dedupes (newest file wins); only
