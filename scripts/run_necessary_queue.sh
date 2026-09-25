@@ -22,7 +22,7 @@ note() { echo "$(date '+%F %T')  $*" | tee -a "$STATUS"; }
 
 gates() {
     bash scripts/check_freeze.sh >>"$STATUS" 2>&1 || { note "ABORT: freeze guard"; exit 1; }
-    d=$(/home/student/.conda/envs/agenticcyops/bin/python -c \
+    d=$(${PYTHON:-python} -c \
         "from logging_utils.run_metadata import git_state; print(git_state()['git_dirty'])")
     [ "$d" = "False" ] || { note "ABORT: tree dirty"; exit 1; }
     for p in 8000 8002 8003; do
@@ -67,5 +67,5 @@ done
 for p in "${pids[@]}"; do wait "$p"; done
 note "E9 complete"
 
-/home/student/.conda/envs/agenticcyops/bin/python -m analysis.parse_logs >/dev/null 2>&1 || true
+${PYTHON:-python} -m analysis.parse_logs >/dev/null 2>&1 || true
 note "queue done"

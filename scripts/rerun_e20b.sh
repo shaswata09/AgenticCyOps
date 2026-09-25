@@ -31,7 +31,7 @@ EXPECT_BENIGN=20   # 20 cyberops benign scenarios x 1 trial
 note() { echo "$(date '+%F %T')  $*" | tee -a "$STATUS"; }
 rows() {  # rows(ap_filter) -> count of non-error rows
     [ -f "$RES" ] || { echo 0; return; }
-    /home/student/.conda/envs/agenticcyops/bin/python - "$RES" "$1" <<'PY'
+    ${PYTHON:-python} - "$RES" "$1" <<'PY'
 import csv, sys
 want = sys.argv[2]
 n = 0
@@ -46,7 +46,7 @@ PY
 }
 
 bash scripts/check_freeze.sh >>"$STATUS" 2>&1 || { note "ABORT: freeze guard"; exit 1; }
-d=$(/home/student/.conda/envs/agenticcyops/bin/python -c \
+d=$(${PYTHON:-python} -c \
     "from logging_utils.run_metadata import git_state; print(git_state()['git_dirty'])")
 [ "$d" = "False" ] || { note "ABORT: tree dirty ($d)"; exit 1; }
 for p in 8000 8002 8003; do

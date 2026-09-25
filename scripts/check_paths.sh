@@ -22,16 +22,10 @@ fail=0
 mapfile -t files < <(git status --porcelain -uall | cut -c4- | sed 's/^"//; s/"$//')
 [ "${#files[@]}" -eq 0 ] && { echo "[  ok] nothing to check"; exit 0; }
 
-# Run records (logs, per-trial results) are kept byte-identical to what the
-# runs wrote, absolute paths included, and are scrubbed only when the release
-# snapshot is built (scripts/build_snapshot.sh). The path check therefore skips
-# them; the secret check below still covers them.
-is_run_record() {
-    case "$1" in
-        logs/*|logs_legacy_v1/*|results_legacy_v1/*|results/eval_attacks/*) return 0 ;;
-        *) return 1 ;;
-    esac
-}
+# Run records (logs, per-trial results) are checked too: absolute paths were
+# scrubbed from the committed ones, and a new run that writes this checkout's
+# path into a log must be scrubbed before it is committed.
+is_run_record() { return 1; }
 
 check() {  # check <label> <skip-run-records:0|1> <grep-args...>
     local label="$1" skip_records="$2"; shift 2

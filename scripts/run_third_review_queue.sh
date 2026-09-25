@@ -31,7 +31,7 @@ note "E2 finished"
 if ! bash scripts/check_freeze.sh >>"$STATUS" 2>&1; then
     note "ABORT: freeze guard failed"; exit 1
 fi
-dirty=$(/home/student/.conda/envs/agenticcyops/bin/python -c \
+dirty=$(${PYTHON:-python} -c \
         "from logging_utils.run_metadata import git_state; print(git_state()['git_dirty'])")
 if [ "$dirty" != "False" ]; then note "ABORT: tree is dirty ($dirty)"; exit 1; fi
 for p in 8000 8002 8003; do
@@ -56,5 +56,5 @@ done
 for p in "${pids[@]}"; do wait "$p"; done
 note "all three arms finished"
 
-/home/student/.conda/envs/agenticcyops/bin/python -m analysis.parse_logs >/dev/null 2>&1 || true
+${PYTHON:-python} -m analysis.parse_logs >/dev/null 2>&1 || true
 note "parse complete -- queue done"

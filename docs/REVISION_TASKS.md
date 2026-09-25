@@ -39,7 +39,7 @@ An audit of the committed results found these problems. Each task below referenc
 | P13 | No ablation reruns, no judge-only baseline, no adaptive attacker, no held-out attacks. | no `_disabled_` dirs |
 | P14 | Transfer-domain payloads for 10 of 15 APs are terse templates. | `scripts/generate_cross_domain_payloads.py` |
 | P15 | `analysis/statistical_tests.py`, `generate_tables.py`, `parse_logs.py` are one-line stubs. | `wc -l` |
-| P16 | Logs and scripts leak `<REPO_ROOT>/...` and 10.116.x.x addresses. | logs `model` field; `scripts/run_attack_paths.sh` |
+| P16 | Logs and scripts leak `<REPO_ROOT>/...` and internal addresses. | logs `model` field; `scripts/run_attack_paths.sh` |
 
 ---
 
@@ -47,7 +47,7 @@ An audit of the committed results found these problems. Each task below referenc
 
 - [ ] **A1. Archive legacy outputs.** `git mv results results_legacy_v1` and `git mv logs logs_legacy_v1`; recreate empty `results/` and `logs/` with `.gitkeep`. Add `results_legacy_v1/README.md` stating these were produced with the v1 harness and must not be mixed with v2 numbers. Keep `results_legacy_v1/asb/` usable: the ASB live runs are still valid (see E6).
 - [ ] **A2. Remove from the branch** (keep on `main`): `rebuttal_comments.md`, `task_checklist.md`, `experiment_plan.md`.
-- [ ] **A3. Config for environment-specific values.** Create `.env.example` entries `MODELS_DIR`, `PRIMARY_URL_*`, `VALIDATOR_URL_*`, `REMOTE_5090_URL`, `REMOTE_5090_API_KEY`. The RTX 5090 endpoint is reached through these two variables only (SSH tunnel or LAN, started with vLLM's `--api-key`); its address is never written to code, scripts or logs. Replace every hard-coded `/storage/...` path and `10.116.*` address in code and scripts with env lookups. Acceptance: `grep -rn "10\.116\.\|/storage/data" --include=*.py --include=*.sh --include=*.yaml .` returns nothing outside `*_legacy_v1/`.
+- [ ] **A3. Config for environment-specific values.** Create `.env.example` entries `MODELS_DIR`, `PRIMARY_URL_*`, `VALIDATOR_URL_*`, `REMOTE_5090_URL`, `REMOTE_5090_API_KEY`. The RTX 5090 endpoint is reached through these two variables only (SSH tunnel or LAN, started with vLLM's `--api-key`); its address is never written to code, scripts or logs. Replace every hard-coded `/storage/...` path and internal address in code and scripts with env lookups. Acceptance: `grep -rn "10\.116\.\|/storage/data" --include=*.py --include=*.sh --include=*.yaml .` returns nothing outside `*_legacy_v1/`.
 - [ ] **A4. Log path scrubbing.** In `logging_utils/json_logger.py`, write `model` as the basename of the model path / API model ID only.
 
 ---
