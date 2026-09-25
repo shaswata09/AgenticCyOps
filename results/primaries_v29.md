@@ -20,4 +20,4 @@ JUDGEONLY and FULL: direct outcome under Local4 (live local2 value in `live_loca
 | ACL | 33.3 [23.1, 43.6] | 34.7 | 3.8 | 0 | 1.1 |
 | JUDGEONLY | 28.4 [18.7, 38.2] | 36.0 | 21.0 | 100.0 | 6.6 |
 | NOJUDGE | 1.3 [0.0, 4.0] | 37.8 | 96.5 | 0 | 65.5 |
-| FULL | 6.7 [1.8, 12.4] | 33.3 | 80.0 | 40.5 | 11.8 |
+| FULL | 6.2 [1.3, 12.0] | 33.3 | 81.3 | 40.5 | 12.4 |

@@ -93,11 +93,11 @@
    }
   },
   "FULL": {
-   "asr": "6.7 [1.8, 12.4]",
+   "asr": "6.2 [1.3, 12.0]",
    "n": 225,
    "attempt": "33.3",
-   "block_given_attempt": "80.0",
-   "benign_denied": "11.8",
+   "block_given_attempt": "81.3",
+   "benign_denied": "12.4",
    "judged": "40.5",
    "missing_votes": 0,
    "live_local2": {

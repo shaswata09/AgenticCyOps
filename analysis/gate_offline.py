@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 
-from analysis.p3_eligibility import _payload, call_path, trials
+from analysis.p3_eligibility import JUDGED_PATHS, _payload, call_path, trials
 from attacks.effects import build_calls, evaluate_effects
 from consensus.auto_gates import AutoGates
 from consensus.scoring import ProposalScorer
@@ -55,7 +55,7 @@ def evaluate(group: str = "q235_div4", config: str = "agenticcyops", mode: str =
                     attack_ids = set(evaluate_effects(p[1], events, config=config).attempted_call_ids or [])
             for c in calls:
                 path = call_path(c, events)
-                if path not in ("p3_panel_approved", "p3_panel_rejected"):
+                if path not in JUDGED_PATHS:
                     continue                  # never reached the gate
                 scores = scorer.score(p3_proposal(c, c.phase), {})
                 decided, reason, det = gate.evaluate(scores)
@@ -115,7 +115,7 @@ def simulate(mode: str = "permissive", fixed_scorer: bool = False, group: str = 
             ev = copy.deepcopy(events)
             for c in calls:
                 path = call_path(c, events)
-                if path not in ("p3_panel_approved", "p3_panel_rejected"):
+                if path not in JUDGED_PATHS:
                     continue
                 prop = p3_proposal(c, c.phase)
                 scorer._ledger = ledger if fixed_scorer else None
@@ -125,7 +125,9 @@ def simulate(mode: str = "permissive", fixed_scorer: bool = False, group: str = 
                 if decided:
                     approved = bool(det.get("approved"))
                     dom[("benign" if benign else "attack") + ("_gate_approve" if approved else "_gate_deny")] += 1
-                    if c.decision_seq >= 0 and approved != (path == "p3_panel_approved"):
+                    # a rule after the panel decided a p3_rule_after_panel call; the gate cannot undo it
+                    if (c.decision_seq >= 0 and path != "p3_rule_after_panel"
+                            and approved != (path == "p3_panel_approved")):
                         ev[c.decision_seq]["auth_decision"] = "allow" if approved else "deny"
                         dom[("benign" if benign else "attack") + "_flipped_" + ("to_allow" if approved else "to_deny")] += 1
                 dom[("benign" if benign else "attack") + "_reached_gate"] += 1

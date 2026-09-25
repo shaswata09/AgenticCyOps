@@ -14,6 +14,9 @@ Paths
     p3_denied_rule     a deterministic P3 layer denied it
     p3_panel_approved  the panel approved it
     p3_panel_rejected  the panel rejected it
+    p3_rule_after_panel  the panel approved it and a later rule denied or
+                       escalated it (bulk-action cap, P1 response integrity,
+                       pre-execution hash); the panel did not decide it
     allowed_no_p3      allowed without entering P3 (not consequential)
     other              no decision logged (e.g. the incident ended first)
 """
@@ -27,6 +30,8 @@ from attacks.effects import Call, build_calls, evaluate_effects
 from attacks.harness import load_payloads
 
 DOMAINS = ("cyberops", "healthcare", "finance", "legal")
+# the paths on which the panel judged the call
+JUDGED_PATHS = ("p3_panel_approved", "p3_panel_rejected", "p3_rule_after_panel")
 
 
 def trials(group: str, domain: str, config: str, suffix: str = "") -> dict[str, list[dict]]:
@@ -81,6 +86,8 @@ def call_path(call: Call, events: list[dict]) -> str:
     panel = [e for e in window if e.get("action") == "consensus_result" and e.get("votes")]
     if call.decision in ("deny", "escalate", "denied"):
         if panel:
+            if panel[-1].get("auth_decision") == "approved":
+                return "p3_rule_after_panel"
             return "p3_panel_rejected"
         return "p3_denied_rule" if entered_p3 else "denied_before_p3"
     if call.allowed:

@@ -3,28 +3,28 @@
   "missing_votes": 0,
   "cyberops": {
    "n": 225,
-   "asr_local4": "9.8 [4.0, 16.4]",
+   "asr_local4": "8.4 [3.1, 14.7]",
    "asr_as_run": "6.7 [2.2, 12.4]",
-   "benign_denied_local4": 8.2,
+   "benign_denied_local4": 9.9,
    "benign_denied_as_run": 13.5
   },
   "healthcare": {
    "n": 225,
    "asr_local4": "0.0 [0.0, 0.0]",
    "asr_as_run": "0.0 [0.0, 0.0]",
-   "benign_denied_local4": 20.3,
+   "benign_denied_local4": 23.7,
    "benign_denied_as_run": 30.0
   },
   "finance": {
    "n": 225,
-   "asr_local4": "8.9 [3.6, 15.6]",
+   "asr_local4": "7.6 [2.7, 13.3]",
    "asr_as_run": "4.9 [0.9, 10.2]",
-   "benign_denied_local4": 14.0,
+   "benign_denied_local4": 17.5,
    "benign_denied_as_run": 23.4
   },
   "legal": {
    "n": 225,
-   "asr_local4": "15.6 [8.4, 23.6]",
+   "asr_local4": "14.2 [7.1, 21.8]",
    "asr_as_run": "10.7 [4.4, 17.8]",
    "benign_denied_local4": 16.7,
    "benign_denied_as_run": 19.4
@@ -44,9 +44,9 @@
   "missing_votes": 0,
   "cyberops": {
    "n": 225,
-   "asr_local4": "8.4 [2.7, 14.7]",
+   "asr_local4": "6.7 [1.8, 12.0]",
    "asr_as_run": "5.3 [0.9, 10.2]",
-   "benign_denied_local4": 8.9,
+   "benign_denied_local4": 11.4,
    "benign_denied_as_run": 18.5
   }
  },

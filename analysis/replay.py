@@ -28,7 +28,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 
 from analysis.gate_offline import _incident, p3_proposal
-from analysis.p3_eligibility import _payload, call_path, trial_commits, trials
+from analysis.p3_eligibility import JUDGED_PATHS, _payload, call_path, trial_commits, trials
 from attacks.effects import build_calls, evaluate_effects
 from consensus.validator import VALIDATOR_SYSTEM_PROMPT
 from consensus.verified_execution import VerifiedExecution
@@ -161,7 +161,7 @@ def rounds(group: str, config: str, domains=DOMAINS, suffix: str = "",
                     if e.get("action") == "tool_proposed"}
             for c in build_calls(events):
                 path = call_path(c, events)
-                judged = path in ("p3_panel_approved", "p3_panel_rejected")
+                judged = path in JUDGED_PATHS
                 if not (judged or (include_unjudged and path == "allowed_no_p3")):
                     continue
                 c.justification = _full_justification(just.get(c.call_id, ""), c, d, tid)

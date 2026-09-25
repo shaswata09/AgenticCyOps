@@ -28,7 +28,7 @@ import uuid
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from analysis.p3_eligibility import _payload, call_path, trial_commits, trials
+from analysis.p3_eligibility import JUDGED_PATHS, _payload, call_path, trial_commits, trials
 from analysis.replay import _SANITIZER, _full_justification, _proposal, incident_at
 from analysis.replay_run import ARMS
 from attacks.effects import build_calls, evaluate_effects
@@ -36,7 +36,7 @@ from config import BASE_DIR
 from consensus.panel_context import build_panel_message, prior_action
 
 OUT = BASE_DIR / "cache" / "replay_v3"
-P3_PATHS = ("p3_panel_approved", "p3_panel_rejected", "p3_denied_rule")
+P3_PATHS = JUDGED_PATHS + ("p3_denied_rule",)
 
 
 def rounds(group: str, config: str, domains, suffix: str = ""):
@@ -62,7 +62,7 @@ def rounds(group: str, config: str, domains, suffix: str = ""):
                     continue
                 c.justification = _full_justification(just.get(c.call_id, ""), c, d, tid)
                 proposal = _proposal(c)
-                if path in ("p3_panel_approved", "p3_panel_rejected"):
+                if path in JUDGED_PATHS:
                     shown = _SANITIZER._sanitize_proposal(proposal) if sanitize else proposal
                     msg = build_panel_message(shown, {
                         "incident": incident, "incident_id": iid, "domain": d, "config": host_config,
@@ -118,7 +118,7 @@ def build_live() -> None:
                             attack_ids = set(evaluate_effects(p[1], events, config=config).attempted_call_ids or [])
                     for c in build_calls(events):
                         path = call_path(c, events)
-                        if path not in ("p3_panel_approved", "p3_panel_rejected"):
+                        if path not in JUDGED_PATHS:
                             continue
                         end = c.decision_seq if c.decision_seq >= 0 else len(events)
                         msgs = [e["panel_message"] for e in events[c.seq:end + 1] if e.get("action") == "panel_input"]
@@ -211,7 +211,7 @@ def tables() -> dict:
     for tag, R in (("v2.9_input", old), ("v3.0_input", new)):
         c = defaultdict(Counter)
         for r in R["full"]:
-            if r.get("path") not in ("p3_panel_approved", "p3_panel_rejected"):
+            if r.get("path") not in JUDGED_PATHS:
                 continue
             for vid in PANELS["Local4"][0]:
                 v = V[vid].get(r["key"])

@@ -19,7 +19,7 @@ import copy
 import json
 from collections import Counter, defaultdict
 
-from analysis.p3_eligibility import _payload, trials
+from analysis.p3_eligibility import _payload, call_path, trials
 from analysis.replay_run import REPLAY_DIR, VOTE_DIR
 from analysis.statistical_tests import cluster_bootstrap
 from attacks.effects import build_calls, evaluate_effects
@@ -100,7 +100,15 @@ def outcomes(arm: str, group: str, config: str, domains, suffix: str, panel: str
                 d = dec.get((tid, c.call_id))
                 if d is None or c.decision_seq < 0:
                     continue
-                ev[c.decision_seq]["auth_decision"] = "allow" if d else "deny"
+                # a rule that fired after the panel approved decided this call;
+                # re-judging the panel cannot undo it
+                if call_path(c, events) == "p3_rule_after_panel":
+                    continue
+                patched = ev[c.decision_seq]
+                if not d and patched.get("auth_decision") in ("allow", "redact"):
+                    # the re-judged panel, not the rule on the final event, denies it
+                    patched["mechanism"] = "P3_llm_consensus_reject"
+                patched["auth_decision"] = "allow" if d else "deny"
             if "_benign_" in tid:
                 new_calls = build_calls(ev)
                 prop = sum(1 for c in new_calls if c.kind == "tool")

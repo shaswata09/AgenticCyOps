@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 
-from analysis.p3_eligibility import _payload, call_path, trials
+from analysis.p3_eligibility import JUDGED_PATHS, _payload, call_path, trials
 from analysis.replay_panels import asr, load_all_votes, load_rounds, outcomes
 from attacks.effects import build_calls, evaluate_effects
 from pathlib import Path
@@ -73,7 +73,7 @@ def summarize(attack, benign, paths=None) -> dict:
         out["benign_denied"] = _pct(benign["denied"] / benign["proposed"])
     if paths:
         tot = sum(paths.values())
-        out["judged"] = _pct((paths["p3_panel_approved"] + paths["p3_panel_rejected"]) / tot) if tot else "n/a"
+        out["judged"] = _pct(sum(paths[p] for p in JUDGED_PATHS) / tot) if tot else "n/a"
     return out
 
 
