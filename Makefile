@@ -6,7 +6,7 @@ PY ?= python
 DEFER_PANEL ?= local4
 export DEFER_PANEL
 
-.PHONY: paper-tables paper-reports parse stats tables reports asb-reports figures readme-figures replay-tables b2 primaries-tables tamas-tables test freeze-check check-payloads
+.PHONY: paper-tables paper-reports parse stats tables reports asb-reports figures readme-figures replay-tables replay-v3 b2 primaries-tables tamas-tables test freeze-check check-payloads
 
 paper-tables: parse stats tables
 
@@ -49,6 +49,13 @@ readme-figures:
 replay-tables:
 	$(PY) -m analysis.replay_tables > /dev/null
 	$(PY) -c "from analysis.replay_tables import write_local4_trials, write_local_panel_csv; write_local4_trials(); write_local_panel_csv()"
+
+# The v3.0 panel input: offline re-judging of every judged v2.9 round and the
+# live v3.0 re-run, both under Local4 (results/replay_v3.md; cached votes only).
+replay-v3:
+	$(PY) -m analysis.replay_v3 tables > /dev/null
+	$(PY) -m analysis.replay_v3 live-tables > /dev/null
+	$(PY) -m analysis.replay_v3 report > /dev/null
 
 # Live v2.9 calibration run vs its replay (results/b2_live.json).
 b2:
