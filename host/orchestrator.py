@@ -663,7 +663,7 @@ class SOARHost:
                 extra={
                     "call_id": getattr(tc, "call_id", ""),
                     "arguments": tc.arguments if isinstance(tc.arguments, dict) else {},
-                    "justification": (tc.justification or "")[:300],
+                    "justification": (tc.justification or "")[:1000],
                 },
             )
         return await self._enforce_tool_call(phase, tc, context)
@@ -745,12 +745,15 @@ class SOARHost:
                               "target_users", "account_id", "patient_id", "case_id"):
                     if field in args and field not in proposal:
                         proposal[field] = args[field]
-                p3_context = {**context, "current_phase": phase}
+                p3_context = {**context, "current_phase": phase,
+                              "prior_actions": list(context.setdefault("prior_actions", []))}
 
                 try:
                     result = await self.consensus.validate_with_details(
                         proposal, p3_context)
                     _t = self._lap("judge", _t)
+                    from consensus.panel_context import prior_action
+                    context["prior_actions"].append(prior_action(proposal, bool(result.approved)))
                 except Exception as exc:
                     _t = self._lap("judge", _t)
                     if self.logger:
@@ -883,11 +886,15 @@ class SOARHost:
                 # v2.9 (B1): the evidence the risk scorer's alignment reads,
                 # as P2's parameter check uses it
                 p3_context = {**context, "current_phase": phase,
-                              "incident_evidence": json.dumps(context.get("incident", {}), default=str)}
+                              "incident_evidence": json.dumps(context.get("incident", {}), default=str),
+                              # v3.0: what the panel is told has already been decided
+                              "prior_actions": list(context.setdefault("prior_actions", []))}
                 _p3_approved_at = _time.time()  # Fix #3: timestamp for L7
                 approved = await self.verified_execution.validate(
                     proposal, p3_context
                 )
+                from consensus.panel_context import prior_action
+                context["prior_actions"].append(prior_action(proposal, bool(approved)))
                 _t = self._lap("P3", _t)
                 if not approved:
                     if self.logger:

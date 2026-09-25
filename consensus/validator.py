@@ -139,15 +139,14 @@ class ConsensusValidator:
         """Full consensus with per-validator details."""
         start = time.perf_counter()
 
-        # Build the proposal message
-        proposal_msg = json.dumps({
-            "proposal": proposal,
-            "incident_context": {
-                "incident_id": incident_context.get("incident_id"),
-                "description": incident_context.get("incident", {}).get("description", ""),
-                "config": incident_context.get("config"),
-            },
-        }, default=str)
+        # Build the proposal message (v3.0: the panel also sees the structured
+        # evidence, the calling agent's scope, the operating context and the
+        # incident's earlier decisions; see consensus/panel_context.py)
+        from consensus.panel_context import build_panel_message
+        proposal_msg = build_panel_message(proposal, incident_context)
+        if self.logger:
+            self.logger.log(source="consensus_module", destination="panel", action="panel_input",
+                            extra={"panel_message": proposal_msg})
 
         # Call all validators concurrently
         tasks = []

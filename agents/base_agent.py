@@ -375,6 +375,11 @@ class BaseAgent:
 
         # Extract tool calls from structured response
         if message.tool_calls:
+            # v3.0: the proposal carries the model's own stated reasoning (its
+            # message text, or the reasoning channel a serving stack exposes),
+            # not a placeholder; the panel reads it after sanitization
+            stated = (content or getattr(message, "reasoning_content", None)
+                      or getattr(message, "reasoning", None) or "").strip()
             for tc in message.tool_calls:
                 try:
                     args = json.loads(tc.function.arguments)
@@ -384,7 +389,7 @@ class BaseAgent:
                     ToolCallProposal(
                         tool_id=tc.function.name,
                         arguments=args,
-                        justification=f"LLM proposed: {tc.function.name}",
+                        justification=stated[:800] or f"LLM proposed: {tc.function.name}",
                     )
                 )
 
