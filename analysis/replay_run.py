@@ -229,6 +229,7 @@ def main() -> None:
     q.add_argument("--max-tokens", type=int, default=2048)
     q.add_argument("--reasoning-effort", default=None)
     q.add_argument("--limit", type=int, default=None)
+    q.add_argument("--replay-dir", default=None, help="read messages from this directory (e.g. cache/replay_v3)")
     a = ap.parse_args()
     if a.cmd == "build":
         build()
@@ -237,6 +238,9 @@ def main() -> None:
     elif a.cmd == "build-tamas":
         build_tamas()
     else:
+        if a.replay_dir:
+            global REPLAY_DIR
+            REPLAY_DIR = BASE_DIR / a.replay_dir
         extra = {"reasoning_effort": a.reasoning_effort} if a.reasoning_effort else None
         asyncio.run(_query(a.validator, a.url, a.concurrency, a.max_tokens, extra, a.limit))
 
