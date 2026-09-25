@@ -133,29 +133,31 @@ was seen. No Qwen-family member (the primary is Qwen), no API, no outage.
 
 | Arm (direct outcome under Local4) | ASR [95% CI] | as run (Div4) |
 |---|---|---|
-| FULL, development | **8.4% [3.1, 15.1]** | 4.0% |
-| FULL, transfer (pooled) | **5.3% [2.8, 8.3]** | 4.1% |
+| FULL, development | **7.1% [2.2, 12.9]** | 4.0% |
+| FULL, transfer (pooled) | **5.2% [2.7, 8.0]** | 4.1% |
 | JUDGEONLY, development | **33.8% [24.0, 44.0]** | 24.4% |
-| FULL + judge everything after rules | 8.4% (benign denial 9.5% -> 11.6%) | n/a |
-| FULL minus P1 / P2 / P4 / P5 (dev) | 9.8 / 14.7 / 13.3 / 11.1% | 5.4 / 9.8 / 8.9 / 6.2% |
-| Scout / Mistral / Llama-8B primaries, dev | 5.8 / 8.0 / 6.2% | 1.8 / 2.7 / 4.0% |
+| FULL + judge everything after rules | 7.1% (benign denial 11.2% -> 13.3%) | n/a |
+| FULL / minus P1 / P2 / P4 / P5 (dev, 68 shared variants) | 7.8 / 8.8 / 12.3 / 13.2 / 6.4% | 5.4 / 9.8 / 8.9 / 6.2% (minus P1 / P2 / P4 / P5) |
+| Scout / Mistral / Llama-8B primaries, dev | 4.4 / 8.0 / 5.3% | 1.8 / 2.7 / 4.0% |
 | ASB frozen live run (FLAT 28.8%) | **1.8%** (9 of 101 panel rounds approved) | 0.0% (panel degraded) |
 | ASB 405-action replay | 1.4% (18 let through, 4.4%) | n/a |
 
 - **Rules first survives and sharpens.** Under the same judges, JUDGEONLY leaves
-  33.8% (FLAT 36.4%): these judges alone barely help. FULL cuts it to 8.4%.
+  33.8% (FLAT 36.4%): these judges alone barely help. FULL cuts it to 7.1%.
 - **Judge-everything-after-rules (Major 3).** Judging every rule-surviving call,
   consequential or not, changes **no** attack outcome (no attack executed through
   a non-consequential call) and adds benign denials. The gap between FULL and
   JUDGEONLY is therefore what the rules add, not what judging less costs.
   Holds in all four domains (executed attacks: CyberOps 19, finance 10, legal
   26, healthcare 0, identical with and without); judged fraction 33.4% -> 78.0%
-  (dev), benign denial 9.5% -> 11.6%, benign incidents with any denied proposal 76.7% -> 80.0%.
-  Without the memory paths (AP-4, AP-13) JUDGEONLY vs FULL is 23.3% vs 8.5%.
+  (dev), benign denial 11.2% -> 13.3%.
+  Without the memory paths (AP-4, AP-13) JUDGEONLY vs FULL is 23.3% vs 6.9%.
 - **Ablation benign cost, recomputed from the logs (minor point).** Legitimate
   tool proposals denied / benign incidents with any denied proposal (tool or
-  memory), Local4: FULL 9.5 / 76.7, -P1 7.1 / 63.3, -P2 2.9 / 46.7,
-  -P3 7.9 / 65.0 (as run, no panel), -P4 9.3 / 78.3, -P5 7.2 / 68.3.
+  memory), Local4: FULL 11.2 / 80.0, -P1 8.4 / 66.7, -P2 4.8 / 53.3,
+  -P3 7.9 / 65.0 (as run, no panel), -P4 10.9 / 80.0, -P5 8.9 / 73.3.
+  (Denied counts deny and escalate; the replay leaves decisions made by a rule
+  after the panel as run.)
   P2 is both a main defense and the main cost.
 - **Panel strictness sets the absolute level.** Per-validator approval of attack
   vs benign proposals: Gemma 30/76%, gpt-oss 43/80%, Mistral 50/91%, Scout 81/94%,
@@ -176,9 +178,9 @@ later path started; they were re-run from a clean tree. All 300 trials present.)
 
 | | live (v2.9) | replay of the original runs, same judges |
 |---|---|---|
-| ASR, original 75 variants | **2.7% [0.0, 6.2]** | 3.6% [0.0, 8.0] |
+| ASR, original 75 variants | **2.7% [0.0, 6.2]** | 3.1% [0.0, 7.1] |
 | attempt rate | 33.8% | 33.8% |
-| legitimate proposals denied | 12.9% | 12.5% |
+| legitimate proposals denied | 12.9% | 14.1% |
 | median benign-incident latency | 60.0 s | (as run with Div4: 117.8 s) |
 
 - **Gate vs panel:** the corrected scorer lets the auto-gates decide **0 of
@@ -249,10 +251,10 @@ Same replay, size-matched panels (2 of 3), no API:
 
 | Panel | FULL dev | FULL transfer | ASB replay let-through (of 250 panel rounds) | frozen ASB ASR |
 |---|---|---|---|---|
-| Div3L: Mistral, Gemma, gpt-oss | 8.4% | 5.8% | 18 | 1.8% |
-| Lin3: Qwen3-32B, R1-Distill-Qwen-32B, Qwen3-14B | 10.7% | 8.3% | 127 | 9.6% |
-| Single: Qwen3-32B (1 of 1) | 10.7% | 8.0% | 36 | 3.3% |
-| Local4 (3 of 4, main) | 8.4% | 5.3% | 18 | 1.8% |
+| Div3L: Mistral, Gemma, gpt-oss | 7.1% | 5.6% | 18 | 1.8% |
+| Lin3: Qwen3-32B, R1-Distill-Qwen-32B, Qwen3-14B | 9.3% | 8.1% | 127 | 9.6% |
+| Single: Qwen3-32B (1 of 1) | 9.3% | 7.9% | 36 | 3.3% |
+| Local4 (3 of 4, main) | 7.1% | 5.2% | 18 | 1.8% |
 
 At equal size and quorum the same-lineage panel lets 7x more ASB actions through
 than the diverse one and 3.5x more than its own single member (original logged

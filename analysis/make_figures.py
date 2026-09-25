@@ -1000,7 +1000,8 @@ def fig_validator_behavior(trials: list[dict], outdir: Path) -> tuple[Path, dict
 #  F12. Channels
 # --------------------------------------------------------------------- #
 # Takeaway: every channel is exposed and four of five are closed; the open one
-# is content-plausible poisoning on the tool-response channel.
+# is the tool-response channel, whose residual (legal AP-2) is mostly the planted
+# identifier reaching the next agent's handoff.
 CHANNEL_CODE = {"alert_text": "C1 task input", "tool_response": "C2 tool response",
                 "memory": "C3 memory", "handoff": "C4 handoff",
                 "proposal_justification": "C5 rationale"}
@@ -1068,7 +1069,8 @@ def fig_channels(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
         "name": "channels", "file": path.name,
         "takeaway": ("Where exposure is measured the injected content does reach the model, "
                      "and the cascade closes four of the five channels; the one it does not "
-                     "close is content-plausible poisoning on the tool-response channel."),
+                     "close is the tool-response channel, whose residual (legal AP-2) is "
+                     "mostly the planted identifier reaching the next agent's handoff."),
         "data_sources": ["results/eval_attacks/all_trials.csv"],
         "n": out | {"channels": {CHANNEL_CODE[c]: sum(1 for t in pool if t["channel"] == c)
                                  for c in chans},

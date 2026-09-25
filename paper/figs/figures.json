@@ -432,7 +432,7 @@
   {
     "name": "channels",
     "file": "channels.pdf",
-    "takeaway": "Where exposure is measured the injected content does reach the model, and the cascade closes four of the five channels; the one it does not close is content-plausible poisoning on the tool-response channel.",
+    "takeaway": "Where exposure is measured the injected content does reach the model, and the cascade closes four of the five channels; the one it does not close is the tool-response channel, whose residual (legal AP-2) is mostly the planted identifier reaching the next agent's handoff.",
     "data_sources": [
       "results/eval_attacks/all_trials.csv"
     ],
