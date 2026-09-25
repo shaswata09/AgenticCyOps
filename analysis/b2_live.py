@@ -26,7 +26,7 @@ import statistics
 from collections import Counter
 
 from analysis.p3_eligibility import _payload, trials
-from analysis.replay_panels import PANELS, load_all_votes, load_rounds, outcomes
+from analysis.replay_panels import load_all_votes, load_rounds, outcomes
 from analysis.statistical_tests import cluster_bootstrap
 from attacks.effects import build_calls, evaluate_effects, trial_costs
 from config import BASE_DIR
@@ -34,7 +34,6 @@ from config import BASE_DIR
 LIVE = "q235_local2_v29"
 MAIN = "q235_div4"
 DOM = "cyberops"
-PANELS.setdefault("Local2", (("L1_mistral", "L2_gemma"), 2))
 SCORES = ("scope", "reversibility", "alignment", "precedent", "proportionality")
 
 

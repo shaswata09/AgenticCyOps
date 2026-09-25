@@ -31,9 +31,12 @@ PANELS = {
     "Div3L": (("L1_mistral", "L2_gemma", "L3_gptoss"), 2),
     "Lin3": (("R1_qwen32", "R2_r1distill", "R3_qwen14"), 2),
     "Single": (("R1_qwen32",), 1),
+    # the two local judges of the live v2.9 runs
+    "Local2": (("L1_mistral", "L2_gemma"), 2),
 }
 # a model never validates its own proposals
-SELF = {"scout": "L4_scout", "mistral": "L1_mistral"}
+SELF = {"scout": "L4_scout", "mistral": "L1_mistral",
+        "oss120_full": "L3_gptoss", "oss120_judgeonly": "L3_gptoss"}
 
 
 def load_all_votes() -> dict[str, dict[str, str]]:

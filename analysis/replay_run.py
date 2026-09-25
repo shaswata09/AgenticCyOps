@@ -1,6 +1,6 @@
 """Re-adjudicate every logged panel round with local validators.
 
-    python -m analysis.replay_run build
+    python -m analysis.replay_run build        # then build-asb and build-tamas, which append
     python -m analysis.replay_run query --validator L2_gemma --url http://127.0.0.1:8101/v1
 
 ``build`` enumerates the rounds of every arm (``analysis.replay.rounds``),
@@ -41,7 +41,14 @@ ARMS = [
     ("llama8b", "llama8b_div4", "agenticcyops", ("cyberops", "finance"), "", False),
     ("permissive_gate", "q235_div4", "agenticcyops_gate_permissive", ("cyberops",), "", False),
     ("e2", "q235_div4_e2", "agenticcyops", ("cyberops", "healthcare", "finance", "legal"), "", False),
+    # live boundary runs of two more primaries at defense-freeze-v2.9 (local2 panel)
+    ("oss120_full", "oss120_local2_v29", "agenticcyops", ("cyberops",), "", True),
+    ("oss120_judgeonly", "oss120_local2_v29", "llm_judge", ("cyberops",), "", False),
+    ("llama8b_full", "llama8b_local2_v29", "agenticcyops", ("cyberops",), "", True),
+    ("llama8b_judgeonly", "llama8b_local2_v29", "llm_judge", ("cyberops",), "", False),
 ]
+
+TAMAS_RUNS = {"tamas_full": "logs/tamas_q235_local2_v29"}
 
 
 def build() -> None:
@@ -106,6 +113,38 @@ def build_asb() -> None:
                                  "call_id": "", "tool": target, "role": "attack_effect",
                                  "path": "p3_panel", "attack_type": r["attack_type"],
                                  "logged_mechanism": r["defense_mechanism"]}) + "\n")
+            n += 1
+        print(f"{arm:14s} {n} rounds")
+    print(f"distinct messages now: {len(known)}")
+
+
+def build_tamas() -> None:
+    """Append the TAMAS panel rounds. The gate (benchmarks/tamas/gate.py) logs
+    the exact panel input of every round, so the message is read, not rebuilt."""
+    import hashlib
+    known = {json.loads(ln)["key"] for ln in open(REPLAY_DIR / "messages.jsonl")}
+    fm = open(REPLAY_DIR / "messages.jsonl", "a")
+    fr = open(REPLAY_DIR / "rounds.jsonl", "a")
+    for arm, rel in TAMAS_RUNS.items():
+        path = BASE_DIR / rel / "gate.jsonl"
+        if not path.exists():
+            print(f"{arm}: {path} missing"); continue
+        n, seq = 0, {}
+        for ln in open(path):
+            e = json.loads(ln)
+            if e.get("event") != "check" or "panel_message" not in e:
+                continue
+            msg = e["panel_message"]
+            key = hashlib.sha256(msg.encode()).hexdigest()
+            if key not in known:
+                fm.write(json.dumps({"key": key, "message": msg}) + "\n")
+                known.add(key)
+            tid = e["trial_id"]
+            seq[tid] = seq.get(tid, -1) + 1
+            fr.write(json.dumps({"key": key, "arm": arm, "group": "tamas", "domain": "general",
+                                 "config": e.get("config"), "trial_id": tid, "call_id": f"{tid}:{seq[tid]}",
+                                 "tool": e.get("tool"), "role": "tamas", "path": "p3_panel",
+                                 "logged_votes": e.get("votes", {}), "logged_mechanism": e.get("mechanism")}) + "\n")
             n += 1
         print(f"{arm:14s} {n} rounds")
     print(f"distinct messages now: {len(known)}")
@@ -182,6 +221,7 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("build")
     sub.add_parser("build-asb")
+    sub.add_parser("build-tamas")
     q = sub.add_parser("query")
     q.add_argument("--validator", required=True)
     q.add_argument("--url", required=True)
@@ -194,6 +234,8 @@ def main() -> None:
         build()
     elif a.cmd == "build-asb":
         build_asb()
+    elif a.cmd == "build-tamas":
+        build_tamas()
     else:
         extra = {"reasoning_effort": a.reasoning_effort} if a.reasoning_effort else None
         asyncio.run(_query(a.validator, a.url, a.concurrency, a.max_tokens, extra, a.limit))
