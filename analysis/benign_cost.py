@@ -9,7 +9,8 @@ both import it and cannot drift:
 
 A *tool proposal* is a ``tool_proposed`` event, identified by its ``call_id``.
 It counts as *denied* when an event for the same ``call_id`` carries
-``auth_decision == "deny"``. Matching on ``call_id`` is what makes the ratio
+``auth_decision`` ``"deny"`` or ``"escalate"``: an escalated proposal waits for
+a human and does not run, the same rule as the oracle's ``Call.denied``. Matching on ``call_id`` is what makes the ratio
 well defined: the numerator is a subset of the denominator by construction, so
 the rate cannot exceed 100% and does not mix tool denials with memory-op
 denials (the harness's per-trial ``collateral_denials`` counts both, which is
@@ -60,7 +61,7 @@ def proposal_denials(group: str, domain: str, config: str = "agenticcyops",
                 rec = per[(tid, f)]
                 if e.get("action") == "tool_proposed":
                     rec["prop"].add(cid)
-                elif (str(e.get("auth_decision") or "").lower() == "deny"
+                elif (str(e.get("auth_decision") or "").lower() in ("deny", "escalate")
                         and e.get("action") != "consensus_vote"):
                     rec["deny"].add(cid)
     denied = proposed = 0
@@ -104,7 +105,7 @@ def proposal_denials_by_variant(group: str, domain: str, config: str = "agenticc
                 rec = per[(tid, f)]
                 if e.get("action") == "tool_proposed":
                     rec["prop"].add(cid)
-                elif (str(e.get("auth_decision") or "").lower() == "deny"
+                elif (str(e.get("auth_decision") or "").lower() in ("deny", "escalate")
                         and e.get("action") != "consensus_vote"):
                     rec["deny"].add(cid)
     out: dict[str, list[int]] = defaultdict(lambda: [0, 0])
@@ -151,13 +152,20 @@ def benign_denials_by_check(group: str, domain: str, config: str = "agenticcyops
                 if not tid:
                     continue
                 newest[tid] = f
-                if str(e.get("auth_decision") or "").lower() != "deny":
-                    continue
+                dec = str(e.get("auth_decision") or "").lower()
                 act, mech = e.get("action"), e.get("mechanism")
+                if dec == "escalate" and act == "tool_call":
+                    pass                          # bulk-action escalation: the call does not run
+                elif dec != "deny":
+                    continue
                 if act == "consensus_vote":
                     continue
                 if act == "tool_call" and mech == "P3_verified_execution":
                     continue                      # same denial as the panel's
+                if mech == "P2_capability_scoping":
+                    # P2 logs every parameter-check denial under this name and
+                    # names the check in p2l2_reason (attacks.effects.refine_mechanism)
+                    mech = e.get("p2l2_reason") or "P2_manifest_enforcement"
                 per[(tid, f)].append((str(mech), str(e.get("destination") or "-")))
     counts: dict[str, dict] = defaultdict(lambda: {"n": 0, "_t": defaultdict(int)})
     for (tid, f), items in per.items():

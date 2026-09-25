@@ -34,6 +34,7 @@ asb-reports:
 # Depends on `parse` so figures and tables are built from the same all_trials.csv
 # and cannot drift apart.
 figures: parse
+	$(PY) -c "from analysis.replay_tables import write_local4_trials; write_local4_trials()"
 	$(PY) -m analysis.make_figures --out paper/figs
 	$(MAKE) readme-figures
 
@@ -49,6 +50,8 @@ readme-figures:
 replay-tables:
 	$(PY) -m analysis.replay_tables > /dev/null
 	$(PY) -c "from analysis.replay_tables import write_local4_trials, write_local_panel_csv; write_local4_trials(); write_local_panel_csv()"
+	$(PY) -m analysis.statistical_tests --trials results/eval_attacks/all_trials_local4.csv \
+	    --out results/eval_attacks/stats_local4.csv > /dev/null
 
 # The v3.0 panel input: offline re-judging of every judged v2.9 round and the
 # live v3.0 re-run, both under Local4 (results/replay_v3.md; cached votes only).

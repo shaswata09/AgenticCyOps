@@ -82,6 +82,9 @@ def _md(headers: list[str], rows: list[list]) -> str:
 
 
 TAGGED = ("_smoke", "_debug", "_persistent")
+# the main run of each primary model; the pooled channel table uses only these
+# (the E2/E9/E16 arms and the outage run measure other things)
+PRIMARY_GROUPS = ("q235_div4", "scout_div4", "mistral_div3p", "llama8b_div4")
 
 
 def _rel(path: Path) -> str:
@@ -309,9 +312,9 @@ def t9_channels(trials: list[dict], group=None) -> str:
     attempt %, attempt given exposure, ASR (Wilson CI)."""
     by = defaultdict(list)
     for t in trials:
-        if _is_tagged(t["group"]) or t.get("suffix") or t["ap"] == "benign":
+        if t.get("suffix") or t["ap"] == "benign":
             continue
-        if group and t["group"] != group:
+        if t["group"] != group if group else t["group"] not in PRIMARY_GROUPS:
             continue
         if t["outcome"] not in MEASURABLE or t["config"] not in SYSTEM_CONFIGS:
             continue
@@ -426,7 +429,7 @@ def build(results_dir: Path, main_group: str) -> str:
              "", "## T6. ASB paired panel replay (E6)", "", t6_asb(results_dir),
              "", "## T7. Cost", "", t7_cost(trials),
              "", "## T8. Run provenance", "", t8_runs(runs),
-             "", "## T9. Injection channels (pooled over primaries)", "",
+             "", "## T9. Injection channels (pooled over the four primaries' main runs)", "",
              "Exposed % = share of scored trials with an injection_served event; "
              "attempt | exposed % is the attempt rate among exposed trials.", "",
              t9_channels(trials),

@@ -1334,13 +1334,14 @@ def benign_cost_from_logs(group: str, domains, configs) -> dict:
     with ``P3_verified_execution`` is the gate surfacing a panel rejection that
     ``consensus_result`` already reported, so it is not counted twice.
     """
-    out: dict = defaultdict(lambda: {"deny": defaultdict(int), "redact": 0,
+    out: dict = defaultdict(lambda: {"deny": defaultdict(int), "redact": 0, "proposed": 0,
                                      "lat": defaultdict(list)})
     for d in domains:
         for cfg in configs:
             newest: dict[str, str] = {}
             per_tf: dict[tuple[str, str], dict] = defaultdict(
-                lambda: {"deny": defaultdict(int), "redact": 0, "lat": defaultdict(float)})
+                lambda: {"deny": defaultdict(int), "redact": 0, "prop": set(),
+                         "lat": defaultdict(float)})
             for f in map(str, run_logs(group, d, cfg)):
                 for ln in open(f, errors="ignore"):
                     if not ln.strip():
@@ -1358,9 +1359,12 @@ def benign_cost_from_logs(group: str, domains, configs) -> dict:
                     act, mech = e.get("action"), e.get("mechanism")
                     dec = str(e.get("auth_decision") or "").lower()
                     rec = per_tf[(tid, f)]
+                    if str(act).endswith("_proposed") and e.get("call_id"):
+                        rec["prop"].add(e["call_id"])     # tool call, memory write or read
                     if dec == "redact":
                         rec["redact"] += 1
-                    elif dec == "deny" and act != "consensus_vote":
+                    elif (dec == "deny" or (dec == "escalate" and act == "tool_call")) \
+                            and act != "consensus_vote":
                         if not (act == "tool_call" and mech == "P3_verified_execution"):
                             b = _deny_bucket(mech)
                             if b:
@@ -1380,6 +1384,7 @@ def benign_cost_from_logs(group: str, domains, configs) -> dict:
                 for b, v in rec["deny"].items():
                     agg["deny"][b] += v
                 agg["redact"] += rec["redact"]
+                agg["proposed"] += len(rec["prop"])
                 for k, v in rec["lat"].items():
                     agg["lat"][k].append(v / 1000.0)
     return out
@@ -1399,14 +1404,12 @@ def fig_cost(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
                              gridspec_kw={"wspace": 0.42})
     axa, axb, axc = axes
 
-    # (a) denials per domain, stacked by the principle that denied them
-    ben_scan = scan_proposals(DEV_GROUP, domains[0], ["agenticcyops"], benign=True)  # placeholder
+    # (a) denials per domain, stacked by the principle that denied them. The
+    # buckets hold tool-call and memory-operation denials, so the denominator
+    # is every proposed action (tool calls, memory writes, memory reads).
     x = np.arange(len(domains))
     bottom = np.zeros(len(domains))
-    props = {}
-    for d in domains:
-        s = scan_proposals(DEV_GROUP, d, ["agenticcyops"], benign=True)["agenticcyops"]
-        props[d] = sum(p for p, _ in s.values()) or 1
+    props = {d: cost[(d, "agenticcyops")]["proposed"] or 1 for d in domains}
     a_out = {}
     for key, lbl, col in DENY_BUCKET:
         vals = np.array([100 * cost[(d, "agenticcyops")]["deny"].get(key, 0) / props[d]
@@ -1422,7 +1425,7 @@ def fig_cost(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     a_out["redactions"] = {d: round(v, 2) for d, v in zip(domains, red)}
     axa.set_xticks(x)
     axa.set_xticklabels([DOMAIN_SHORT.get(d, d) for d in domains], fontsize=6.5)
-    axa.set_ylabel("Benign proposals denied (%)")
+    axa.set_ylabel("Benign actions denied (%)")
     fs.style_axes(axa)
     axa.legend(loc="lower left", bbox_to_anchor=(-0.02, 1.0), ncol=2, fontsize=5.0,
                handlelength=0.9, borderpad=0.2, labelspacing=0.22, columnspacing=0.7)

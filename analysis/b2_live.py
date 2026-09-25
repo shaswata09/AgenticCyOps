@@ -62,6 +62,8 @@ def live() -> dict:
     scores = {"attack": [], "benign": []}
     for tid, ev in trials(LIVE, DOM, "agenticcyops").items():
         benign = "_benign_" in tid
+        if not benign and tuple(tid.split("_")[1:3]) not in keep:
+            continue                                  # E2 siblings in the payload files
         for e in ev:
             if e.get("action") == "P3_L2_scores":
                 decided["gate:" + (e.get("mechanism") or "")] += 1
@@ -81,8 +83,6 @@ def live() -> dict:
                 benign_lat.append(span)
             continue
         ap, var = tid.split("_")[1:3]
-        if (ap, var) not in keep:
-            continue
         p = _payload(DOM, tid)
         if not p:
             continue
