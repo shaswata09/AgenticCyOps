@@ -88,6 +88,82 @@ def build() -> None:
     print(f"distinct messages: {len(known)}")
 
 
+LIVE = [("v30_full", "q235_local2_v30", "agenticcyops", ("cyberops", "healthcare", "finance", "legal")),
+        ("v30_judgeonly", "q235_local2_v30", "llm_judge", ("cyberops",)),
+        ("v30_llama8b_full", "llama8b_local2_v30", "agenticcyops", ("cyberops",)),
+        ("v30_llama8b_judgeonly", "llama8b_local2_v30", "llm_judge", ("cyberops",)),
+        ("v30_oss120_full", "oss120_local2_v30", "agenticcyops", ("cyberops",)),
+        ("v30_oss120_judgeonly", "oss120_local2_v30", "llm_judge", ("cyberops",))]
+
+
+def build_live() -> None:
+    """The panel rounds of the live v3.0 runs: each judged call's exact panel
+    input is in the log (``panel_input``), between its proposal and decision."""
+    known = {json.loads(l)["key"] for l in open(OUT / "messages.jsonl")}
+    fm = open(OUT / "messages.jsonl", "a")
+    with open(OUT / "live_rounds.jsonl", "w") as fr:
+        for label, group, config, domains in LIVE:
+            n = 0
+            for d in domains:
+                for tid, events in trials(group, d, config).items():
+                    benign = "_benign_" in tid
+                    attack_ids: set[str] = set()
+                    if not benign:
+                        p = _payload(d, tid)
+                        if p:
+                            attack_ids = set(evaluate_effects(p[1], events, config=config).attempted_call_ids or [])
+                    for c in build_calls(events):
+                        path = call_path(c, events)
+                        if path not in ("p3_panel_approved", "p3_panel_rejected"):
+                            continue
+                        end = c.decision_seq if c.decision_seq >= 0 else len(events)
+                        msgs = [e["panel_message"] for e in events[c.seq:end + 1] if e.get("action") == "panel_input"]
+                        if not msgs:
+                            continue
+                        msg = msgs[-1]
+                        key = hashlib.sha256(msg.encode()).hexdigest()
+                        if key not in known:
+                            fm.write(json.dumps({"key": key, "message": msg}) + "\n"); known.add(key)
+                        role = "benign" if benign else ("attack_effect" if c.call_id in attack_ids else "attack_other")
+                        fr.write(json.dumps({"key": key, "arm": label, "group": group, "domain": d, "config": config,
+                                             "trial_id": tid, "call_id": c.call_id, "tool": c.target, "role": role,
+                                             "path": path}) + "\n")
+                        n += 1
+            print(f"{label:22s} {n:6d} rounds", flush=True)
+    print(f"distinct messages now: {len(known)}")
+
+
+def live_tables() -> dict:
+    """The live v3.0 runs, as run (local2) and under Local4 (direct outcome),
+    beside the v2.9-input equivalents."""
+    from analysis.replay_panels import asr, load_all_votes, outcomes
+    from analysis.primaries_tables import as_run, original_variants, summarize
+    V = load_all_votes()
+    R: dict[str, list[dict]] = defaultdict(list)
+    for ln in open(OUT / "live_rounds.jsonl"):
+        r = json.loads(ln)
+        R[r["arm"]].append(r)
+    keep = original_variants()
+    out = {}
+    for label, group, config, domains in LIVE:
+        panel = "Local4" if "oss120" not in label else "Local4"
+        arm_self = label.replace("v30_", "")          # oss120_* excludes L3 via SELF
+        res = outcomes(arm_self if arm_self.startswith("oss120") else label, group, config, domains, "", panel, V, R[label])
+        row = {"missing_votes": res["missing_votes"]}
+        for d in domains:
+            a4 = [t for t in res["domains"][d]["attack"] if (t["ap"], t["variant"]) in keep or d != "cyberops"]
+            a_live, b_live, paths = [], Counter(), Counter()
+            import analysis.primaries_tables as pt
+            pt.DOM = d
+            a_live, b_live, paths = as_run(group, config, keep if d == "cyberops" else
+                                           {tuple(t.split("_")[1:3]) for t in trials("q235_div4", d, "agenticcyops")})
+            row[d] = {"local4": summarize(a4, Counter(res["domains"][d]["benign"]), paths),
+                      "live_local2": summarize(a_live, b_live)}
+        out[label] = row
+    (BASE_DIR / "results" / "replay_v3_live.json").write_text(json.dumps(out, indent=1))
+    return out
+
+
 def tables() -> dict:
     """The headline comparisons, v2.9 input against v3.0 input, both under Local4."""
     from analysis.replay_panels import PANELS, asr, decide, load_all_votes, load_rounds, outcomes, panel_for
@@ -143,9 +219,13 @@ def tables() -> dict:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["build", "tables"])
+    ap.add_argument("cmd", choices=["build", "build-live", "tables", "live-tables"])
     a = ap.parse_args()
     if a.cmd == "build":
         build()
+    elif a.cmd == "build-live":
+        build_live()
+    elif a.cmd == "live-tables":
+        print(json.dumps(live_tables(), indent=1))
     else:
         print(json.dumps(tables(), indent=1))
