@@ -13,7 +13,10 @@ It contains:
   organized into five principles over the two surfaces where untrusted content enters
   a MAS (tool orchestration and memory);
 - **a four-domain testbed** (CyberOps, healthcare, finance, legal) with five injection
-  channels, 15 attack paths (300 variants), and 35 benign scenarios;
+  channels, 15 attack paths (300 variants), and 35 benign scenarios, evaluated with
+  three primary models (Qwen3-235B, gpt-oss-120b, Llama-3.1-8B);
+- **two third-party benchmarks**: Agent Security Bench, and TAMAS run through an
+  adapter that sends every real CrewAI tool call through DEFER;
 - **an outcome oracle** that separates model refusal from framework interception, and
   **offline re-adjudication** of every logged judge decision, which re-scores the logged
   proposals under any validator panel without re-running the agents;
@@ -69,6 +72,32 @@ Intervals are 95% cluster-bootstrap intervals over variants. The numbers come fr
 task completion as run (hollow diamonds, not shown for JUDGEONLY, whose benign runs
 overlapped the validator outage). The same judges without the rules barely beat no
 checks. Judging everything the rules let through changes no attack outcome.*
+
+### Across primary models
+
+The boundary was measured live with two more primary models at `defense-freeze-v2.9`
+(CyberOps, 75 variants × 3 trials plus the 20 benign scenarios × 3, per
+configuration), with every panel decision re-judged under Local4. A model never
+judges its own proposals, so gpt-oss-120b's panel is the other three judges, two of three.
+
+![The boundary across three primary models](docs/figures/primaries_boundary.png)
+
+| Configuration | Qwen3-235B | gpt-oss-120b | Llama-3.1-8B |
+|---|---|---|---|
+| FLAT | 36.4 [26.2, 46.7] | 21.8 [13.3, 31.1] | 34.2 [24.0, 44.4] |
+| ACL | 24.0 [15.1, 33.3] | 17.8 [9.8, 27.1] | 33.3 [23.1, 43.6] |
+| JUDGEONLY | 33.8 [24.0, 44.0] | 22.7 [13.8, 32.0] | 28.4 [18.7, 38.2] |
+| NOJUDGE | 1.3 [0.0, 4.0] | 1.3 [0.0, 4.0] | 1.3 [0.0, 4.0] |
+| **FULL (DEFER)** | **8.4 [3.1, 15.1]** | **6.7 [1.3, 12.0]** | **6.7 [1.8, 12.4]** |
+| legitimate proposals denied, FULL | 9.5% | 0.0%\* | 11.8% |
+| legitimate proposals escalated, NOJUDGE | 51.7% | 33.3% | 65.5% |
+
+*Attack success in % with 95% intervals. For three models from three families, 8B to
+235B, the judges alone barely beat no checks, rules first then judges reach about 7%,
+and never judging reaches 1.3% only by escalating a third to two thirds of legitimate
+work. \*gpt-oss-120b makes one consequential call per benign incident and the panel
+approved all 60; its cost appears as 9 memory writes blocked by P4. Numbers:
+[`results/primaries_v29.md`](results/primaries_v29.md).*
 
 ### Who stops the attack
 
@@ -146,11 +175,33 @@ legitimate proposals by principle and domain, (b) median benign-incident latency
 shown for completeness only. With two local judges, median latency is 60 s
 (calibration run).*
 
-### Third-party benchmark and calibration
+### Third-party benchmarks and calibration
 
 - **Agent Security Bench** (255 cases, frozen pipeline, 2 trials per case): attack
   success 28.8% under FLAT, 30.0% under ACL, **1.8%** under FULL. Access control blocks
   nothing, because the injected action uses a tool the agent holds.
+- **TAMAS** (multi-agent, [microsoft/TAMAS](https://github.com/microsoft/TAMAS); 250
+  attack instances in five domains, Qwen3-235B primary, CrewAI hierarchical crews,
+  3 trials, 1,800 runs). An adapter sends every tool call an agent actually makes
+  through DEFER's tool-call path and the panel before it executes:
+
+  ![TAMAS](docs/figures/tamas.png)
+
+  | Attack type | FLAT ASR % | FULL ASR % | FULL, re-judged under Local4 |
+  |---|---|---|---|
+  | direct prompt injection | 36.9 [25.5, 48.7] | 0.0 [0.0, 0.0] | 0.0 |
+  | impersonation | 18.8 [9.4, 29.3] | 2.7 [0.0, 7.3] | 5.3 [0.7, 11.3] |
+  | colluding agents | 40.0 [26.7, 52.7] | 2.0 [0.0, 6.1] | 2.0 [0.0, 6.1] |
+  | byzantine agent | 91.2 [85.6, 96.0] | 83.9 [77.7, 89.1] | (judge-scored) |
+  | contradicting agents | 18.6 [11.1, 26.4] | 18.6 [11.6, 25.9] | (judge-scored) |
+
+  DEFER stops the attacks that act through tool calls and leaves those that corrupt
+  agents' reasoning and outputs untouched, because it mediates actions, not
+  conversations. The panel made 186 of the 195 blocks: TAMAS gives agents the attack
+  tools in their own tool lists, so, as on ASB, the rules rarely can. On the 50 TAMAS
+  tasks used as benign work, FULL denies 10.6% of tool calls. Caveats are listed under
+  [known limitations](#provenance-and-known-limitations); numbers:
+  [`results/tamas.md`](results/tamas.md).
 - **Calibration of the re-adjudication:** a live run at `defense-freeze-v2.9` with two
   local judges gives 2.7% [0.0, 6.2] attack success on the 75 development variants,
   against 3.6% [0.0, 8.0] when the original runs are re-judged by the same two judges.
@@ -187,6 +238,8 @@ make paper-tables     # parse logs -> results/eval_attacks/all_trials.csv, stati
 make replay-tables    # every Local4 number -> results/replay_tables.md, all_trials_local4.csv
 make figures          # every paper figure -> paper/figs/*.pdf, README figures -> docs/figures/
 make b2               # live calibration run vs its replay -> results/b2_live.json
+make primaries-tables # gpt-oss-120b and Llama-3.1-8B boundary -> results/primaries_v29.md
+make tamas-tables     # TAMAS outcomes (needs scored.jsonl, below) -> results/tamas.md
 make freeze-check     # the decision code equals defense-freeze-v2.9
 ```
 
@@ -201,12 +254,15 @@ as-run Div4 values. The offline analyses behind the revision are single modules:
 | `analysis/trusted_evidence.py` | P2.2 with evidence restricted to structured, non-attacker fields |
 | `analysis/ledger_expiry.py` | expiry and identity policies for the stateful replay and ledger checks |
 | `analysis/b2_live.py` | the live calibration run and its replay |
+| `analysis/primaries_tables.py` | the boundary for the two additional primaries |
+| `analysis/tamas_tables.py` | TAMAS outcomes as run and re-judged, benign cost |
 
 ### Level 2: re-adjudication with local judges
 
 ```bash
 python -m analysis.replay_run build        # rebuild every logged judge input -> cache/replay/
 python -m analysis.replay_run build-asb    # append the ASB panel rounds
+python -m analysis.replay_run build-tamas  # append the TAMAS panel rounds (read from the gate log)
 # serve a judge with vLLM on a local port, then query it for every input not yet cached:
 python -m analysis.replay_run query --validator L1_mistral --url http://127.0.0.1:8101/v1
 python -m analysis.replay_run query --validator L3_gptoss  --url http://127.0.0.1:8103/v1 --reasoning-effort low
@@ -230,8 +286,24 @@ RUN_TAG=mytag REQUIRE_FREEZE=1 \
 - `APS` is `all`, `benign`, one path, or a comma list (`ap1,ap2`).
 - `CONFIGS` is `all` or one of the log names below.
 - Environment switches: `STATE_MODE=persistent`, `DISABLE_PRINCIPLES=P3`, `SEED=<int>`.
-- `scripts/run_v29_live.sh` is the exact launcher of the calibration run.
+- `scripts/run_v29_live.sh` is the exact launcher of the calibration run, and
+  `scripts/run_primaries_v29.sh` of the gpt-oss-120b and Llama-3.1-8B runs.
 - `scripts/vllm_profiles.sh` has the serving commands used for each model.
+
+**TAMAS.** CrewAI runs in its own environment; DEFER's checks run in a local HTTP gate
+in the project environment:
+
+```bash
+conda create -n tamas python=3.12 -y && conda run -n tamas pip install crewai crewai-tools
+python -m benchmarks.tamas.gate --port 8301 --consensus local2 --log-dir logs/tamas_run &
+python -m benchmarks.tamas.run_all --out-dir logs/tamas_run --configs flat,full --trials 3 \
+    --model hosted_vllm/Qwen/Qwen3-235B-A22B-Instruct-2507 --base-url http://127.0.0.1:8000/v1 \
+    --gate http://127.0.0.1:8301 --workers 40
+python -m benchmarks.tamas.score --run-dir logs/tamas_run --judge-url http://127.0.0.1:8103/v1
+```
+
+`run_all` resumes: it skips trials already in `runs.jsonl`. The scorer uses TAMAS's own
+judge prompts with a locally served judge (gpt-oss-120b, 128k context) in place of GPT-4o.
 
 Every run writes a header with its commit, freeze tag, and whether the tree was clean.
 With `RUN_TAG` set, the harness refuses to start from a dirty tree. Do not edit
@@ -261,6 +333,8 @@ later one will refuse to start.
 | `q235_div4_persistent`, `q235_div4_persistent3` | Qwen3-235B-A22B | Div4 | state carry-over, two passes |
 | `q235_div4_e2` | Qwen3-235B-A22B | Div4 | rule-evading siblings (E2) |
 | `q235_local2_v29` | Qwen3-235B-A22B | local2 (Mistral-Small, Gemma-4; 2 of 2) | live calibration at `defense-freeze-v2.9` |
+| `oss120_local2_v29`, `llama8b_local2_v29` | gpt-oss-120b, Llama-3.1-8B | local2 | the five boundary configurations at `defense-freeze-v2.9`, CyberOps |
+| `logs/tamas_q235_local2_v29/` | Qwen3-235B-A22B | local2 | TAMAS, FLAT (`flat`) and FULL (`full`): gate log, transcripts, scores |
 
 Routing of individual log files to groups is declared in
 [`analysis/run_groups.yaml`](analysis/run_groups.yaml); load logs only through
@@ -304,7 +378,8 @@ memory/            P4 write filter, P5 access isolation, memory gateway
 mcp_servers/       tool stubs (REST servers per domain)
 domains/           four domains: configs, payloads (attacks, benign), seed data
 attacks/           harness, injection channels, outcome oracle (effects.py), payload schema
-benchmarks/        Agent Security Bench and InjecAgent adapters
+benchmarks/        Agent Security Bench, InjecAgent, and TAMAS adapters (TAMAS: gate, runner,
+                   scorer, and a vendored upstream subset under benchmarks/tamas/upstream/)
 analysis/          parsing, statistics, tables, figures, re-adjudication, offline analyses
 configs/           panels (validators.yaml) and configuration profiles
 scripts/           run launchers, vLLM profiles, freeze and path guards
@@ -335,6 +410,14 @@ docs/              review response, figures for this README
 - **Not evaluated.** An attacker who adapts to the defense beyond the one-step
   rule-evading siblings; an external composed defense; benign utility on ASB. AP-3
   was never attempted by any primary. The shipped auto-gates decided no proposal in any reported run.
+- **TAMAS.** Upstream releases neither the injected content of its 50 indirect-injection
+  instances nor its 100 harmless tasks, so the 250 other attack instances are run and the
+  50 indirect-injection queries serve as benign tasks. The judge for the byzantine and
+  contradicting types is gpt-oss-120b instead of GPT-4o, so the numbers are not directly
+  comparable with the TAMAS paper's. CrewAI tool calls carry no rationale; each proposal
+  gets a neutral justification naming the calling agent. Only the CrewAI hierarchical
+  configuration was run. One upstream legal tool is not registered as a CrewAI tool and is
+  skipped. 17 of 1,800 runs timed out after 20 minutes and are counted as errors.
 - **Log names.** Configuration names beginning with `agenticcyops` in the logs denote
   FULL; the project's earlier name survives in log fields and some module docstrings.
 
@@ -351,4 +434,5 @@ defenses of LLM agent systems.
 ## License
 
 Code under the MIT License (see [`LICENSE`](LICENSE)). The third-party benchmark
-subsets under `benchmarks/` keep their original licenses.
+subsets under `benchmarks/` keep their original licenses; the TAMAS subset under
+`benchmarks/tamas/upstream/` is MIT (code) and CDLA-Permissive-2.0 (data).

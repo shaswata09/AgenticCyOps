@@ -39,6 +39,41 @@ def _ci(rows: list[dict], hit) -> str:
     return f"{100 * rate(keys):.1f} [{100 * bs[50]:.1f}, {100 * bs[1949]:.1f}]"
 
 
+def figure(res: dict) -> Path:
+    """FLAT vs FULL attack success per TAMAS attack type (as run), 95% intervals."""
+    import re
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from analysis import figstyle as fs
+    fs.apply()
+    parse = lambda ci: [float(x) for x in re.findall(r"[0-9.]+", ci)][:3]
+    names = {"DPI": "direct prompt\ninjection", "impersonation": "impersonation", "colluding": "colluding\nagents",
+             "byzantine": "byzantine\nagent", "contradicting": "contradicting\nagents"}
+    fig, ax = plt.subplots(figsize=(fs.WIDTH_2COL * 0.8, 2.5))
+    w = 0.36
+    for k, (cfg, col, lab) in enumerate((("flat", fs.CONFIG_COLOR["Flat"], "Flat"),
+                                         ("full", fs.CONFIG_COLOR["DEFER"], "DEFER"))):
+        vals = [parse(res[cfg][a]["asr_as_run"]) for a in ORDER]
+        xs = [i + (k - 0.5) * w for i in range(len(ORDER))]
+        ax.bar(xs, [v[0] for v in vals], width=w, color=col, label=lab, zorder=2)
+        ax.errorbar(xs, [v[0] for v in vals], yerr=[[v[0] - v[1] for v in vals], [v[2] - v[0] for v in vals]],
+                    fmt="none", zorder=3, **fs.ERRORBAR_KW)
+    ax.axvline(2.5, color="#999999", lw=0.6, ls="--", zorder=1)
+    ax.text(1.0, 101, "act through tool calls", ha="center", fontsize=7)
+    ax.text(3.5, 101, "corrupt reasoning and outputs", ha="center", fontsize=7)
+    ax.set_xticks(range(len(ORDER)))
+    ax.set_xticklabels([names[a] for a in ORDER], fontsize=7)
+    ax.set_ylim(0, 108)
+    ax.set_ylabel("Attack success (%)")
+    ax.legend(frameon=False, fontsize=7, loc="upper left", bbox_to_anchor=(0.0, 0.93))
+    fs.style_axes(ax)
+    path = BASE_DIR / "docs" / "figures" / "tamas.png"
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run-dir", default=str(BASE_DIR / "logs" / "tamas_q235_local2_v29"))
@@ -100,6 +135,7 @@ def main() -> None:
               f"Benign (IPI tasks): FULL denies {res['full']['benign']['denied_pct']}% of tool calls; "
               f"FLAT {res['flat']['benign']['denied_pct']}%."]
     (BASE_DIR / "results" / "tamas.md").write_text("\n".join(lines))
+    figure(res)
     print("\n".join(lines))
 
 

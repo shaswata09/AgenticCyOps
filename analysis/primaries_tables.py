@@ -19,6 +19,8 @@ from collections import Counter
 from analysis.p3_eligibility import _payload, call_path, trials
 from analysis.replay_panels import asr, load_all_votes, load_rounds, outcomes
 from attacks.effects import build_calls, evaluate_effects
+from pathlib import Path
+
 from config import BASE_DIR
 
 DOM = "cyberops"
@@ -96,6 +98,45 @@ def build() -> dict:
     return res
 
 
+def _parse(ci: str) -> tuple[float, float, float]:
+    import re
+    v = [float(x) for x in re.findall(r"[0-9.]+", ci)]
+    return (v[0], v[1], v[2]) if len(v) == 3 else (float("nan"),) * 3
+
+
+def figure(out: dict) -> Path:
+    """Grouped bars: attack success per boundary configuration, one bar per
+    primary (Qwen3-235B from results/replay_tables.json), 95% intervals."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from analysis import figstyle as fs
+    fs.apply()
+    qwen = json.loads((BASE_DIR / "results" / "replay_tables.json").read_text())["development"]
+    rows = {"Qwen3-235B": {k: qwen[k]["asr"] for k in ("FLAT", "ACL", "JUDGEONLY", "NOJUDGE", "FULL")},
+            **{n: {k: r[k]["asr"] for k in ("FLAT", "ACL", "JUDGEONLY", "NOJUDGE", "FULL")} for n, r in out.items()}}
+    cfgs = ["FLAT", "ACL", "JUDGEONLY", "NOJUDGE", "FULL"]
+    labels = {"FLAT": "Flat", "ACL": "ACL", "JUDGEONLY": "JudgeOnly", "NOJUDGE": "NoJudge", "FULL": "DEFER"}
+    colors = ["#555555", "#56B4E9", "#CC79A7"]
+    fig, ax = plt.subplots(figsize=(fs.WIDTH_2COL * 0.8, 2.6))
+    w = 0.26
+    for k, (name, r) in enumerate(rows.items()):
+        vals = [_parse(r[c]) for c in cfgs]
+        xs = [i + (k - 1) * w for i in range(len(cfgs))]
+        ax.bar(xs, [v[0] for v in vals], width=w, color=colors[k], label=name, zorder=2)
+        ax.errorbar(xs, [v[0] for v in vals], yerr=[[v[0] - v[1] for v in vals], [v[2] - v[0] for v in vals]],
+                    fmt="none", zorder=3, **fs.ERRORBAR_KW)
+    ax.set_xticks(range(len(cfgs)))
+    ax.set_xticklabels([labels[c] for c in cfgs])
+    ax.set_ylabel("Attack success (%)")
+    ax.legend(frameon=False, fontsize=7, ncol=3, loc="upper right")
+    fs.style_axes(ax)
+    path = BASE_DIR / "docs" / "figures" / "primaries_boundary.png"
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def main() -> None:
     out = build()
     (BASE_DIR / "results" / "primaries_v29.json").write_text(json.dumps(out, indent=1))
@@ -110,6 +151,7 @@ def main() -> None:
                          f"{r.get('judged', '0' if label in PANEL_FREE else 'n/a')} | {r.get('benign_denied', 'n/a')} |")
         lines.append("")
     (BASE_DIR / "results" / "primaries_v29.md").write_text("\n".join(lines))
+    figure(out)
     print("\n".join(lines))
 
 

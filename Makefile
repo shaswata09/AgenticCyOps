@@ -6,7 +6,7 @@ PY ?= python
 DEFER_PANEL ?= local4
 export DEFER_PANEL
 
-.PHONY: paper-tables paper-reports parse stats tables reports asb-reports figures readme-figures replay-tables b2 test freeze-check check-payloads
+.PHONY: paper-tables paper-reports parse stats tables reports asb-reports figures readme-figures replay-tables b2 primaries-tables tamas-tables test freeze-check check-payloads
 
 paper-tables: parse stats tables
 
@@ -53,6 +53,15 @@ replay-tables:
 # Live v2.9 calibration run vs its replay (results/b2_live.json).
 b2:
 	$(PY) -m analysis.b2_live > /dev/null
+
+# The boundary for gpt-oss-120b and Llama-3.1-8B (results/primaries_v29.md,
+# docs/figures/primaries_boundary.png) and TAMAS (results/tamas.md,
+# docs/figures/tamas.png); both read the cached Local4 votes.
+primaries-tables:
+	$(PY) -m analysis.primaries_tables > /dev/null
+
+tamas-tables:
+	$(PY) -m analysis.tamas_tables > /dev/null
 
 check-payloads:
 	$(PY) -m attacks.payload_schema --validate-all
