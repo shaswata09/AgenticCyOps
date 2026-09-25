@@ -231,14 +231,20 @@ def write_local4_trials(path=None) -> int:
     """``all_trials.csv`` with the outcome and first interceptor of every
     panel-using configuration replaced by its Local4 replay, and the benign
     rows' denied tool calls re-counted under it. Panel-free configurations are
-    unchanged. Figures build from it."""
+    unchanged. Figures build from it. Groups with no replay arm here keep their
+    as-run outcomes: the permissive-gate arm, the E9/E16 and outage runs, the
+    v2.9 calibration run (local2), and the v3.0 runs (Local4 for those is in
+    results/replay_v3*.json)."""
     V, R = load_all_votes(), load_rounds()
     arms = [("full", "q235_div4", "agenticcyops", D4, ""),
             ("judgeonly", "q235_div4", "llm_judge", ("cyberops",), ""),
             *[(f"full_minus_p{i}", "q235_div4", "agenticcyops", ("cyberops",), f"_disabled_P{i}") for i in (1, 2, 4, 5)],
             ("scout", "scout_div4", "agenticcyops", ("cyberops", "finance"), ""),
             ("mistral", "mistral_div3p", "agenticcyops", ("cyberops", "finance"), ""),
-            ("llama8b", "llama8b_div4", "agenticcyops", ("cyberops", "finance"), "")]
+            ("llama8b", "llama8b_div4", "agenticcyops", ("cyberops", "finance"), ""),
+            ("e2", "q235_div4_e2", "agenticcyops", D4, ""),
+            *[(f"{m}_{a}", f"{m}_local2_v29", cfg, ("cyberops",), "")
+              for m in ("oss120", "llama8b") for a, cfg in (("full", "agenticcyops"), ("judgeonly", "llm_judge"))]]
     new, ben = {}, {}
     for arm, g, cfg, doms, suf in arms:
         res = outcomes(arm, g, cfg, doms, suf, MAIN, V, R[arm])

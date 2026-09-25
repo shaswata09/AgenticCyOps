@@ -16,15 +16,16 @@ GROUP = "q235_div4"
 
 
 def test_cyberops_full_benign_denial_is_the_reported_value():
-    """The paper's CyberOps DEFER benign cost: 88 of 873 proposals, 10.1 %."""
-    assert proposal_denials(GROUP, "cyberops", "agenticcyops") == (88, 873)
+    """CyberOps DEFER benign cost as run: 103 of 873 proposals denied or
+    escalated, 11.8 % (88 denied + 15 bulk-action escalations)."""
+    assert proposal_denials(GROUP, "cyberops", "agenticcyops") == (103, 873)
 
 
 def test_t11_prints_the_reported_value_with_its_interval():
     t11 = t11_benign_denials(GROUP)
     row = next(l for l in t11.splitlines() if l.startswith("| cyberops |"))
     full = row.split("|")[4].strip()          # Flat | ACL | FULL
-    assert re.match(r"10\.1 \[\d+\.\d, \d+\.\d\] \(88/873, k=20\)", full), full
+    assert re.match(r"11\.8 \[\d+\.\d, \d+\.\d\] \(103/873, k=20\)", full), full
 
 
 @pytest.mark.parametrize("label,group,cfg", added_arms(GROUP))
