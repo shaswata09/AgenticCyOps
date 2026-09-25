@@ -149,7 +149,7 @@ was seen. No Qwen-family member (the primary is Qwen), no API, no outage.
   a non-consequential call) and adds benign denials. The gap between FULL and
   JUDGEONLY is therefore what the rules add, not what judging less costs.
   Holds in all four domains (executed attacks: CyberOps 19, finance 10, legal
-  26, healthcare 0, identical with and without); judged fraction 33.4% -> 78.1%
+  26, healthcare 0, identical with and without); judged fraction 33.4% -> 78.0%
   (dev), benign denial 9.5% -> 11.6%, benign incidents with any denied proposal 76.7% -> 80.0%.
   Without the memory paths (AP-4, AP-13) JUDGEONLY vs FULL is 23.3% vs 8.5%.
 - **Ablation benign cost, recomputed from the logs (minor point).** Legitimate

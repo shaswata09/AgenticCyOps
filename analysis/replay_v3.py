@@ -17,7 +17,7 @@ Two properties of the logs bound what can be added:
     python -m analysis.replay_v3 build-live            # panel inputs logged by the live v3.0 runs
     python -m analysis.replay_v3 tables                # -> results/replay_v3.json
     python -m analysis.replay_v3 live-tables           # -> results/replay_v3_live.json
-    python -m analysis.replay_v3 report                # -> results/replay_v3.md (from the two JSON files)
+    python -m analysis.replay_v3 report                # -> results/replay_v3.md, docs/figures/panel_context_v3.png
 """
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ import hashlib
 import json
 import uuid
 from collections import Counter, defaultdict
+from pathlib import Path
 
 from analysis.p3_eligibility import _payload, call_path, trial_commits, trials
 from analysis.replay import _SANITIZER, _full_justification, _proposal, incident_at
@@ -263,7 +264,86 @@ def report() -> str:
     L += ["", f"Missing votes (live): {missing}.", ""]
     text = "\n".join(L)
     (res / "replay_v3.md").write_text(text)
+    figure()
     return text
+
+
+def figure() -> Path:
+    """(a) Per-judge approval of attack-effect and legitimate proposals, v2.9
+    vs v3.0 input; (b) FULL attack success and (c) legitimate proposals denied,
+    v2.9 input, v3.0 input offline, and the live v3.0 re-run, all under Local4."""
+    import re
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from analysis import figstyle as fs
+    fs.apply()
+    res = BASE_DIR / "results"
+    off = json.loads((res / "replay_v3.json").read_text())
+    live = json.loads((res / "replay_v3_live.json").read_text())
+    ci = lambda s: [float(x) for x in re.findall(r"[0-9.]+", s)][:3]
+    arms = [("full", "cyberops", "v30_full", "Qwen\ncyber"), ("full", "healthcare", "v30_full", "Qwen\nhealth"),
+            ("full", "finance", "v30_full", "Qwen\nfinance"), ("full", "legal", "v30_full", "Qwen\nlegal"),
+            ("oss120_full", "cyberops", "v30_oss120_full", "gpt-oss\ncyber"),
+            ("llama8b_full", "cyberops", "v30_llama8b_full", "Llama8B\ncyber")]
+    old_c, new_c = "#999999", fs.CONFIG_COLOR["JudgeOnly"]
+    fig, axes = plt.subplots(1, 3, figsize=(fs.WIDTH_2COL, 2.7), gridspec_kw={"width_ratios": [0.85, 1.75, 1.75]})
+
+    ax = axes[0]
+    rates = off["judge_approval_rates"]
+    judges = list(rates["v2.9_input"])
+    for j, vid in enumerate(judges):
+        for role, col, dy in (("attack_effect", fs.OUTCOME_COLOR["executed"], 0.12), ("benign", fs.BENIGN_COLOR, -0.12)):
+            a, b = rates["v2.9_input"][vid][role], rates["v3.0_input"][vid][role]
+            ax.annotate("", xy=(b, j + dy), xytext=(a, j + dy),
+                        arrowprops=dict(arrowstyle="-|>", color=col, lw=1.2, mutation_scale=7))
+            ax.plot([a], [j + dy], "o", ms=3.5, mfc="white", mec=col, mew=1.0, zorder=3)
+    ax.set_yticks(range(len(judges)))
+    ax.set_yticklabels([v.split("_")[1].replace("gptoss", "gpt-oss").capitalize().replace("Gpt-oss", "gpt-oss")
+                        for v in judges])
+    ax.invert_yaxis()
+    ax.set_xlim(20, 100)
+    ax.set_xlabel("Proposals approved (%)")
+    ax.plot([], [], color=fs.OUTCOME_COLOR["executed"], lw=1.2, label="attack-effect")
+    ax.plot([], [], color=fs.BENIGN_COLOR, lw=1.2, label="legitimate")
+    ax.legend(frameon=False, fontsize=6.5, loc="lower left", handlelength=1.4)
+    ax.set_title("(a) judges, v2.9 $\\rightarrow$ v3.0 input", fontsize=8)
+    fs.style_axes(ax, ygrid=False, xgrid=True)
+
+    w = 0.27
+    for ax, key, title in ((axes[1], "asr", "(b) FULL attack success (%)"),
+                           (axes[2], "benign", "(c) legitimate proposals denied (%)")):
+        for k, (lab, col, hatch) in enumerate((("v2.9 input", old_c, None), ("v3.0 input", new_c, None),
+                                               ("v3.0 live", "white", "////"))):
+            vals = []
+            for arm, dom, larm, _n in arms:
+                if key == "asr":
+                    src = [off[arm]["v2.9_input"][dom]["asr"], off[arm]["v3.0_input"][dom]["asr"],
+                           live[larm][dom]["asr_local4"]][k]
+                    vals.append(ci(src))
+                else:
+                    v = [off[arm]["v2.9_input"][dom]["benign_denied"], off[arm]["v3.0_input"][dom]["benign_denied"],
+                         live[larm][dom]["benign_denied_local4"]][k]
+                    vals.append([v, v, v])
+            xs = [i + (k - 1) * w for i in range(len(arms))]
+            ax.bar(xs, [v[0] for v in vals], width=w, color=col, hatch=hatch, label=lab, zorder=2,
+                   edgecolor=new_c if hatch else "none", linewidth=0.6)
+            for x, v in zip(xs, vals):
+                if v[0] == 0:
+                    ax.text(x, 0.3, "0", ha="center", va="bottom", fontsize=5.5, color="#555555")
+            if key == "asr":
+                ax.errorbar(xs, [v[0] for v in vals], yerr=[[v[0] - v[1] for v in vals], [v[2] - v[0] for v in vals]],
+                            fmt="none", zorder=3, **fs.ERRORBAR_KW)
+        ax.set_xticks(range(len(arms)))
+        ax.set_xticklabels([a[3] for a in arms], fontsize=6)
+        ax.set_title(title, fontsize=8)
+        fs.style_axes(ax)
+    axes[1].legend(frameon=False, fontsize=6.5, loc="upper left", ncol=1)
+    fig.tight_layout(w_pad=1.0)
+    path = BASE_DIR / "docs" / "figures" / "panel_context_v3.png"
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return path
 
 
 if __name__ == "__main__":

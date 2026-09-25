@@ -61,10 +61,10 @@ Intervals are 95% cluster-bootstrap intervals over variants. The numbers come fr
 |---|---|---|---|
 | FLAT (no checks) | 36.4 [26.2, 46.7] | 0 | 0.0 |
 | ACL (connectivity only) | 24.0 [15.1, 33.3] | 0 | 54.8 |
-| JUDGEONLY (judge every proposal) | 33.8 [24.0, 44.0] | 100 | 3.8 |
+| JUDGEONLY (judge every proposal) | 33.8 [24.0, 44.0] | 99.9 | 3.8 |
 | NOJUDGE (never judge; escalate instead) | 1.3 [0.0, 4.0] | 0 | 51.7 |
 | **FULL (DEFER: rules first, judge last)** | **8.4 [3.1, 15.1]** | **33.4** | **9.5** |
-| JUDGEREST (FULL, judge everything the rules let through) | 8.4 [3.1, 15.1] | 78.1 | 11.6 |
+| JUDGEREST (FULL, judge everything the rules let through) | 8.4 [3.1, 15.1] | 78.0 | 11.6 |
 
 ![Judgment boundary](docs/figures/judgment_boundary.png)
 
@@ -197,7 +197,7 @@ shown for completeness only. With two local judges, median latency is 60 s
 
   DEFER stops the attacks that act through tool calls and leaves those that corrupt
   agents' reasoning and outputs untouched, because it mediates actions, not
-  conversations. The panel made 186 of the 195 blocks: TAMAS gives agents the attack
+  conversations. The panel alone made 185 of the 194 blocks: TAMAS gives agents the attack
   tools in their own tool lists, so, as on ASB, the rules rarely can. On the 50 TAMAS
   tasks used as benign work, FULL denies 10.6% of tool calls. Caveats are listed under
   [known limitations](#provenance-and-known-limitations); numbers:
@@ -206,6 +206,46 @@ shown for completeness only. With two local judges, median latency is 60 s
   local judges gives 2.7% [0.0, 6.2] attack success on the 75 development variants,
   against 3.6% [0.0, 8.0] when the original runs are re-judged by the same two judges.
   Legitimate proposals denied: 12.9% live, 12.5% replayed (`results/b2_live.json`).
+
+### Giving the judges more context does not help (`defense-freeze-v3.0`)
+
+Up to `defense-freeze-v2.9` a judge sees the sanitized proposal and the incident's id,
+free-text description, and configuration name. `defense-freeze-v3.0`
+([`consensus/panel_context.py`](consensus/panel_context.py)) adds what the rules
+consult: the incident's structured fields (attacker-writable free text removed), the
+calling agent's phase, allowed tools, and verification requirement, the operating
+context of the targets (asset criticality, maintenance windows, change requests, time
+policy), the incident's last ten decided consequential actions, and the agent's stated
+reasoning. That reasoning reaches the judges for 4.5% of Qwen3-235B proposals, 1.3% of
+Llama-3.1-8B proposals, and every gpt-oss-120b proposal; the others emit tool calls
+without text. We measured v3.0 in two ways, both under Local4: every judged round of
+the v2.9 runs re-judged with the v3.0 input (19,955 distinct inputs), and a live re-run
+of the judged configurations at v3.0 (3,177 trials, 9,337 more inputs).
+
+![Panel context](docs/figures/panel_context_v3.png)
+
+| FULL attack success % | v2.9 input | v3.0 input (offline) | v3.0 live |
+|---|---|---|---|
+| Qwen3-235B, CyberOps | 8.4 [3.1, 15.1] | 9.8 [4.0, 16.4] | 9.8 [4.0, 16.4] |
+| Qwen3-235B, healthcare | 0.0 | 0.0 | 0.0 |
+| Qwen3-235B, finance | 4.4 [0.9, 8.9] | 10.2 [4.4, 17.3] | 8.9 [3.6, 15.6] |
+| Qwen3-235B, legal | 11.6 [5.3, 18.2] | 16.0 [8.4, 24.4] | 15.6 [8.4, 23.6] |
+| gpt-oss-120b, CyberOps | 6.7 [1.3, 12.0] | 8.0 [2.7, 14.7] | 8.9 [3.1, 15.6] |
+| Llama-3.1-8B, CyberOps | 6.7 [1.8, 12.4] | 8.0 [2.7, 14.2] | 8.4 [2.7, 14.7] |
+
+*(a) Share of proposals each judge approves in the Qwen3-235B FULL rounds (hollow
+marker: v2.9 input; arrow head: v3.0 input). (b) FULL attack success; (c) legitimate
+proposals denied.* With more context the judges approve more attack-effect proposals:
+Mistral 68.6% instead of 49.7%, Gemma 54.1% instead of 30.2%, gpt-oss-120b 56.9%
+instead of 43.4%. FULL lets more attacks through in every domain that had any (the
+intervals overlap; finance more than doubles) and denies fewer legitimate proposals
+(legal 25.4% to 14.9%, finance 15.9% to 10.8%). JUDGEONLY changes little (Qwen3-235B
+33.8% to 32.0%). The live re-run agrees with the offline re-judging. The flipped rounds
+show the mechanism: incident fields an attacker can shape (a "critical account
+takeover, \$4.75M at risk" in finance AP-5; a planted replay record with its own
+rationale in CyberOps) are presented as evidence, and the judges defer to them. v3.0 is
+therefore not the reported configuration. Numbers:
+[`results/replay_v3.md`](results/replay_v3.md).
 
 ---
 
@@ -240,7 +280,8 @@ make figures          # every paper figure -> paper/figs/*.pdf, README figures -
 make b2               # live calibration run vs its replay -> results/b2_live.json
 make primaries-tables # gpt-oss-120b and Llama-3.1-8B boundary -> results/primaries_v29.md
 make tamas-tables     # TAMAS outcomes (needs scored.jsonl, below) -> results/tamas.md
-make freeze-check     # the decision code equals defense-freeze-v2.9
+make replay-v3        # v2.9 vs v3.0 panel input, offline and live -> results/replay_v3.md
+make freeze-check     # the decision code equals the default tag (FREEZE_TAG=... for another)
 ```
 
 `make figures` plots the Local4 panel by default; `make figures DEFER_PANEL=` plots the
@@ -256,6 +297,7 @@ as-run Div4 values. The offline analyses behind the revision are single modules:
 | `analysis/b2_live.py` | the live calibration run and its replay |
 | `analysis/primaries_tables.py` | the boundary for the two additional primaries |
 | `analysis/tamas_tables.py` | TAMAS outcomes as run and re-judged, benign cost |
+| `analysis/replay_v3.py` | the v3.0 panel input: every judged round re-judged with it, and the live v3.0 runs |
 
 ### Level 2: re-adjudication with local judges
 
@@ -263,6 +305,8 @@ as-run Div4 values. The offline analyses behind the revision are single modules:
 python -m analysis.replay_run build        # rebuild every logged judge input -> cache/replay/
 python -m analysis.replay_run build-asb    # append the ASB panel rounds
 python -m analysis.replay_run build-tamas  # append the TAMAS panel rounds (read from the gate log)
+python -m analysis.replay_v3 build         # the same rounds with the v3.0 input -> cache/replay_v3/
+python -m analysis.replay_v3 build-live    # the inputs logged by the live v3.0 runs
 # serve a judge with vLLM on a local port, then query it for every input not yet cached:
 python -m analysis.replay_run query --validator L1_mistral --url http://127.0.0.1:8101/v1
 python -m analysis.replay_run query --validator L3_gptoss  --url http://127.0.0.1:8103/v1 --reasoning-effort low
@@ -271,7 +315,8 @@ python -m analysis.replay_run query --validator L3_gptoss  --url http://127.0.0.
 Validator ids and model names are in `configs/validators.yaml` (L1–L4 form Local4,
 R1–R3 the lineage panels). The query refuses any URL that is not local, so the replay
 cannot call an API. Votes are cached by a hash of the exact input, so an
-interrupted query resumes where it stopped.
+interrupted query resumes where it stopped. Add `--replay-dir cache/replay_v3` to query
+the v3.0 inputs.
 
 ### Level 3: full runs
 
@@ -286,8 +331,9 @@ RUN_TAG=mytag REQUIRE_FREEZE=1 \
 - `APS` is `all`, `benign`, one path, or a comma list (`ap1,ap2`).
 - `CONFIGS` is `all` or one of the log names below.
 - Environment switches: `STATE_MODE=persistent`, `DISABLE_PRINCIPLES=P3`, `SEED=<int>`.
-- `scripts/run_v29_live.sh` is the exact launcher of the calibration run, and
-  `scripts/run_primaries_v29.sh` of the gpt-oss-120b and Llama-3.1-8B runs.
+- `scripts/run_v29_live.sh` is the exact launcher of the calibration run,
+  `scripts/run_primaries_v29.sh` of the gpt-oss-120b and Llama-3.1-8B runs, and
+  `scripts/run_v30_live.sh` and `scripts/run_v30_oss.sh` of the v3.0 re-run.
 - `scripts/vllm_profiles.sh` has the serving commands used for each model.
 
 **TAMAS.** CrewAI runs in its own environment; DEFER's checks run in a local HTTP gate
@@ -334,6 +380,7 @@ later one will refuse to start.
 | `q235_div4_e2` | Qwen3-235B-A22B | Div4 | rule-evading siblings (E2) |
 | `q235_local2_v29` | Qwen3-235B-A22B | local2 (Mistral-Small, Gemma-4; 2 of 2) | live calibration at `defense-freeze-v2.9` |
 | `oss120_local2_v29`, `llama8b_local2_v29` | gpt-oss-120b, Llama-3.1-8B | local2 | the five boundary configurations at `defense-freeze-v2.9`, CyberOps |
+| `q235_local2_v30`, `oss120_local2_v30`, `llama8b_local2_v30` | Qwen3-235B-A22B, gpt-oss-120b, Llama-3.1-8B | local2 | FULL and JUDGEONLY at `defense-freeze-v3.0` (Qwen3-235B FULL in all four domains, the rest CyberOps) |
 | `logs/tamas_q235_local2_v29/` | Qwen3-235B-A22B | local2 | TAMAS, FLAT (`flat`) and FULL (`full`): gate log, transcripts, scores |
 
 Routing of individual log files to groups is declared in
@@ -395,9 +442,11 @@ docs/              review response, figures for this README
 ## Provenance and known limitations
 
 - **Freeze tags.** Reported runs used the decision code of `defense-freeze-v2.2`.
-  Later tags changed only logging, the memory reset of baseline configurations, and
-  default-off switches for the targeted arms. `defense-freeze-v2.9` fixes the risk
-  scorer's wiring and is used only for the labeled calibration run.
+  Tags up to v2.8 changed only logging, the memory reset of baseline configurations,
+  and default-off switches for the targeted arms. `defense-freeze-v2.9` fixes the risk
+  scorer's wiring and is used for the labeled calibration run and the gpt-oss-120b and
+  Llama-3.1-8B runs. `defense-freeze-v3.0` changes what the judges see and is used only
+  for the labeled v3.0 runs, which it does not improve (see above).
   [`REPRODUCE.md`](REPRODUCE.md) lists every tag and diff.
 - **Validator outage.** The original panel (Div4) lost both API validators for part
   of the evaluation. Every panel-dependent result is therefore reported as its
