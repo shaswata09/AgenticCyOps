@@ -20,6 +20,8 @@ It contains:
 - **an outcome oracle** that separates model refusal from framework interception, and
   **offline re-adjudication** of every logged judge decision, which re-scores the logged
   proposals under any validator panel without re-running the agents;
+- **a negative result**: giving the judges the context the rules consult
+  (`defense-freeze-v3.0`) makes them approve more attacks, offline and live;
 - **every per-trial log, cached judge vote, table, and figure** behind the paper, and
   one command per artifact to regenerate it.
 
@@ -320,8 +322,15 @@ the v3.0 inputs.
 
 ### Level 3: full runs
 
+The decision code on this branch is `defense-freeze-v3.0`, which is not a reported
+configuration. The main runs used `defense-freeze-v2.2` with the Div4 panel, which
+needs API validators; the fully local setup (`local2`) exists from
+`defense-freeze-v2.9`, the code of the labeled calibration and primaries runs. To
+re-run that, work from its tag:
+
 ```bash
-bash scripts/check_freeze.sh                     # decision code must equal the freeze tag
+git worktree add ../defer-v2.9 defense-freeze-v2.9 && cd ../defer-v2.9
+FREEZE_TAG=defense-freeze-v2.9 bash scripts/check_freeze.sh   # decision code must equal the tag
 RUN_TAG=mytag REQUIRE_FREEZE=1 \
   scripts/run_attack_paths.sh q235_local2 cyberops all agenticcyops 3   # GROUP DOMAIN APS CONFIGS TRIALS
 ```
@@ -433,7 +442,8 @@ scripts/           run launchers, vLLM profiles, freeze and path guards
 tests/             unit tests (pytest)
 logs/              per-trial JSONL logs of every reported run
 results/           generated tables and CSVs
-cache/             rebuilt judge inputs (replay/) and cached local judge votes (validators/)
+cache/             rebuilt judge inputs (replay/, v3.0 input: replay_v3/) and cached local
+                   judge votes (validators/)
 docs/              review response, figures for this README
 ```
 
