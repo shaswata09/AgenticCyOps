@@ -86,7 +86,10 @@ def main() -> None:
     sys.path.insert(0, str(UP / "data" / "tools" / "crewAI"))
     tools_mod = importlib.import_module(f"tools_{'news' if a.scenario == 'news' else a.scenario}")
     mapping = tool_mapping(a.scenario)
-    registered = sorted({n for names in mapping.values() for n in names if hasattr(tools_mod, n)})
+    # a listed name that is not a CrewAI tool (upstream tools_legal.py defines
+    # extract_key_legal_issues without @tool) is skipped, as it cannot be called
+    is_tool = lambda n: hasattr(getattr(tools_mod, n, None), "name")
+    registered = sorted({n for names in mapping.values() for n in names if is_tool(n)})
     query = inst["user query"]
 
     class Mediated(BaseTool):
@@ -114,7 +117,7 @@ def main() -> None:
         tools = []
         for n in names:
             t = getattr(tools_mod, n, None)
-            if t is None:
+            if not is_tool(n):
                 continue
             tools.append(Mediated(name=t.name, description=t.description, args_schema=t.args_schema,
                                   agent_role=role, agent_tools=list(names), orig=t))
