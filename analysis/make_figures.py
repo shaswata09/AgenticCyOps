@@ -575,7 +575,7 @@ def fig_paired_variants(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     width = max(len(v) for v in vars_by_ap.values())
 
     counts = defaultdict(int)
-    fig, ax = plt.subplots(figsize=(fs.WIDTH_1COL, 2.6))
+    fig, ax = plt.subplots(figsize=(fs.WIDTH_1COL, 2.95))
     for i, ap in enumerate(aps):
         for j, var in enumerate(vars_by_ap[ap]):
             jo, de = verdict(ap, var, "llm_judge"), verdict(ap, var, "agenticcyops")
@@ -608,12 +608,14 @@ def fig_paired_variants(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     handles = [Patch(facecolor=fs.OUTCOME_COLOR[k], label=lbl) for k, lbl in
                (("executed", "executed"), ("blocked", "always blocked"),
                 ("not_attempted", "never attempted"))]
-    handles += [Patch(facecolor="none", edgecolor="none",
-                      label=f"{k}: {v}") for k, v in sorted(counts.items())]
-    # only AP-4 reaches v6/v7, so the lower-right of the grid is free: keep the
-    # legend inside the axes so the figure stays within one column
-    ax.legend(handles=handles, loc="lower right", handlelength=0.9, borderpad=0.2,
-              labelspacing=0.3, handletextpad=0.5, fontsize=5.4)
+    # the key and the counts sit below the grid, clear of every cell: the
+    # grid is as wide as the longest path (AP-4, seven variants)
+    ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.135), ncol=3,
+              handlelength=0.9, borderpad=0.2, columnspacing=1.2, handletextpad=0.4,
+              fontsize=5.6, frameon=False)
+    order = ("JudgeOnly fails, DEFER holds", "DEFER fails, JudgeOnly holds", "both fail")
+    ax.text(0.5, -0.225, "    ".join(f"{k}: {counts.get(k, 0)}" for k in order),
+            transform=ax.transAxes, ha="center", va="top", fontsize=5.6)
     ax.set_title("upper-left: JudgeOnly    lower-right: DEFER", fontsize=6, loc="left", pad=4)
 
     path = fs.save(fig, "paired_variants", outdir, fs.WIDTH_1COL)
