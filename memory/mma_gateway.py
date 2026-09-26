@@ -44,6 +44,8 @@ class MemoryReadRequest(BaseModel):
     # Ablation switches forwarded by the orchestrator when running
     # principle-isolation experiments.  Default False -> full enforcement.
     skip_p5: bool = False
+    # incident text for the P5-L3 relevance check (v3.1)
+    context: str = ""
 
 
 class MemoryWriteRequest(BaseModel):
@@ -245,7 +247,7 @@ def create_app(
         # the -P5 ablation and for the flat / acl_hardened systems, which
         # have no gateway defenses (the host sets skip_p5 for them, H4).
         if not req.skip_p5:
-            context = getattr(req, "_context", {})  # context passed if available
+            context = req.context
             ok, reason, details = access_isolation.validate_query(
                 req.phase, req.store_id, req.query, context
             )

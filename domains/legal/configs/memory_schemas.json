@@ -2,7 +2,7 @@
   "LM1": {
     "required_metadata": ["case_id", "status"],
     "field_types": {"status": "enum"},
-    "enums": {"status": ["open", "discovery", "litigation", "settlement", "closed", "archived"]},
+    "enums": {"status": ["open", "discovery", "litigation", "settlement", "closed", "archived", "cleared", "ready_to_close", "under_evaluation"]},
     "min_content_length": 30,
     "max_content_length": 10000
   },

@@ -10,6 +10,7 @@ Config modes:
   "agenticcyops":   Full P1-P5 enforcement.
 """
 
+import copy
 import json
 import time as _time
 from typing import Optional
@@ -26,11 +27,52 @@ from host.authenticated_interface import AuthenticatedInterface
 from host.parameter_validator import ParameterValidator
 from host.output_classifier import OutputClassifier
 from consensus.verified_execution import VerifiedExecution
+from consensus.operational_context import tool_for_action
 from mcp_servers.server_registry import ServerRegistry
 
 
 PHASE_ORDER = ["monitor", "analyze", "admin", "report"]
 
+
+
+# v3.1: the admin tools of healthcare, finance and legal do one thing each and
+# take no ``action`` argument, so every P3 check keyed on (tool, action) --
+# time policy, change conflict, impacts, dangerous patterns -- missed them.
+IMPLIED_ACTION = {
+    "F8_account_freeze": "freeze", "F9_chargeback_processor": "process",
+    "F10_wire_recall": "recall", "H8_prescription_writer": "prescribe",
+    "H9_procedure_scheduler": "schedule", "H10_insurance_preauth": "submit",
+    "L8_court_filing": "file", "L9_document_signing": "sign",
+    "L10_payment_processing": "disburse",
+}
+HOIST_FIELDS = ("action", "target", "target_user", "target_hosts", "target_users",
+                "account_id", "patient_id", "case_id")
+# the argument that names what a tool acts on, for checks that read ``target``
+TARGET_ARGS = ("target", "target_user", "target_host", "account_id", "patient_id",
+               "case_number", "case_id", "wire_id", "transaction_id", "matter_id",
+               "document_id")
+
+
+def _hoist(proposal: dict) -> dict:
+    """Copy the fields P3's layers read at the proposal root: the action (or
+    the tool's implied one) and its target."""
+    args = proposal.get("arguments") or {}
+    if not isinstance(args, dict):
+        args = {}
+    for field in HOIST_FIELDS:
+        if field in args and field not in proposal:
+            proposal[field] = args[field]
+    tool_id = proposal.get("tool_id", "")
+    if not proposal.get("action") and tool_id in IMPLIED_ACTION:
+        kind = str(args.get("type") or "").lower()
+        proposal["action"] = kind if tool_id == "L10_payment_processing" and kind == "refund" \
+            else IMPLIED_ACTION[tool_id]
+    if not proposal.get("target"):
+        for field in TARGET_ARGS[1:]:
+            if isinstance(args.get(field), (str, int)) and str(args[field]):
+                proposal["target"] = str(args[field])
+                break
+    return proposal
 
 class SOARHost:
     """Central orchestrator for the AgenticCyOps testbed."""
@@ -165,13 +207,21 @@ class SOARHost:
         It is never part of ``incident`` and therefore never rendered to a
         model; the hooks below are the only consumers.
         """
-        self.harness_injection = dict(harness_injection or {})
+        # a deep copy: fault hooks mark a spec "_applied", and the harness reuses
+        # one payload dict for every trial of a variant (v3.1; before, only the
+        # first trial of each AP-15 variant got its fault)
+        self.harness_injection = copy.deepcopy(harness_injection or {})
         context = {
             "incident": incident,
             "incident_id": incident.get("incident_id", str(uuid4())),
             "domain": self.domain,
             "config": self.config,
             "phases": {},
+            # v3.1: the scorer and adaptive consent read context["severity"],
+            # which was never set (always "medium")
+            "severity": str(incident.get("initial_severity") or incident.get("severity")
+                            or incident.get("initial_priority") or incident.get("priority")
+                            or "medium"),
         }
 
         self.enforcer.reset_counts()
@@ -184,8 +234,11 @@ class SOARHost:
         elif self.verified_execution:
             self.verified_execution.reset_for_incident()
 
-        # P1-L3: Verify config integrity before each incident (skipped under -P1)
-        if self.auth_interface and self._principle_active("P1"):
+        # P1-L3: Verify config integrity before each incident (skipped under -P1).
+        # v3.1: FULL only; JUDGEONLY is P1 identity plus the panel, and this
+        # check aborted its whole incident on config-tamper variants
+        if (self.auth_interface and self.config == "agenticcyops"
+                and self._principle_active("P1")):
             self.auth_interface.reset_replay_cache()
             configs_ok, changed_files = self.auth_interface.verify_config_integrity(
                 overlay=self._config_tamper_overlay())
@@ -214,7 +267,10 @@ class SOARHost:
             recent_change = incident.get("recent_change")
             if recent_change:
                 self.verified_execution.operational_context.record_change(
-                    tool_id=recent_change.get("tool", recent_change.get("action", "")),
+                    # v3.1: payloads name only the action; the recorded tool was the
+                    # action string, so the conflict check never matched it
+                    tool_id=(recent_change.get("tool")
+                             or tool_for_action(recent_change.get("action", ""))),
                     action=recent_change.get("action", ""),
                     target=recent_change.get("target", ""),
                     incident_id=context["incident_id"],
@@ -519,16 +575,23 @@ class SOARHost:
         # Process proposed tool calls SEQUENTIALLY (TA-19: no parallel bypass)
         executed_responses = []
         for tc in result.proposed_tool_calls:
+            self._last_block = ""
             response = await self._process_tool_call(phase, tc, context)
             executed_responses.append(response)
-            self.enforcer.record_action(phase)
+            # v3.1: count only actions that ran toward the bulk-action cap; denied
+            # proposals counted too, so a legitimate call could be escalated
+            if not (isinstance(response, dict)
+                    and response.get("status") in ("denied", "escalated")):
+                self.enforcer.record_action(phase)
 
-            # Break on critical safety gate failures (TA-19 fix)
+            # Break on critical safety gate failures (TA-19 fix). v3.1: match the
+            # deciding layer's mechanism; the agent-facing reason is sanitized
+            # ("Action not approved."), so matching it never fired.
             if isinstance(response, dict) and response.get("status") in ("denied", "escalated"):
-                reason = response.get("reason", "")
+                reason = self._last_block
                 if any(m in reason for m in (
                     "P3_dangerous_pattern", "P3_posture_threshold",
-                    "P3_cross_", "P3_exact_replay", "bulk_action",
+                    "P3_cross_", "P3_exact_replay", "P3_bulk_action",
                 )):
                     break
 
@@ -663,7 +726,7 @@ class SOARHost:
                 extra={
                     "call_id": getattr(tc, "call_id", ""),
                     "arguments": tc.arguments if isinstance(tc.arguments, dict) else {},
-                    "justification": (tc.justification or "")[:1000],
+                    "justification": (tc.justification or "")[:300],
                 },
             )
         return await self._enforce_tool_call(phase, tc, context)
@@ -740,20 +803,13 @@ class SOARHost:
                 # at top level work uniformly.
                 proposal = tc.to_proposal()
                 proposal["phase"] = phase
-                args = proposal.get("arguments", {})
-                for field in ("action", "target", "target_user", "target_hosts",
-                              "target_users", "account_id", "patient_id", "case_id"):
-                    if field in args and field not in proposal:
-                        proposal[field] = args[field]
-                p3_context = {**context, "current_phase": phase,
-                              "prior_actions": list(context.setdefault("prior_actions", []))}
+                _hoist(proposal)
+                p3_context = {**context, "current_phase": phase}
 
                 try:
                     result = await self.consensus.validate_with_details(
                         proposal, p3_context)
                     _t = self._lap("judge", _t)
-                    from consensus.panel_context import prior_action
-                    context["prior_actions"].append(prior_action(proposal, bool(result.approved)))
                 except Exception as exc:
                     _t = self._lap("judge", _t)
                     if self.logger:
@@ -868,7 +924,8 @@ class SOARHost:
                 and self._principle_active("P3")):
             needs_p3 = self.enforcer.requires_consensus(phase, tool_id)
             if not needs_p3 and hasattr(self.verified_execution, 'intent_chain'):
-                action = tc.arguments.get("action", "") if hasattr(tc, 'arguments') else ""
+                action = _hoist({"tool_id": tool_id,
+                                 "arguments": getattr(tc, "arguments", None) or {}}).get("action", "")
                 impact = self.verified_execution.intent_chain._get_impact(tool_id, action)
                 if impact < 0:
                     needs_p3 = True  # negative-impact tools always go through P3
@@ -878,25 +935,19 @@ class SOARHost:
                 proposal["phase"] = phase
                 # Hoist arguments fields to top level for P3 layers that
                 # read action/target from the proposal root (fourth-pass fix)
-                args = proposal.get("arguments", {})
-                for field in ("action", "target", "target_user", "target_hosts",
-                              "target_users", "account_id", "patient_id", "case_id"):
-                    if field in args and field not in proposal:
-                        proposal[field] = args[field]
+                _hoist(proposal)
                 # v2.9 (B1): the evidence the risk scorer's alignment reads,
                 # as P2's parameter check uses it
                 p3_context = {**context, "current_phase": phase,
-                              "incident_evidence": json.dumps(context.get("incident", {}), default=str),
-                              # v3.0: what the panel is told has already been decided
-                              "prior_actions": list(context.setdefault("prior_actions", []))}
+                              "incident_evidence": json.dumps(context.get("incident", {}), default=str)}
                 _p3_approved_at = _time.time()  # Fix #3: timestamp for L7
                 approved = await self.verified_execution.validate(
                     proposal, p3_context
                 )
-                from consensus.panel_context import prior_action
-                context["prior_actions"].append(prior_action(proposal, bool(approved)))
                 _t = self._lap("P3", _t)
                 if not approved:
+                    res = getattr(self.verified_execution, "last_result", None) or {}
+                    self._last_block = f"{res.get('mechanism', '')} {res.get('reason', '')}"
                     if self.logger:
                         self.logger.log_tool_call(
                             agent=f"{phase}_agent",
@@ -923,6 +974,7 @@ class SOARHost:
                         mechanism="P3_bulk_action",
                         interception_step=3,
                         extra=self._args_for_log(tc))
+                self._last_block = "P3_bulk_action"
                 return {"status": "escalated", "tool_id": tool_id, "reason": "Action limit reached."}
 
         # ── Harness fault: TOCTOU mutation between approval and execution ──
@@ -938,11 +990,7 @@ class SOARHost:
                 and _p3_approved_at is not None and self._principle_active("P3")):
             _to_execute = tc.to_proposal()
             _to_execute["phase"] = phase
-            for _f in ("action", "target", "target_user", "target_hosts",
-                       "target_users", "account_id", "patient_id", "case_id"):
-                _a = _to_execute.get("arguments", {})
-                if _f in _a and _f not in _to_execute:
-                    _to_execute[_f] = _a[_f]
+            _hoist(_to_execute)
             l7_ok, l7_reason = self.verified_execution.verify_execution(
                 proposal, _to_execute, _p3_approved_at
             )
@@ -1103,10 +1151,17 @@ class SOARHost:
                 return out
 
         bypass = self.config != "agenticcyops"
+        incident = context.get("incident") or {}
+        # P5-L3 compares the query with the incident (v3.1: before, no context
+        # reached the gateway and the relevance check never ran)
+        inc_text = " ".join(str(incident.get(k) or "") for k in
+                            ("alert_type", "incident_type", "case_type", "matter_type",
+                             "description")).strip()
         status, body = await self._mma_post("/memory/read", {
             "phase": phase, "store_id": store, "query": query, "n_results": 3,
             "auth_token": self._mma_token(phase, store),
             "skip_p5": bypass or not self._principle_active("P5"),
+            "context": inc_text,
         })
         if status == 0:
             if self.logger:

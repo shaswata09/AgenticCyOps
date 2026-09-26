@@ -108,6 +108,7 @@ class VerifiedExecution:
         Returns True if approved, False if rejected/escalated.
         """
         result = await self.validate_with_details(proposal, context)
+        self.last_result = result      # v3.1: the orchestrator's early exit reads it
         return result["approved"]
 
     async def validate_with_details(
@@ -140,10 +141,12 @@ class VerifiedExecution:
 
         # ── L0: Handoff Validation ──
         if "handoff_source" in context or "monitor_handoff" in context:
-            handoff_data = context.get(
-                "monitor_handoff",
-                context.get("analyze_handoff", context.get("admin_handoff", {})),
-            )
+            # the handoff into the current phase (v3.1): before, the monitor
+            # handoff was always picked, so admin and report never checked the
+            # analyze->admin / admin->report handoff they actually received
+            prev = {"analyze": "monitor", "admin": "analyze",
+                    "report": "admin"}.get(context.get("current_phase", ""))
+            handoff_data = context.get(f"{prev}_handoff", {}) if prev else {}
             raw_incident = context.get("incident", {})
 
             if handoff_data:
@@ -383,6 +386,13 @@ class VerifiedExecution:
         # Sanitize argument values recursively (third+fourth-pass fix)
         if "arguments" in sanitized and isinstance(sanitized["arguments"], dict):
             sanitized["arguments"] = self._sanitize_dict_recursive(sanitized["arguments"])
+
+        # v3.1: the host copies argument fields (target, target_user, ...) to the
+        # proposal root; they reached the panel unsanitized
+        rest = {k: v for k, v in sanitized.items()
+                if k not in ("arguments", "tool_id", "phase", "justification",
+                             "reason", "description", "notes")}
+        sanitized.update(self._sanitize_dict_recursive(rest))
 
         return sanitized
 

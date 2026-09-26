@@ -11,7 +11,7 @@
     "field_types": {"severity": "enum", "status": "enum"},
     "enums": {
       "severity": ["critical", "high", "medium", "low", "informational"],
-      "status": ["open", "investigating", "contained", "resolved", "closed"]
+      "status": ["open", "investigating", "contained", "resolved", "closed", "containment"]
     },
     "min_content_length": 30,
     "max_content_length": 10000

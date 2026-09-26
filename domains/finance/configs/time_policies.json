@@ -5,7 +5,7 @@
     "F8_account_freeze": {
         "freeze": {
             "allowed_start": 0,
-            "allowed_end": 23,
+            "allowed_end": 24,
             "description": "Account freezes allowed 24/7 for fraud emergencies"
         },
         "unfreeze": {
@@ -29,7 +29,7 @@
         },
         "review": {
             "allowed_start": 0,
-            "allowed_end": 23,
+            "allowed_end": 24,
             "description": "Chargeback review allowed 24/7"
         }
     }

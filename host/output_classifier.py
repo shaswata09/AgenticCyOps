@@ -122,11 +122,13 @@ class OutputClassifier:
         if pattern_result is not None:
             safe, reason, details = pattern_result
             if self.logger:
+                # v3.1: keywords; positionally, details landed in auth_decision
                 self.logger.log(
-                    "output_classifier",
-                    "security",
-                    f"Sensitive pattern detected in {tool_id}: {reason}",
-                    details,
+                    source="output_classifier",
+                    destination=tool_id,
+                    action="output_classification",
+                    mechanism=reason,
+                    extra={"message": f"Sensitive pattern detected in {tool_id}: {reason}", **(details or {})},
                 )
             return safe, reason, details
 
@@ -135,11 +137,13 @@ class OutputClassifier:
         if category_result is not None:
             safe, reason, details = category_result
             if self.logger:
+                # v3.1: keywords; positionally, details landed in auth_decision
                 self.logger.log(
-                    "output_classifier",
-                    "security",
-                    f"Sensitive content detected in {tool_id}: {reason}",
-                    details,
+                    source="output_classifier",
+                    destination=tool_id,
+                    action="output_classification",
+                    mechanism=reason,
+                    extra={"message": f"Sensitive content detected in {tool_id}: {reason}", **(details or {})},
                 )
             return safe, reason, details
 

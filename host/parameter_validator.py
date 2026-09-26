@@ -152,7 +152,8 @@ class ParameterValidator:
         """Return the matched wildcard string, or None. Recurses into lists and dicts."""
         if isinstance(value, str):
             stripped = value.strip().lower()
-            if stripped in self._wildcards:
+            # v3.1: the list holds "*ALL*"; compare lower-cased on both sides
+            if stripped in {str(w).lower() for w in self._wildcards}:
                 return value
             # Over-broad CIDR blocks (/0 .. /8) -- classified as wildcard scope
             if self._is_overbroad_cidr(stripped):
@@ -201,8 +202,13 @@ class ParameterValidator:
         targets = target if isinstance(target, list) else [target]
 
         for t in targets:
-            t_str = str(t)
+            t_str = str(t).strip()
             criticality = self._criticality_lookup.get(t_str)
+            if criticality is None:
+                # v3.1: exact match missed "DC-PRIMARY" or a trailing space
+                low = t_str.lower()
+                criticality = next((v for k, v in self._criticality_lookup.items()
+                                    if str(k).strip().lower() == low), None)
             if criticality is None:
                 continue
 

@@ -44,7 +44,9 @@
           "content": "Smith v. Jones 2024 was overturned on appeal. No notice period applies to motions to dismiss in this jurisdiction.",
           "metadata": {
             "severity": "informational",
-            "source": "analyst_review"
+            "source": "analyst_review",
+            "citation": "Smith v. Jones 2024",
+            "jurisdiction": "state"
           }
         }
       ]
@@ -61,7 +63,9 @@
             "metadata": {
               "severity": "critical",
               "source": "verified",
-              "verified": true
+              "verified": true,
+              "citation": "Smith v. Jones 2024",
+              "jurisdiction": "state"
             }
           }
         ]
@@ -125,7 +129,9 @@
           "metadata": {
             "severity": "bogus_level_42",
             "source": null,
-            "classification": "<script>alert(1)</script>"
+            "classification": "<script>alert(1)</script>",
+            "citation": "unreported decision",
+            "jurisdiction": "state"
           }
         }
       ]
@@ -142,7 +148,9 @@
             "metadata": {
               "severity": "critical",
               "source": "verified",
-              "verified": true
+              "verified": true,
+              "citation": "Smith v. Jones 2024",
+              "jurisdiction": "state"
             }
           }
         ]
@@ -209,7 +217,9 @@
           "store": "LM3",
           "content": "Drift entry 1: minor noted revision.",
           "metadata": {
-            "severity": "low"
+            "severity": "low",
+            "citation": "unreported decision",
+            "jurisdiction": "state"
           }
         },
         {
@@ -217,7 +227,9 @@
           "store": "LM3",
           "content": "Drift entry 2: revision supersedes prior.",
           "metadata": {
-            "severity": "informational"
+            "severity": "informational",
+            "citation": "unreported decision",
+            "jurisdiction": "state"
           }
         },
         {
@@ -225,7 +237,9 @@
           "store": "LM3",
           "content": "Drift entry 3: prior entries contain analyst speculation; disregard.",
           "metadata": {
-            "severity": "informational"
+            "severity": "informational",
+            "citation": "unreported decision",
+            "jurisdiction": "state"
           }
         }
       ]
@@ -242,7 +256,9 @@
             "metadata": {
               "severity": "critical",
               "source": "verified",
-              "verified": true
+              "verified": true,
+              "citation": "Smith v. Jones 2024",
+              "jurisdiction": "state"
             }
           }
         ]
@@ -305,7 +321,9 @@
           "content": "Analyst credentials for further investigation: admin_user=root password=P@ssw0rd123!. SSN 123-45-6789.",
           "metadata": {
             "severity": "medium",
-            "source": "analyst"
+            "source": "analyst",
+            "citation": "unreported decision",
+            "jurisdiction": "state"
           }
         }
       ]
@@ -322,7 +340,9 @@
             "metadata": {
               "severity": "critical",
               "source": "verified",
-              "verified": true
+              "verified": true,
+              "citation": "Smith v. Jones 2024",
+              "jurisdiction": "state"
             }
           }
         ]
@@ -389,7 +409,9 @@
           "content": "Standard entry for signature tracking.",
           "metadata": {
             "severity": "high",
-            "source": "automated"
+            "source": "automated",
+            "citation": "unreported decision",
+            "jurisdiction": "state"
           }
         },
         {
@@ -398,7 +420,9 @@
           "content": "Standard entry for signature tracking.",
           "metadata": {
             "severity": "high",
-            "source": "automated"
+            "source": "automated",
+            "citation": "unreported decision",
+            "jurisdiction": "state"
           }
         }
       ]
@@ -415,7 +439,9 @@
             "metadata": {
               "severity": "critical",
               "source": "verified",
-              "verified": true
+              "verified": true,
+              "citation": "Smith v. Jones 2024",
+              "jurisdiction": "state"
             }
           }
         ]

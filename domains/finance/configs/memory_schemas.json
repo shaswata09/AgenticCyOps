@@ -9,7 +9,7 @@
   "FM4": {
     "required_metadata": ["case_id", "status"],
     "field_types": {"status": "enum"},
-    "enums": {"status": ["open", "under_review", "escalated", "resolved", "closed"]},
+    "enums": {"status": ["open", "under_review", "escalated", "resolved", "closed", "assessed", "elevated_risk", "high_risk", "recall_initiated"]},
     "min_content_length": 30,
     "max_content_length": 10000
   },

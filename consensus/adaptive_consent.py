@@ -206,6 +206,9 @@ class AdaptiveConsentModel:
         self._decay(entry)
 
         # Add reward delta
+        # v3.1: callers pass "llm_consensus" / "adaptive_consent"; the table is
+        # keyed on "llm" / "adaptive", so every panel decision added nothing
+        decided_by = {"llm_consensus": "llm", "adaptive_consent": "adaptive"}.get(decided_by, decided_by)
         delta = self.REWARD_VALUES.get((decision, decided_by), 0.0)
         entry["reward"] += delta
         entry["last_updated"] = time.time()

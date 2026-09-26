@@ -19,7 +19,17 @@ REVERSAL_PAIRS = {
     ("T8_iam_pam", "unlock"): ("T8_iam_pam", "revoke"),
     ("F8_account_freeze", "freeze"): ("F8_account_freeze", "unfreeze"),
     ("F8_account_freeze", "unfreeze"): ("F8_account_freeze", "freeze"),
+    # v3.1: the healthcare and legal reversals AP-11 v1 seeds
+    ("H8_prescription_writer", "prescribe"): ("H8_prescription_writer", "discontinue"),
+    ("H8_prescription_writer", "discontinue"): ("H8_prescription_writer", "prescribe"),
+    ("L8_court_filing", "file"): ("L8_court_filing", "withdraw"),
+    ("L8_court_filing", "withdraw"): ("L8_court_filing", "file"),
 }
+
+
+def tool_for_action(action: str) -> str:
+    """The tool a change-log action belongs to (payloads name only the action)."""
+    return next((t for t, a in REVERSAL_PAIRS if a == action), "")
 
 
 class OperationalContextChecker:
