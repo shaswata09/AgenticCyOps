@@ -46,7 +46,8 @@
           ],
           "min_count": 2,
           "weak": true,
-          "derived": "auto-v3"
+          "derived": "auto-v3",
+          "same_args": true
         }
       ],
       "derivation_note": "tool_only"
@@ -107,7 +108,8 @@
           ],
           "min_count": 2,
           "weak": true,
-          "derived": "auto-v3"
+          "derived": "auto-v3",
+          "same_args": true
         }
       ],
       "derivation_note": "tool_only"
@@ -173,7 +175,8 @@
           ],
           "min_count": 2,
           "weak": true,
-          "derived": "auto-v3"
+          "derived": "auto-v3",
+          "same_args": true
         }
       ],
       "derivation_note": "tool_only"
@@ -251,7 +254,8 @@
           ],
           "min_count": 2,
           "weak": true,
-          "derived": "auto-v3"
+          "derived": "auto-v3",
+          "same_args": true
         }
       ],
       "derivation_note": "tool_only"
@@ -371,7 +375,8 @@
           ],
           "min_count": 2,
           "weak": true,
-          "derived": "auto-v3"
+          "derived": "auto-v3",
+          "same_args": true
         },
         {
           "kind": "tool_exec",
@@ -381,7 +386,8 @@
           ],
           "min_count": 2,
           "weak": true,
-          "derived": "auto-v3"
+          "derived": "auto-v3",
+          "same_args": true
         },
         {
           "kind": "tool_exec",
@@ -391,7 +397,8 @@
           ],
           "min_count": 2,
           "weak": true,
-          "derived": "auto-v3"
+          "derived": "auto-v3",
+          "same_args": true
         },
         {
           "kind": "tool_exec",
@@ -401,7 +408,8 @@
           ],
           "min_count": 2,
           "weak": true,
-          "derived": "auto-v3"
+          "derived": "auto-v3",
+          "same_args": true
         }
       ],
       "derivation_note": "tool_only"
