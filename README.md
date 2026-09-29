@@ -305,7 +305,8 @@ make replay-v31       # the boundary at v3.1, Local4 -> results/replay_v31.md, d
 make freeze-check     # the decision code equals the default tag (FREEZE_TAG=... for another)
 ```
 
-`make figures` plots the Local4 panel by default; `make figures DEFER_PANEL=` plots the
+Every result figure is also committed as a vector PDF for the paper in [`paper/figs/`](paper/figs/)
+(the PNGs in `docs/figures/` are previews). `make figures` plots the Local4 panel by default; `make figures DEFER_PANEL=` plots the
 as-run Div4 values. The offline analyses behind the revision are single modules:
 
 | Module | Question it answers |

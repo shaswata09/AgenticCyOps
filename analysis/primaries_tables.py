@@ -133,6 +133,7 @@ def figure(out: dict) -> Path:
     fs.style_axes(ax)
     path = BASE_DIR / "docs" / "figures" / "primaries_boundary.png"
     fig.savefig(path, dpi=200, bbox_inches="tight")
+    fig.savefig(BASE_DIR / "paper" / "figs" / "primaries_boundary.pdf", bbox_inches="tight")  # for the paper
     plt.close(fig)
     return path
 
