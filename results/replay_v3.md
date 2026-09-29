@@ -7,15 +7,15 @@ Local4 (a primary never judges its own proposals) unless marked as run; ASR % wi
 
 | Arm | Domain | ASR, v2.9 input | ASR, v3.0 input | Benign denied %, v2.9 -> v3.0 |
 |---|---|---|---|---|
-| Qwen3-235B FULL | cyberops | 7.1 [2.2, 12.9] | 8.4 [3.1, 14.7] | 11.2 -> 11.1 |
+| Qwen3-235B FULL | cyberops | 7.1 [2.2, 13.3] | 8.9 [3.6, 15.6] | 11.2 -> 11.1 |
 | Qwen3-235B FULL | healthcare | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] | 24.2 -> 18.8 |
-| Qwen3-235B FULL | finance | 4.4 [0.9, 8.9] | 10.2 [4.4, 17.3] | 22.7 -> 17.6 |
-| Qwen3-235B FULL | legal | 11.1 [4.9, 17.8] | 16.0 [8.4, 24.4] | 25.4 -> 14.9 |
+| Qwen3-235B FULL | finance | 4.0 [0.4, 8.4] | 9.8 [4.0, 16.9] | 22.7 -> 17.6 |
+| Qwen3-235B FULL | legal | 7.6 [2.7, 12.9] | 12.4 [5.8, 20.0] | 25.4 -> 14.9 |
 | Qwen3-235B JUDGEONLY | cyberops | 33.8 [24.0, 44.0] | 32.0 [22.7, 41.8] | 3.8 -> 4.4 |
 | gpt-oss-120b FULL | cyberops | 6.7 [1.3, 12.0] | 8.0 [2.7, 14.7] | 0.0 -> 0.0 |
 | gpt-oss-120b JUDGEONLY | cyberops | 22.7 [13.8, 32.0] | 21.8 [12.9, 31.1] | 0.0 -> 0.0 |
 | Llama-3.1-8B FULL | cyberops | 6.2 [1.3, 12.0] | 7.6 [2.2, 13.8] | 12.4 -> 8.7 |
-| Llama-3.1-8B JUDGEONLY | cyberops | 28.4 [18.7, 38.2] | 24.9 [16.0, 34.7] | 6.6 -> 5.7 |
+| Llama-3.1-8B JUDGEONLY | cyberops | 27.6 [18.2, 37.3] | 23.6 [14.7, 33.3] | 6.6 -> 5.7 |
 
 ## Per-judge approval rate, Qwen3-235B FULL rounds
 
@@ -34,11 +34,11 @@ The live runs used the local2 panel (Mistral, Gemma); their logged panel inputs 
 |---|---|---|---|---|---|
 | Qwen3-235B FULL | cyberops | 225 | 8.4 [3.1, 14.7] | 6.7 [2.2, 12.4] | 9.9 / 13.5 |
 | Qwen3-235B FULL | healthcare | 225 | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] | 23.7 / 30.0 |
-| Qwen3-235B FULL | finance | 225 | 7.6 [2.7, 13.3] | 4.9 [0.9, 10.2] | 17.5 / 23.4 |
-| Qwen3-235B FULL | legal | 225 | 14.2 [7.1, 21.8] | 10.7 [4.4, 17.8] | 16.7 / 19.4 |
-| Qwen3-235B JUDGEONLY | cyberops | 225 | 30.7 [21.3, 40.4] | 28.0 [19.1, 37.8] | 5.7 / 12.0 |
-| Llama-3.1-8B FULL | cyberops | 225 | 6.7 [1.8, 12.0] | 5.3 [0.9, 10.2] | 11.4 / 18.5 |
-| Llama-3.1-8B JUDGEONLY | cyberops | 225 | 24.9 [16.0, 34.2] | 20.0 [12.0, 28.9] | 5.7 / 15.8 |
+| Qwen3-235B FULL | finance | 225 | 6.7 [1.8, 12.4] | 4.0 [0.0, 9.3] | 17.5 / 23.4 |
+| Qwen3-235B FULL | legal | 225 | 10.2 [4.4, 16.9] | 6.7 [2.2, 12.4] | 16.7 / 19.4 |
+| Qwen3-235B JUDGEONLY | cyberops | 225 | 29.8 [20.4, 39.6] | 27.6 [18.7, 37.3] | 5.7 / 12.0 |
+| Llama-3.1-8B FULL | cyberops | 225 | 6.2 [1.8, 11.1] | 4.9 [0.9, 9.3] | 11.4 / 18.5 |
+| Llama-3.1-8B JUDGEONLY | cyberops | 225 | 24.4 [15.6, 33.8] | 19.6 [11.6, 28.4] | 5.7 / 15.8 |
 | gpt-oss-120b FULL | cyberops | 225 | 8.9 [3.1, 15.6] | 6.2 [1.8, 11.6] | 0.0 / 2.8 |
 | gpt-oss-120b JUDGEONLY | cyberops | 225 | 22.2 [13.3, 31.6] | 19.1 [11.1, 28.0] | 0.6 / 4.4 |
 
