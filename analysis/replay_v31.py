@@ -80,7 +80,7 @@ def _as_run(domain: str, config: str, keep) -> tuple[list[dict], Counter]:
             continue
         v = evaluate_effects(p[1], ev, config=config)
         if v.outcome in ("executed", "blocked", "not_attempted"):
-            attack.append({"ap": ap, "variant": var, "outcome": v.outcome})
+            attack.append({"domain": domain, "ap": ap, "variant": var, "outcome": v.outcome})
     return attack, benign
 
 
@@ -96,7 +96,11 @@ def tables() -> dict:
     for ln in open(OUT / "rounds.jsonl"):
         r = json.loads(ln)
         R.setdefault(r["arm"], []).append(r)
-    reported = json.loads((BASE_DIR / "results" / "replay_tables.json").read_text())["domains"]
+    rt = json.loads((BASE_DIR / "results" / "replay_tables.json").read_text())
+    reported = rt["domains"]
+    # JUDGEONLY and NOJUDGE were reported for the development domain only
+    for label, key in (("JUDGEONLY", "judgeonly"), ("NOJUDGE", "nojudge")):
+        reported.setdefault("cyberops", {})[key] = rt["development"][label]["asr"]
     res: dict = {}
     for d in D4:
         keep = _keep(d)
@@ -124,7 +128,8 @@ def tables() -> dict:
         for label in ("FLAT", "ACL", "JUDGEONLY", "NOJUDGE", "FULL"):
             r = row[label]
             live = f" ({r['live_local2']['asr']})" if "live_local2" in r else ""
-            rep_v = rep.get({"FLAT": "flat", "ACL": "acl", "FULL": "full"}.get(label, ""), "")
+            rep_v = rep.get({"FLAT": "flat", "ACL": "acl", "FULL": "full", "JUDGEONLY": "judgeonly",
+                             "NOJUDGE": "nojudge"}[label], "not run")
             lines.append(f"| {label} | {r['asr']}{live} | {r['benign_denied']} | {rep_v} |")
         lines.append("")
     (BASE_DIR / "results" / "replay_v31.md").write_text("\n".join(lines))

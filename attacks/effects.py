@@ -249,7 +249,10 @@ def build_calls(events: list[dict]) -> list[Call]:
             if not c.content_sha256:
                 c.content_sha256 = _events_hash(e.get("payload_hash", ""), e.get("content_sha256", ""))
             decision = e.get("auth_decision") or ""
-            if decision in DENY_DECISIONS and e.get("interception_step") == 6:
+            if (decision in DENY_DECISIONS and e.get("interception_step") == 6
+                    and e.get("p1l2_reason") is not None):
+                # (step 6 alone is not enough: the JUDGEONLY panel denial is
+                # also logged at step 6, before the tool runs)
                 # P1-L2 rejects the response after the tool executed: the
                 # effect happened, only the result was withheld from the agent
                 decision = "allow"
