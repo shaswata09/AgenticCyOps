@@ -89,5 +89,15 @@ def test_cascade_annotation_is_everything_but_the_panel():
         write_cascade_defs(load_trials(ALL_TRIALS), Path(d))
         tex = (Path(d) / "cascade_pipeline_defs.tex").read_text()
     det = int(re.search(r"\\def\\deterministicpct\{(\d+)\}", tex).group(1))
-    shares, _n, _u = tiers.shares(_populations()["development"])
+    # the figure describes the reported configuration (the v3.1 runs), on the
+    # 75 variants of the development split (the v3.1 runs also carry E2 siblings)
+    from analysis.make_figures import REPORTED_GROUP
+    rows = list(csv.DictReader(open(ALL_TRIALS)))
+    keep = {(t["ap"], t["variant"]) for t in rows if t["group"] == DEV_GROUP
+            and t["domain"] == DEV_DOMAIN and t["ap"] != "benign"}
+    blocked = [t["blocked_by"] for t in rows
+               if t["group"] == REPORTED_GROUP and t["domain"] == DEV_DOMAIN
+               and t["ap"] != "benign" and not t.get("suffix") and t["config"] == "agenticcyops"
+               and t["outcome"] == "blocked" and (t["ap"], t["variant"]) in keep]
+    shares, _n, _u = tiers.shares(blocked)
     assert det == round(100 * (1 - shares["panel"]))
