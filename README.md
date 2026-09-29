@@ -53,44 +53,61 @@ Unless a caption says otherwise, results use the Qwen3-235B-A22B primary, three
 trials per variant, isolated state, and the **direct outcome under Local4**: every
 logged panel round re-judged by four open-weight judges from four model families
 (Mistral-Small-3.2-24B, Gemma-4-31B-it, gpt-oss-120b, Llama-4-Scout; three of four).
-Intervals are 95% cluster-bootstrap intervals over variants. The numbers come from
-[`results/replay_tables.md`](results/replay_tables.md); the figures come from
-`make figures`.
+Intervals are 95% cluster-bootstrap intervals over variants.
 
-### The judgment boundary (development domain, 75 variants × 3 trials)
+The reported configuration is **`defense-freeze-v3.1`**: the originally evaluated
+decision code with the defects of a code audit fixed (see
+[provenance](#provenance-and-known-limitations)). The judgment boundary was re-run at
+v3.1 in all four domains ([`results/replay_v31.md`](results/replay_v31.md)). The
+analyses that need other runs (ablation, other primaries, state carry-over, lineage,
+Agent Security Bench, TAMAS) come from the earlier runs (`defense-freeze-v2.2`, or v2.9
+where noted) and are labeled; they are scored with the same, audited outcome oracle
+([`results/replay_tables.md`](results/replay_tables.md)).
 
-| Configuration | Attack success % [95% CI] | Tool proposals judged % | Legitimate proposals denied % |
-|---|---|---|---|
-| FLAT (no checks) | 36.4 [26.2, 46.7] | 0 | 0.0 |
-| ACL (connectivity only) | 24.0 [15.1, 33.3] | 0 | 54.8 |
-| JUDGEONLY (judge every proposal) | 33.8 [24.0, 44.0] | 99.9 | 3.8 |
-| NOJUDGE (never judge; escalate instead) | 1.3 [0.0, 4.0] | 0 | 51.7 |
-| **FULL (DEFER: rules first, judge last)** | **7.1 [2.2, 12.9]** | **33.4** | **11.2** |
-| JUDGEREST (FULL, judge everything the rules let through) | 7.1 [2.2, 12.9] | 78.0 | 13.3 |
+### The judgment boundary (v3.1, development domain, 75 variants × 3 trials)
+
+| Configuration | Attack success % [95% CI] | Tool proposals judged % | Legitimate proposals denied % | Before the fixes (v2.2) |
+|---|---|---|---|---|
+| FLAT (no checks) | 32.0 [22.7, 41.8] | 0 | 0.0 | 36.4 [26.2, 46.7] |
+| ACL (connectivity only) | 24.9 [15.6, 35.1] | 0 | 51.9 | 24.0 [15.1, 33.3] |
+| JUDGEONLY (judge every proposal) | 34.7 [24.4, 45.3] | 99.9 | 4.5 | 33.8 [24.0, 44.0] |
+| NOJUDGE (never judge; escalate instead) | 1.3 [0.0, 4.0] | 0 | 54.3 | 1.3 [0.0, 4.0] |
+| **FULL (DEFER: rules first, judge last)** | **2.2 [0.0, 5.8]** | **26.8** | **9.9** | 7.1 [2.2, 13.3] |
+| JUDGEREST (FULL, judge everything the rules let through) | 2.2 [0.0, 5.8] | 70.2 | 11.8 | 7.1 [2.2, 13.3] |
+
+![The boundary at v3.1 in four domains](docs/figures/boundary_v31.png)
+
+*Attack success per configuration and domain at v3.1 (filled) beside the runs before
+the fixes (hatched; JUDGEONLY and NOJUDGE were then run in the development domain
+only). The same judges without the rules barely beat no checks in the development
+domain and leave 9 to 19% in the others; rules first then judges leave 0 to 5.3%
+(pooled over the three transfer domains 3.3% [1.3, 5.6], against 3.9% before the
+fixes); never judging leaves 0 to 1.8% by escalating 41 to 59% of legitimate
+proposals. Judging everything the rules let through changes no attack outcome.*
 
 ![Judgment boundary](docs/figures/judgment_boundary.png)
 
-*(a) Attack success; (b) legitimate tool proposals denied or escalated, with benign
-task completion as run (hollow diamonds, not shown for JUDGEONLY, whose benign runs
-overlapped the validator outage). The same judges without the rules barely beat no
-checks. Judging everything the rules let through changes no attack outcome.*
+*Before the fixes (v2.2 runs, development domain): (a) attack success; (b) legitimate
+tool proposals denied or escalated, with benign task completion as run (hollow
+diamonds, not shown for JUDGEONLY, whose benign runs overlapped the validator
+outage).*
 
 ### Across primary models
 
-The boundary was measured live with two more primary models at `defense-freeze-v2.9`
-(CyberOps, 75 variants × 3 trials plus the 20 benign scenarios × 3, per
-configuration), with every panel decision re-judged under Local4. A model never
+The boundary was measured live with two more primary models at `defense-freeze-v2.9`,
+before the audit fixes (CyberOps, 75 variants × 3 trials plus the 20 benign scenarios
+× 3, per configuration; the Qwen3-235B column is its v2.2 run, for comparison), with every panel decision re-judged under Local4. A model never
 judges its own proposals, so gpt-oss-120b's panel is the other three judges, two of three.
 
 ![The boundary across three primary models](docs/figures/primaries_boundary.png)
 
 | Configuration | Qwen3-235B | gpt-oss-120b | Llama-3.1-8B |
 |---|---|---|---|
-| FLAT | 36.4 [26.2, 46.7] | 21.8 [13.3, 31.1] | 34.2 [24.0, 44.4] |
-| ACL | 24.0 [15.1, 33.3] | 17.8 [9.8, 27.1] | 33.3 [23.1, 43.6] |
-| JUDGEONLY | 33.8 [24.0, 44.0] | 22.7 [13.8, 32.0] | 28.4 [18.7, 38.2] |
+| FLAT | 36.4 [26.2, 46.7] | 21.8 [13.3, 31.1] | 33.3 [23.6, 43.6] |
+| ACL | 24.0 [15.1, 33.3] | 17.8 [9.8, 27.1] | 32.0 [22.2, 42.2] |
+| JUDGEONLY | 33.8 [24.0, 44.0] | 22.7 [13.8, 32.0] | 27.6 [18.2, 37.3] |
 | NOJUDGE | 1.3 [0.0, 4.0] | 1.3 [0.0, 4.0] | 1.3 [0.0, 4.0] |
-| **FULL (DEFER)** | **7.1 [2.2, 12.9]** | **6.7 [1.3, 12.0]** | **6.2 [1.3, 12.0]** |
+| **FULL (DEFER)** | **7.1 [2.2, 13.3]** | **6.7 [1.3, 12.0]** | **6.2 [1.3, 12.0]** |
 | legitimate proposals denied, FULL | 11.2% | 0.0%\* | 12.4% |
 | legitimate proposals escalated, NOJUDGE | 51.7% | 33.3% | 65.5% |
 
@@ -106,7 +123,8 @@ approved all 60; its cost appears as 9 memory writes blocked by P4. Numbers:
 ![First interception by decision tier](docs/figures/interception_tiers.png)
 
 *The check that first intercepted each blocked attack, by decision tier. Rules decide
-85% of interceptions in the development domain and 75% in the three transfer domains.
+88% of interceptions in the development domain and 67% in the three transfer domains
+(earlier runs, v2.2); at v3.1 they decide 93% of the 95 development-domain interceptions.
 On Agent Security Bench, whose injected actions use in-scope tools with plausible
 arguments, they decide at most 40%, and only through rules that read the case's text.*
 
@@ -122,7 +140,7 @@ compromised agent's handoff or rationale (T2).*
 <td width="50%"><img src="docs/figures/ablation.png" alt="Leave-one-out ablation"></td>
 </tr>
 <tr>
-<td><em>Per variant, FULL rescues 23 variants that JUDGEONLY loses and gives up one;
+<td><em>Per variant (v2.2), FULL rescues 23 variants that JUDGEONLY loses and gives up none;
 11 of the 23 are on memory paths JUDGEONLY cannot see.</em></td>
 <td><em>Leave-one-out on the 68 variants shared by every arm: removing P3, P2, or P4
 lets attacks through that the others do not catch.</em></td>
@@ -149,9 +167,10 @@ many actions as a mixed one (Div3L).</em></td>
 
 ![Transfer across domains and primaries](docs/figures/transfer.png)
 
-*Security transfers across four domains and four primary models (development-domain
-attack success under FULL: 7.1% Qwen3-235B, 4.4% Llama-4-Scout, 8.0% Mistral-Small,
-5.3% Llama-3.1-8B; transfer domains 5.2% [2.7, 8.0] against 29.2% for FLAT). Cost does
+*Earlier runs (v2.2). Security transfers across four domains and four primary models
+(development-domain attack success under FULL: 7.1% Qwen3-235B, 4.0% Llama-4-Scout,
+8.0% Mistral-Small, 5.3% Llama-3.1-8B; transfer domains 3.9% [1.8, 6.2] against 29.2%
+for FLAT). Cost does
 not: every benign incident outside the development domain loses at least one action.*
 
 <table>
@@ -160,11 +179,10 @@ not: every benign incident outside the development domain loses at least one act
 <td width="50%"><img src="docs/figures/state_carryover.png" alt="State carry-over"></td>
 </tr>
 <tr>
-<td><em>Attack success by injection channel (hollow markers: exposure). FULL reduces
-four of five channels, not the tool-response channel. Its residual is legal AP-2,
-which the oracle scores as executed mostly because the planted identifier reaches the
-next agent's handoff: in 9 of its 12 executed trials (as run) every tool call was
-denied (see known limitations).</em></td>
+<td><em>Attack success by injection channel (earlier runs, v2.2; hollow markers:
+exposure). FULL reduces all five channels; the largest residual is on the handoff
+channel (15.6% against 46.7% for FLAT). A canary that only reaches the next agent's
+handoff no longer counts as a leak (audited oracle).</em></td>
 <td><em>Persistent state (as run with Div4): legitimate incidents deny each other through
 replay and ledger state that never expires. An identity-keyed, one-incident expiry
 halves the denials (paper, Table III).</em></td>
@@ -209,7 +227,7 @@ shown for completeness only. With two local judges, median latency is 60 s
   [`results/tamas.md`](results/tamas.md).
 - **Calibration of the re-adjudication:** a live run at `defense-freeze-v2.9` with two
   local judges gives 2.7% [0.0, 6.2] attack success on the 75 development variants,
-  against 3.1% [0.0, 7.1] when the original runs are re-judged by the same two judges.
+  against 3.1% [0.4, 6.7] when the original runs are re-judged by the same two judges.
   Legitimate proposals denied: 12.9% live, 14.1% replayed (`results/b2_live.json`).
 
 ### Giving the judges more context does not help (`defense-freeze-v3.0`)
@@ -231,12 +249,12 @@ of the judged configurations at v3.0 (3,177 trials, 9,337 more inputs).
 
 | FULL attack success % | v2.9 input | v3.0 input (offline) | v3.0 live |
 |---|---|---|---|
-| Qwen3-235B, CyberOps | 7.1 [2.2, 12.9] | 8.4 [3.1, 14.7] | 8.4 [3.1, 14.7] |
+| Qwen3-235B, CyberOps | 7.1 [2.2, 13.3] | 8.9 [3.6, 15.6] | 8.4 [3.1, 14.7] |
 | Qwen3-235B, healthcare | 0.0 | 0.0 | 0.0 |
-| Qwen3-235B, finance | 4.4 [0.9, 8.9] | 10.2 [4.4, 17.3] | 7.6 [2.7, 13.3] |
-| Qwen3-235B, legal | 11.1 [4.9, 17.8] | 16.0 [8.4, 24.4] | 14.2 [7.1, 21.8] |
+| Qwen3-235B, finance | 4.0 [0.4, 8.4] | 9.8 [4.0, 16.9] | 6.7 [1.8, 12.4] |
+| Qwen3-235B, legal | 7.6 [2.7, 12.9] | 12.4 [5.8, 20.0] | 10.2 [4.4, 16.9] |
 | gpt-oss-120b, CyberOps | 6.7 [1.3, 12.0] | 8.0 [2.7, 14.7] | 8.9 [3.1, 15.6] |
-| Llama-3.1-8B, CyberOps | 6.2 [1.3, 12.0] | 7.6 [2.2, 13.8] | 6.7 [1.8, 12.0] |
+| Llama-3.1-8B, CyberOps | 6.2 [1.3, 12.0] | 7.6 [2.2, 13.8] | 6.2 [1.8, 11.1] |
 
 *(a) Share of proposals each judge approves in the Qwen3-235B FULL rounds (hollow
 marker: v2.9 input; arrow head: v3.0 input). (b) FULL attack success; (c) legitimate
@@ -286,6 +304,7 @@ make b2               # live calibration run vs its replay -> results/b2_live.js
 make primaries-tables # gpt-oss-120b and Llama-3.1-8B boundary -> results/primaries_v29.md
 make tamas-tables     # TAMAS outcomes (needs scored.jsonl, below) -> results/tamas.md
 make replay-v3        # v2.9 vs v3.0 panel input, offline and live -> results/replay_v3.md
+make replay-v31       # the boundary at v3.1, Local4 -> results/replay_v31.md, docs/figures/boundary_v31.png
 make freeze-check     # the decision code equals the default tag (FREEZE_TAG=... for another)
 ```
 
@@ -303,6 +322,7 @@ as-run Div4 values. The offline analyses behind the revision are single modules:
 | `analysis/primaries_tables.py` | the boundary for the two additional primaries |
 | `analysis/tamas_tables.py` | TAMAS outcomes as run and re-judged, benign cost |
 | `analysis/replay_v3.py` | the v3.0 panel input: every judged round re-judged with it, and the live v3.0 runs |
+| `analysis/replay_v31.py` | the boundary at v3.1: rounds for the Local4 re-judging, the table and its figure |
 
 ### Level 2: re-adjudication with local judges
 
@@ -325,15 +345,15 @@ the v3.0 inputs.
 
 ### Level 3: full runs
 
-The decision code on this branch is `defense-freeze-v3.0`, which is not a reported
-configuration. The main runs used `defense-freeze-v2.2` with the Div4 panel, which
-needs API validators; the fully local setup (`local2`) exists from
-`defense-freeze-v2.9`, the code of the labeled calibration and primaries runs. To
-re-run that, work from its tag:
+The decision code on this branch is the reported configuration, `defense-freeze-v3.1`
+(the freeze guard checks `defense-freeze-v3.1.1`, which differs only in the scoring
+oracle). The earlier runs used `defense-freeze-v2.2` with the Div4 panel, which needs
+API validators; to re-run one of them, work from its tag in a separate worktree
+(`git worktree add ../defer-v2.9 defense-freeze-v2.9`, then
+`FREEZE_TAG=defense-freeze-v2.9 bash scripts/check_freeze.sh`).
 
 ```bash
-git worktree add ../defer-v2.9 defense-freeze-v2.9 && cd ../defer-v2.9
-FREEZE_TAG=defense-freeze-v2.9 bash scripts/check_freeze.sh   # decision code must equal the tag
+bash scripts/check_freeze.sh                     # decision code must equal the freeze tag
 RUN_TAG=mytag REQUIRE_FREEZE=1 \
   scripts/run_attack_paths.sh q235_local2 cyberops all agenticcyops 3   # GROUP DOMAIN APS CONFIGS TRIALS
 ```
@@ -345,7 +365,8 @@ RUN_TAG=mytag REQUIRE_FREEZE=1 \
 - Environment switches: `STATE_MODE=persistent`, `DISABLE_PRINCIPLES=P3`, `SEED=<int>`.
 - `scripts/run_v29_live.sh` is the exact launcher of the calibration run,
   `scripts/run_primaries_v29.sh` of the gpt-oss-120b and Llama-3.1-8B runs, and
-  `scripts/run_v30_live.sh` and `scripts/run_v30_oss.sh` of the v3.0 re-run.
+  `scripts/run_v30_live.sh` and `scripts/run_v30_oss.sh` of the v3.0 re-run, and
+  `scripts/run_v31.sh` of the reported v3.1 boundary.
 - `scripts/vllm_profiles.sh` has the serving commands used for each model.
 
 **TAMAS.** CrewAI runs in its own environment; DEFER's checks run in a local HTTP gate
@@ -393,6 +414,7 @@ later one will refuse to start.
 | `q235_local2_v29` | Qwen3-235B-A22B | local2 (Mistral-Small, Gemma-4; 2 of 2) | live calibration at `defense-freeze-v2.9` |
 | `oss120_local2_v29`, `llama8b_local2_v29` | gpt-oss-120b, Llama-3.1-8B | local2 | the five boundary configurations at `defense-freeze-v2.9`, CyberOps |
 | `q235_local2_v30`, `oss120_local2_v30`, `llama8b_local2_v30` | Qwen3-235B-A22B, gpt-oss-120b, Llama-3.1-8B | local2 | FULL and JUDGEONLY at `defense-freeze-v3.0` (Qwen3-235B FULL in all four domains, the rest CyberOps) |
+| `q235_local2_v31` | Qwen3-235B-A22B | local2 (Local4 offline) | **the reported boundary**: all five configurations, four domains, at `defense-freeze-v3.1` |
 | `logs/tamas_q235_local2_v29/` | Qwen3-235B-A22B | local2 | TAMAS, FLAT (`flat`) and FULL (`full`): gate log, transcripts, scores |
 
 Routing of individual log files to groups is declared in
@@ -454,12 +476,14 @@ docs/              review response, figures for this README
 
 ## Provenance and known limitations
 
-- **Freeze tags.** Reported runs used the decision code of `defense-freeze-v2.2`.
+- **Freeze tags.** The earlier runs used the decision code of `defense-freeze-v2.2`.
   Tags up to v2.8 changed only logging, the memory reset of baseline configurations,
   and default-off switches for the targeted arms. `defense-freeze-v2.9` fixes the risk
   scorer's wiring and is used for the labeled calibration run and the gpt-oss-120b and
   Llama-3.1-8B runs. `defense-freeze-v3.0` changes what the judges see and is used only
   for the labeled v3.0 runs, which it does not improve (see above).
+  `defense-freeze-v3.1` (v2.9 plus the audit fixes) is the configuration of the reported
+  boundary; `defense-freeze-v3.1.1` changes only the scoring oracle.
   [`REPRODUCE.md`](REPRODUCE.md) lists every tag and diff.
 - **Validator outage.** The original panel (Div4) lost both API validators for part
   of the evaluation. Every panel-dependent result is therefore reported as its
@@ -480,37 +504,41 @@ docs/              review response, figures for this README
   gets a neutral justification naming the calling agent. Only the CrewAI hierarchical
   configuration was run. One upstream legal tool is not registered as a CrewAI tool and is
   skipped. 17 of 1,800 runs timed out after 20 minutes and are counted as errors.
-- **Defects found in a code audit of the reported configuration.** They were present in
-  the reported runs (the code is the same at `defense-freeze-v2.2`); fixing them changes
-  decision code or payloads and needs a new freeze tag and new runs, so the numbers above
-  include their effect.
-  - *AP-15 faults fire in the first trial only.* The harness marks a fault as applied on
-    the shared payload, so trials 2 and 3 of each AP-15 variant run without it
-    (`host/orchestrator.py`, `_fault`). AP-15 results rest on one trial per variant.
-  - *The admin phase validates the wrong handoff.* P3's handoff check always reads the
-    monitor-to-analyze handoff, so the analyze-to-admin handoff that AP-5 tampers with is
-    never checked in the admin or report phase (`consensus/verified_execution.py`, L0).
-  - *AP-13 outside CyberOps measures a schema mismatch.* Its healthcare, finance and legal
-    payloads lack fields their memory schemas require, so every AP-13 write there is
-    denied by P4's schema check regardless of content.
-  - *Some benign memory writes fail their own schema.* Benign scenarios use status values
-    (and two MITRE techniques) the domain schemas do not list, which adds about 45 P4
-    denials per transfer domain to FULL's benign cost.
-  - *Some checks never fire.* The change-conflict check (the recorded tool is the action
-    string), the time-policy and maintenance-window checks outside CyberOps (they read an
-    `action` or `target` argument those tools do not have), and P5's query-relevance
-    check (its context never reaches the gateway) decided nothing in any run. The
-    intent-chain thresholds fall back to code defaults, and the early exit after a
-    critical denial matches reason strings that are never produced.
-  - *Scoring.* The oracle counts an agent-to-agent handoff that carries the attack's
-    identifier as a leak, although no check mediates handoffs (legal AP-2, above). A
-    response-integrity rejection logged after the tool already ran is scored as a block
-    (AP-15 v2). JUDGEONLY also runs P1's configuration-integrity check.
-  - *Llama-4-Scout.* Its tool calls come through a text-fallback parser that drops list
-    arguments and can turn a refusal that names a tool into a proposal.
-  - *v3.0 panel input.* `UNTRUSTED_KEYS` misses several attacker-writable fields
-    (`analyst_notes`, `clinical_notes`, `recommended_actions`, `rationale`,
-    `justification`), which reach the judges as evidence; part of the v3.0 result above.
+- **Code audit and `defense-freeze-v3.1`.** An audit of the code found defects that were
+  present in the earlier runs (the code is the same at `defense-freeze-v2.2`). v3.1 is
+  v2.9's decision code with these fixed, and the boundary above was re-run with it:
+  - *AP-15 faults fired in the first trial only* (the harness marked a fault as applied
+    on the shared payload); every trial now gets its fault.
+  - *The admin phase validated the wrong handoff* (always the monitor handoff, so AP-5's
+    tampered analyze-to-admin handoff was never checked); each phase now checks the
+    handoff it received.
+  - *Checks that never fired:* the change-conflict check, the time-policy check outside
+    CyberOps (those tools take no `action` argument; they now get their implied action),
+    P5's query-relevance check (its context never reached the gateway), the
+    intent-chain thresholds (defaults were used) and the early exit after a critical
+    denial.
+  - *AP-13 outside CyberOps* lacked the metadata its schemas require, so every write was
+    denied regardless of content; *benign scenarios* used status values and two MITRE
+    techniques the schemas did not list. Payloads and schemas are fixed.
+  - Smaller fixes: JUDGEONLY no longer runs P1's configuration-integrity check; fields
+    copied to the proposal root are sanitized before the panel; votes are parsed
+    case-insensitively; the bulk-action cap counts only executed actions; critical-asset
+    matching ignores case and whitespace; "24/7" time policies end at 24:00.
+  - *Scoring (all runs, `defense-freeze-v3.1.1`):* a canary that reaches only another
+    agent's handoff is not a leak (no check mediates handoffs); a response rejected after
+    the tool ran counts as executed; a P2 denial whose event lost its action field is
+    seen; an agent error after the effect keeps the effect; AP-6's replay needs the same
+    call twice. The earlier runs are re-scored with it.
+- **Still open after the audit.** One auto-gate rule can never fire (the precedent score
+  never drops below its threshold); Llama-4-Scout's tool calls come through a
+  text-fallback parser that drops list arguments and can turn a refusal that names a
+  tool into a proposal; the AP-11 maintenance-window assets outside CyberOps never appear
+  as tool arguments; AP-5 succeeds on any six T8 calls; the P4 drift check applies from
+  a store's first write; P5's read sanitizer can be bypassed with zero-width or homoglyph
+  characters. The ablation, the other primaries, state carry-over, ASB and TAMAS were
+  not re-run at v3.1. In the v3.0 panel input, `UNTRUSTED_KEYS` misses several
+  attacker-writable fields (`analyst_notes`, `rationale`, `justification`, ...), part of
+  the v3.0 result above.
 - **Log names.** Configuration names beginning with `agenticcyops` in the logs denote
   FULL; the project's earlier name survives in log fields and some module docstrings.
 

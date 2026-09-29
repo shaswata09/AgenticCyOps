@@ -131,14 +131,22 @@ validators, with no primary model and no API.
 4, a model never judging its own proposals. Chosen by lineage before any result
 was seen. No Qwen-family member (the primary is Qwen), no API, no outage.
 
+The runs below are the earlier ones (`defense-freeze-v2.2`), re-scored with the audited
+outcome oracle. A later code audit fixed defects of that code, and the boundary is now
+reported at `defense-freeze-v3.1`, re-run live in all four domains
+(`results/replay_v31.md`): FULL 2.2% [0.0, 5.8] in the development domain and 3.3%
+[1.3, 5.6] pooled over the transfer domains; JUDGEONLY 34.7% (development) and 9.3 /
+15.1 / 19.1% (healthcare, finance, legal); NOJUDGE 0 to 1.8% at 41 to 59% of
+legitimate proposals escalated.
+
 | Arm (direct outcome under Local4) | ASR [95% CI] | as run (Div4) |
 |---|---|---|
-| FULL, development | **7.1% [2.2, 12.9]** | 4.0% |
-| FULL, transfer (pooled) | **5.2% [2.7, 8.0]** | 4.1% |
+| FULL, development | **7.1% [2.2, 13.3]** | 4.0% |
+| FULL, transfer (pooled) | **3.9% [1.8, 6.2]** | 4.1% |
 | JUDGEONLY, development | **33.8% [24.0, 44.0]** | 24.4% |
 | FULL + judge everything after rules | 7.1% (benign denial 11.2% -> 13.3%) | n/a |
-| FULL / minus P1 / P2 / P4 / P5 (dev, 68 shared variants) | 7.8 / 8.8 / 12.3 / 13.2 / 6.4% | 5.4 / 9.8 / 8.9 / 6.2% (minus P1 / P2 / P4 / P5) |
-| Scout / Mistral / Llama-8B primaries, dev | 4.4 / 8.0 / 5.3% | 1.8 / 2.7 / 4.0% |
+| FULL / minus P1 / P2 / P4 / P5 (dev, 68 shared variants) | 7.8 / 8.3 / 11.3 / 13.2 / 6.9% | 5.4 / 9.8 / 8.9 / 6.2% (minus P1 / P2 / P4 / P5) |
+| Scout / Mistral / Llama-8B primaries, dev | 4.0 / 8.0 / 5.3% | 1.8 / 2.7 / 4.0% |
 | ASB frozen live run (FLAT 28.8%) | **1.8%** (9 of 101 panel rounds approved) | 0.0% (panel degraded) |
 | ASB 405-action replay | 1.4% (18 let through, 4.4%) | n/a |
 
@@ -178,7 +186,7 @@ later path started; they were re-run from a clean tree. All 300 trials present.)
 
 | | live (v2.9) | replay of the original runs, same judges |
 |---|---|---|
-| ASR, original 75 variants | **2.7% [0.0, 6.2]** | 3.1% [0.0, 7.1] |
+| ASR, original 75 variants | **2.7% [0.0, 6.2]** | 3.1% [0.4, 6.7] |
 | attempt rate | 33.8% | 33.8% |
 | legitimate proposals denied | 12.9% | 14.1% |
 | median benign-incident latency | 60.0 s | (as run with Div4: 117.8 s) |
@@ -251,10 +259,10 @@ Same replay, size-matched panels (2 of 3), no API:
 
 | Panel | FULL dev | FULL transfer | ASB replay let-through (of 250 panel rounds) | frozen ASB ASR |
 |---|---|---|---|---|
-| Div3L: Mistral, Gemma, gpt-oss | 7.1% | 5.6% | 18 | 1.8% |
-| Lin3: Qwen3-32B, R1-Distill-Qwen-32B, Qwen3-14B | 9.3% | 8.1% | 127 | 9.6% |
-| Single: Qwen3-32B (1 of 1) | 9.3% | 7.9% | 36 | 3.3% |
-| Local4 (3 of 4, main) | 7.1% | 5.2% | 18 | 1.8% |
+| Div3L: Mistral, Gemma, gpt-oss | 7.1% | 4.3% | 18 | 1.8% |
+| Lin3: Qwen3-32B, R1-Distill-Qwen-32B, Qwen3-14B | 9.8% | 6.8% | 127 | 9.6% |
+| Single: Qwen3-32B (1 of 1) | 9.8% | 6.7% | 36 | 3.3% |
+| Local4 (3 of 4, main) | 7.1% | 3.9% | 18 | 1.8% |
 
 At equal size and quorum the same-lineage panel lets 7x more ASB actions through
 than the diverse one and 3.5x more than its own single member (original logged

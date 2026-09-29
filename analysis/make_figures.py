@@ -44,6 +44,8 @@ ALL_TRIALS = BASE_DIR / "results" / "eval_attacks" / ("all_trials_local4.csv" if
 LOGS = BASE_DIR / "logs"
 
 DEV_GROUP = "q235_div4"
+# the reported configuration (defense-freeze-v3.1); the pipeline figure describes it
+REPORTED_GROUP = "q235_local2_v31"
 DEV_DOMAIN = "cyberops"
 
 # CSV config -> paper label, in the judgment-boundary order
@@ -1552,9 +1554,12 @@ def write_cascade_defs(trials: list[dict], outdir: Path) -> dict:
     data, so they are written here and ``\\input`` by the .tex file.
     """
     cfgs = [CFG_BY_LABEL[c] for c in fs.CONFIG_ORDER]
-    judged = judged_fraction(DEV_GROUP, DEV_DOMAIN, cfgs)["agenticcyops"]
-    blocked = [t["blocked_by"] for t in dev_attacks(trials)
-               if t["config"] == "agenticcyops" and t["outcome"] == "blocked"]
+    judged = judged_fraction(REPORTED_GROUP, DEV_DOMAIN, cfgs)["agenticcyops"]
+    # the v3.1 runs also carry the E2 siblings; count the reported 75 variants only
+    keep = {(t["ap"], t["variant"]) for t in dev_attacks(trials)}
+    blocked = [t["blocked_by"] for t in dev_attacks(trials, group=REPORTED_GROUP)
+               if t["config"] == "agenticcyops" and t["outcome"] == "blocked"
+               and (t["ap"], t["variant"]) in keep]
     shares, n = tier_shares(blocked)
     det = 100 * (1 - shares.get("panel", 0))         # every tier but the panel
     defs = (
