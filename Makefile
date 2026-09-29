@@ -6,7 +6,7 @@ PY ?= python
 DEFER_PANEL ?= local4
 export DEFER_PANEL
 
-.PHONY: paper-tables paper-reports parse stats tables reports asb-reports figures readme-figures replay-tables replay-v3 b2 primaries-tables tamas-tables test freeze-check check-payloads
+.PHONY: paper-tables paper-reports parse stats tables reports asb-reports figures readme-figures replay-tables replay-v3 replay-v31 b2 primaries-tables tamas-tables test freeze-check check-payloads
 
 paper-tables: parse stats tables
 
@@ -59,6 +59,11 @@ replay-v3:
 	$(PY) -m analysis.replay_v3 tables > /dev/null
 	$(PY) -m analysis.replay_v3 live-tables > /dev/null
 	$(PY) -m analysis.replay_v3 report > /dev/null
+
+# The boundary at defense-freeze-v3.1 (the audit fixes), live, Local4 offline
+# (results/replay_v31.md, docs/figures/boundary_v31.png; cached votes only).
+replay-v31:
+	$(PY) -m analysis.replay_v31 tables > /dev/null
 
 # Live v2.9 calibration run vs its replay (results/b2_live.json).
 b2:

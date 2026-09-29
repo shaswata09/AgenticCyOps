@@ -35,15 +35,15 @@
         "Flat": 0.0,
         "ACL": 54.8,
         "NoJudge": 51.7,
-        "DEFER": 11.2,
-        "JudgeOnly": 3.8
+        "DEFER": 11.8,
+        "JudgeOnly": 12.9
       },
       "benign_tasks_completed_pct": {
         "Flat": 100.0,
         "ACL": 26.7,
         "NoJudge": 25.0,
         "DEFER": 95.0,
-        "JudgeOnly": null
+        "JudgeOnly": 95.0
       }
     }
   },
@@ -57,29 +57,29 @@
       "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"
     ],
     "n": {
-      "Development": 60,
-      "Transfer (3 domains)": 185,
-      "ASB replay": 387,
-      "ASB April (pre-freeze)": 1606,
+      "Development": 67,
+      "Transfer (3 domains)": 195,
+      "ASB replay": 405,
+      "ASB live": 1606,
       "Development tier %": {
-        "content_independent": 33.3,
-        "content_dependent": 46.7,
-        "similarity": 5.0,
-        "panel": 15.0
+        "content_independent": 29.9,
+        "content_dependent": 43.3,
+        "similarity": 4.5,
+        "panel": 22.4
       },
       "Transfer (3 domains) tier %": {
-        "content_independent": 31.4,
-        "content_dependent": 43.2,
+        "content_independent": 29.7,
+        "content_dependent": 42.1,
         "similarity": 0.0,
-        "panel": 25.4
+        "panel": 28.2
       },
       "ASB replay tier %": {
         "content_independent": 0.0,
-        "content_dependent": 40.1,
+        "content_dependent": 38.3,
         "similarity": 0.0,
-        "panel": 59.9
+        "panel": 61.7
       },
-      "ASB April (pre-freeze) tier %": {
+      "ASB live tier %": {
         "content_independent": 0.0,
         "content_dependent": 37.0,
         "similarity": 0.0,
@@ -119,9 +119,7 @@
         "ap15"
       ],
       "defer_nonzero": [
-        "ap6",
         "ap7",
-        "ap8",
         "ap13",
         "ap10",
         "ap15"
@@ -137,9 +135,9 @@
     ],
     "n": {
       "variants": 75,
-      "JudgeOnly fails, DEFER holds": 23,
-      "DEFER fails, JudgeOnly holds": 1,
-      "both fail": 6
+      "JudgeOnly fails, DEFER holds": 20,
+      "both fail": 3,
+      "DEFER fails, JudgeOnly holds": 1
     }
   },
   {
@@ -152,20 +150,20 @@
     "n": {
       "shared_variants": 68,
       "asr_pct": {
-        "DEFER (subset)": 7.8,
-        "minus P1": 8.8,
-        "minus P2": 12.3,
+        "DEFER (subset)": 4.4,
+        "minus P1": 5.4,
+        "minus P2": 9.8,
         "minus P3": 19.1,
-        "minus P4": 13.2,
-        "minus P5": 6.4
+        "minus P4": 9.8,
+        "minus P5": 3.4
       },
       "benign_any_denial_pct": {
         "DEFER (subset)": 80.0,
-        "minus P1": 66.7,
-        "minus P2": 53.3,
+        "minus P1": 76.7,
+        "minus P2": 73.3,
         "minus P3": 65.0,
-        "minus P4": 80.0,
-        "minus P5": 73.3
+        "minus P4": 83.3,
+        "minus P5": 75.0
       }
     }
   },
@@ -181,7 +179,7 @@
         "asr_pct": {
           "Flat": 76.2,
           "ACL": 14.3,
-          "JudgeOnly": 81.0,
+          "JudgeOnly": 61.9,
           "DEFER minus P5": 33.3,
           "DEFER": 0.0
         },
@@ -198,31 +196,36 @@
   {
     "name": "panel_composition",
     "file": "panel_composition.pdf",
-    "takeaway": "Lineage, not size, buys security: the mixed-lineage panels let through about 1% of replayed attack actions, a same-size single-lineage panel (Lin3) about 10%, at similar benign rejection.",
+    "takeaway": "Diversity buys security: Div4 lets nothing through, and the last points of it cost a few points of benign rejection. A same-size panel of one model lineage (Lin3) gives the security back.",
     "data_sources": [
-      "results/benign_panel_rejection_local.csv",
+      "results/benign_panel_rejection.csv",
       "results/asb/e2e_validator_group_q235_div4_*/general/results.csv"
     ],
     "n": {
       "Single": {
-        "benign_rejected_pct": 15.0,
-        "letthrough_pct": 2.8,
+        "benign_rejected_pct": 14.5,
+        "letthrough_pct": 3.2,
+        "security_n": 1275
+      },
+      "Div3": {
+        "benign_rejected_pct": 14.5,
+        "letthrough_pct": 0.9,
+        "security_n": 1275
+      },
+      "Div4": {
+        "benign_rejected_pct": 19.7,
+        "letthrough_pct": 0.0,
         "security_n": 1275
       },
       "Lin3": {
-        "benign_rejected_pct": 14.1,
-        "letthrough_pct": 10.0,
+        "benign_rejected_pct": null,
+        "letthrough_pct": 8.5,
         "security_n": 1275
       },
-      "Div3L": {
-        "benign_rejected_pct": 17.2,
-        "letthrough_pct": 1.4,
-        "security_n": 1275
-      },
-      "Local4": {
-        "benign_rejected_pct": 17.7,
-        "letthrough_pct": 1.4,
-        "security_n": 1275
+      "Div3x": {
+        "benign_rejected_pct": 17.5,
+        "letthrough_pct": null,
+        "security_n": 0
       }
     }
   },
@@ -234,33 +237,33 @@
       "logs/*_eval_attacks_q235_div4/agenticcyops_*.jsonl"
     ],
     "n": {
-      "rounds": 3980,
-      "rounds_all_voted": 3980,
+      "rounds": 4101,
+      "rounds_all_voted": 2583,
       "panel": [
-        "L1_mistral",
-        "L2_gemma",
-        "L3_gptoss",
-        "L4_scout"
+        "V1_qwen",
+        "V5_mistral",
+        "V4_claude",
+        "V6_gpt4o"
       ],
       "kappa": {
-        "L1_mistral|L2_gemma": 0.52,
-        "L1_mistral|L3_gptoss": 0.46,
-        "L1_mistral|L4_scout": 0.56,
-        "L2_gemma|L3_gptoss": 0.63,
-        "L2_gemma|L4_scout": 0.41,
-        "L3_gptoss|L4_scout": 0.44
+        "V1_qwen|V5_mistral": 0.55,
+        "V1_qwen|V4_claude": 0.31,
+        "V1_qwen|V6_gpt4o": 0.61,
+        "V5_mistral|V4_claude": 0.35,
+        "V5_mistral|V6_gpt4o": 0.62,
+        "V4_claude|V6_gpt4o": 0.39
       },
       "reject_rate_pct": {
-        "L1_mistral": 37.9,
-        "L2_gemma": 49.8,
-        "L3_gptoss": 47.3,
-        "L4_scout": 26.6
+        "V1_qwen": 34.2,
+        "V5_mistral": 39.3,
+        "V4_claude": 69.9,
+        "V6_gpt4o": 47.0
       },
       "approved_pct_by_quorum": {
-        "1": 80.6,
-        "2": 68.3,
-        "3": 52.0,
-        "4": 37.4
+        "1": 74.9,
+        "2": 61.5,
+        "3": 48.1,
+        "4": 25.1
       }
     }
   },
@@ -362,7 +365,7 @@
       "results/eval_attacks/all_trials.csv"
     ],
     "n": {
-      "isolated_mean_denials": 1.78,
+      "isolated_mean_denials": 1.87,
       "sequence_len": {
         "cyberops": 20,
         "finance": 5,
@@ -388,7 +391,7 @@
       "Qwen3-235B / cyberops": {
         "Flat": 36.4,
         "ACL": 24.0,
-        "DEFER": 7.1,
+        "DEFER": 4.0,
         "benign any-denial": 80.0
       },
       "Qwen3-235B / finance": {
@@ -406,33 +409,33 @@
       "Qwen3-235B / legal": {
         "Flat": 34.2,
         "ACL": 32.4,
-        "DEFER": 11.1,
+        "DEFER": 8.0,
         "benign any-denial": 100.0
       },
       "Llama-4-Scout / cyberops": {
         "Flat": 35.1,
         "ACL": 29.8,
-        "DEFER": 4.4,
-        "benign any-denial": 83.3
+        "DEFER": 1.8,
+        "benign any-denial": 93.3
       },
       "Mistral-Small / cyberops": {
         "Flat": 21.8,
         "ACL": 19.6,
-        "DEFER": 8.0,
-        "benign any-denial": 40.0
+        "DEFER": 2.7,
+        "benign any-denial": 53.3
       },
       "Llama-3.1-8B / cyberops": {
         "Flat": 36.0,
         "ACL": 33.3,
-        "DEFER": 5.3,
-        "benign any-denial": 45.0
+        "DEFER": 4.0,
+        "benign any-denial": 50.0
       }
     }
   },
   {
     "name": "channels",
     "file": "channels.pdf",
-    "takeaway": "Where exposure is measured the injected content does reach the model, and the cascade closes four of the five channels; the one it does not close is the tool-response channel, whose residual (legal AP-2) is mostly the planted identifier reaching the next agent's handoff.",
+    "takeaway": "Where exposure is measured the injected content does reach the model, and the cascade reduces all five channels; the largest residual is on the handoff channel.",
     "data_sources": [
       "results/eval_attacks/all_trials.csv"
     ],
@@ -461,7 +464,7 @@
       },
       "DEFER": {
         "C1 task input": {
-          "asr_pct": 3.9,
+          "asr_pct": 3.1,
           "exposure_pct": 100.0
         },
         "C2 tool response": {
@@ -473,11 +476,11 @@
           "exposure_pct": 62.9
         },
         "C4 handoff": {
-          "asr_pct": 15.6,
+          "asr_pct": 7.8,
           "exposure_pct": 100.0
         },
         "C5 rationale": {
-          "asr_pct": 7.3,
+          "asr_pct": 4.2,
           "exposure_pct": null
         }
       },

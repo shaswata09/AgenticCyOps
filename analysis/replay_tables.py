@@ -234,9 +234,16 @@ def write_local4_trials(path=None) -> int:
     unchanged. Figures build from it. Groups with no replay arm here keep their
     as-run outcomes: the permissive-gate arm, the E9/E16 and outage runs, the
     v2.9 calibration run (local2), and the v3.0 runs (Local4 for those is in
-    results/replay_v3*.json)."""
+    results/replay_v3*.json). The v3.1 runs are re-judged from cache/replay_v31."""
     V, R = load_all_votes(), load_rounds()
+    v31 = BASE_DIR / "cache" / "replay_v31" / "rounds.jsonl"
+    if v31.exists():                  # the v3.1 runs keep their rounds apart
+        for ln in open(v31):
+            r = json.loads(ln)
+            R.setdefault(r["arm"], []).append(r)
     arms = [("full", "q235_div4", "agenticcyops", D4, ""),
+            ("v31_full", "q235_local2_v31", "agenticcyops", D4, ""),
+            ("v31_judgeonly", "q235_local2_v31", "llm_judge", D4, ""),
             ("judgeonly", "q235_div4", "llm_judge", ("cyberops",), ""),
             *[(f"full_minus_p{i}", "q235_div4", "agenticcyops", ("cyberops",), f"_disabled_P{i}") for i in (1, 2, 4, 5)],
             ("scout", "scout_div4", "agenticcyops", ("cyberops", "finance"), ""),

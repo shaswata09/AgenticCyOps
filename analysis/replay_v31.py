@@ -11,7 +11,7 @@ reported runs count (the payload files also carry the E2 siblings).
 
     python -m analysis.replay_v31 build     # -> cache/replay_v31/{rounds,messages}.jsonl
     python -m analysis.replay_run query --replay-dir cache/replay_v31 --validator L1_mistral --url ...
-    python -m analysis.replay_v31 tables    # -> results/replay_v31.json, .md
+    python -m analysis.replay_v31 tables    # -> results/replay_v31.json, .md, docs/figures/boundary_v31.png
 """
 from __future__ import annotations
 
@@ -133,7 +133,56 @@ def tables() -> dict:
             lines.append(f"| {label} | {r['asr']}{live} | {r['benign_denied']} | {rep_v} |")
         lines.append("")
     (BASE_DIR / "results" / "replay_v31.md").write_text("\n".join(lines))
+    figure(res)
     return res
+
+
+def figure(res: dict | None = None):
+    """Attack success per configuration and domain: v3.1 (Local4 for the
+    panel configurations) beside the reported runs, 95% intervals."""
+    import re
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from analysis import figstyle as fs
+    fs.apply()
+    res = res or json.loads((BASE_DIR / "results" / "replay_v31.json").read_text())
+    parse = lambda ci: [float(x) for x in re.findall(r"[0-9.]+", ci or "")][:3]
+    cfgs = ("FLAT", "ACL", "JUDGEONLY", "NOJUDGE", "FULL")
+    names = {"FLAT": "Flat", "ACL": "ACL", "JUDGEONLY": "JudgeOnly", "NOJUDGE": "NoJudge", "FULL": "DEFER"}
+    key = {"FLAT": "flat", "ACL": "acl", "JUDGEONLY": "judgeonly", "NOJUDGE": "nojudge", "FULL": "full"}
+    fig, axes = plt.subplots(1, 4, figsize=(fs.WIDTH_2COL, 2.4), sharey=True)
+    w = 0.38
+    for ax, d in zip(axes, D4):
+        row = res[d]
+        for i, c in enumerate(cfgs):
+            rep = parse(row["reported_v22_local4"].get(key[c]))
+            new = parse(row[c]["asr"])
+            if len(rep) == 3:
+                ax.bar(i - w / 2, rep[0], width=w, color="white", edgecolor="#666666", hatch="////",
+                       linewidth=0.6, zorder=2, label="reported (v2.2)" if i == 0 else None)
+                if rep[0] == 0:
+                    ax.text(i - w / 2, 0.4, "0", ha="center", fontsize=5.5, color="#555555")
+                ax.errorbar(i - w / 2, rep[0], yerr=[[rep[0] - rep[1]], [rep[2] - rep[0]]],
+                            fmt="none", zorder=3, **fs.ERRORBAR_KW)
+            ax.bar(i + w / 2, new[0], width=w, color=fs.CONFIG_COLOR[names[c]], zorder=2,
+                   edgecolor="#555555", linewidth=0.4, label="v3.1 (filled)" if i == 0 else None)
+            if new[0] == 0:
+                ax.text(i + w / 2, 0.4, "0", ha="center", fontsize=5.5, color="#555555")
+            ax.errorbar(i + w / 2, new[0], yerr=[[new[0] - new[1]], [new[2] - new[0]]],
+                        fmt="none", zorder=3, **fs.ERRORBAR_KW)
+        ax.set_xticks(range(len(cfgs)))
+        ax.set_xticklabels([names[c] for c in cfgs], rotation=45, ha="right", fontsize=6.5)
+        ax.set_title({"cyberops": "CyberOps"}.get(d, d.capitalize()), fontsize=8)
+        fs.style_axes(ax)
+    axes[0].set_ylabel("Attack success (%)")
+    fig.legend(*axes[0].get_legend_handles_labels(), frameon=False, fontsize=7, ncol=2,
+               loc="lower center", bbox_to_anchor=(0.5, -0.08))
+    fig.tight_layout(w_pad=0.6)
+    path = BASE_DIR / "docs" / "figures" / "boundary_v31.png"
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return path
 
 
 if __name__ == "__main__":
