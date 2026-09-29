@@ -72,8 +72,8 @@ where noted) and are labeled; they are scored with the same, audited outcome ora
 | ACL (connectivity only) | 24.9 [15.6, 35.1] | 0 | 51.9 | 24.0 [15.1, 33.3] |
 | JUDGEONLY (judge every proposal) | 34.7 [24.4, 45.3] | 99.9 | 4.5 | 33.8 [24.0, 44.0] |
 | NOJUDGE (never judge; escalate instead) | 1.3 [0.0, 4.0] | 0 | 54.3 | 1.3 [0.0, 4.0] |
-| **FULL (DEFER: rules first, judge last)** | **2.2 [0.0, 5.8]** | **26.8** | **9.9** | 7.1 [2.2, 13.3] |
-| JUDGEREST (FULL, judge everything the rules let through) | 2.2 [0.0, 5.8] | 70.2 | 11.8 | 7.1 [2.2, 13.3] |
+| **FULL (DEFER: rules first, judge last)** | **2.2 [0.0, 5.8]** | **26.4** | **9.9** | 7.1 [2.2, 13.3] |
+| JUDGEREST (FULL, judge everything the rules let through) | 2.2 [0.0, 5.8] | 69.8 | 11.8 | 7.1 [2.2, 13.3] |
 
 ![The boundary at v3.1 in four domains](docs/figures/boundary_v31.png)
 

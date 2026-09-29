@@ -181,6 +181,7 @@ def figure(res: dict | None = None):
     fig.tight_layout(w_pad=0.6)
     path = BASE_DIR / "docs" / "figures" / "boundary_v31.png"
     fig.savefig(path, dpi=200, bbox_inches="tight")
+    fig.savefig(BASE_DIR / "paper" / "figs" / "boundary_v31.pdf", bbox_inches="tight")
     plt.close(fig)
     return path
 
