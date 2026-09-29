@@ -87,10 +87,9 @@ proposals. Judging everything the rules let through changes no attack outcome.*
 
 ![Judgment boundary](docs/figures/judgment_boundary.png)
 
-*Before the fixes (v2.2 runs, development domain): (a) attack success; (b) legitimate
-tool proposals denied or escalated, with benign task completion as run (hollow
-diamonds, not shown for JUDGEONLY, whose benign runs overlapped the validator
-outage).*
+*v3.1, development domain: (a) attack success, with the share of attack-incident tool
+proposals that reach the judges below each bar; (b) legitimate tool proposals denied or
+escalated, with benign task completion as run (hollow diamonds).*
 
 ### Across primary models
 
@@ -122,15 +121,15 @@ approved all 60; its cost appears as 9 memory writes blocked by P4. Numbers:
 
 ![First interception by decision tier](docs/figures/interception_tiers.png)
 
-*The check that first intercepted each blocked attack, by decision tier. Rules decide
-88% of interceptions in the development domain and 67% in the three transfer domains
-(earlier runs, v2.2); at v3.1 they decide 98% of the 90 development-domain interceptions.
+*The check that first intercepted each blocked attack, by decision tier. At v3.1,
+rules decide 98% of the 90 interceptions in the development domain and 70% of the 218 in
+the three transfer domains (88% and 67% in the earlier runs).
 On Agent Security Bench, whose injected actions use in-scope tools with plausible
 arguments, they decide at most 40%, and only through rules that read the case's text.*
 
 ![Attack success per attack path](docs/figures/ap_heatmap.png)
 
-*Attack success per attack path and configuration (development domain). The upper
+*Attack success per attack path and configuration (v3.1, development domain). The upper
 block is delivered as content (attacker class T1); the lower block through a
 compromised agent's handoff or rationale (T2).*
 
@@ -140,10 +139,10 @@ compromised agent's handoff or rationale (T2).*
 <td width="50%"><img src="docs/figures/ablation.png" alt="Leave-one-out ablation"></td>
 </tr>
 <tr>
-<td><em>Per variant (v2.2), FULL rescues 23 variants that JUDGEONLY loses and gives up none;
-11 of the 23 are on memory paths JUDGEONLY cannot see.</em></td>
-<td><em>Leave-one-out on the 68 variants shared by every arm: removing P3, P2, or P4
-lets attacks through that the others do not catch.</em></td>
+<td><em>Per variant (v3.1), FULL rescues 26 variants that JUDGEONLY loses and gives up
+none; both fail on three.</em></td>
+<td><em>Leave-one-out (earlier runs, v2.2) on the 68 variants shared by every arm:
+removing P3, P2, or P4 lets attacks through that the others do not catch.</em></td>
 </tr>
 </table>
 
@@ -155,7 +154,7 @@ lets attacks through that the others do not catch.</em></td>
 <td width="50%"><img src="docs/figures/panel_composition.png" alt="Panel composition and lineage"></td>
 </tr>
 <tr>
-<td><em>(a) Pairwise Cohen's κ between the four Local4 judges (diagonal: reject rate);
+<td><em>Earlier runs. (a) Pairwise Cohen's κ between the four Local4 judges (diagonal: reject rate);
 mean κ 0.50. (b) Share of proposals approved as a function of the quorum.</em></td>
 <td><em>Panels re-adjudicated on the same 405 replayed ASB actions and 661 legitimate
 proposals. A same-size panel of one model lineage (Lin3) lets through seven times as
@@ -167,11 +166,11 @@ many actions as a mixed one (Div3L).</em></td>
 
 ![Transfer across domains and primaries](docs/figures/transfer.png)
 
-*Earlier runs (v2.2). Security transfers across four domains and four primary models
-(development-domain attack success under FULL: 7.1% Qwen3-235B, 4.0% Llama-4-Scout,
-8.0% Mistral-Small, 5.3% Llama-3.1-8B; transfer domains 3.9% [1.8, 6.2] against 29.2%
-for FLAT). Cost does
-not: every benign incident outside the development domain loses at least one action.*
+*Security transfers across four domains (Qwen3-235B at v3.1: FULL 2.2%, 0.0%, 5.3%,
+4.4% in CyberOps, healthcare, finance, legal; pooled over the three transfer domains 3.3%
+against 29.3% for FLAT) and across primaries (CyberOps, earlier runs: 4.0% Llama-4-Scout,
+8.0% Mistral-Small, 5.3% Llama-3.1-8B). Cost does not: every benign incident outside the
+development domain loses at least one tool call.*
 
 <table>
 <tr>
@@ -179,10 +178,10 @@ not: every benign incident outside the development domain loses at least one act
 <td width="50%"><img src="docs/figures/state_carryover.png" alt="State carry-over"></td>
 </tr>
 <tr>
-<td><em>Attack success by injection channel (earlier runs, v2.2; hollow markers:
-exposure). FULL reduces all five channels; the largest residual is on the handoff
-channel (15.6% against 46.7% for FLAT). A canary that only reaches the next agent's
-handoff no longer counts as a leak (audited oracle).</em></td>
+<td><em>Attack success by injection channel, four domains pooled (v3.1; hollow markers:
+exposure). FULL reduces every channel an attack gets through: task input 26.1% to 2.5%,
+memory 14.3% to 0.0%, rationale 84.4% to 1.0%; the largest residual is the handoff
+channel (14.4% against 45.6% for FLAT).</em></td>
 <td><em>Persistent state (as run with Div4): legitimate incidents deny each other through
 replay and ledger state that never expires. An identity-keyed, one-incident expiry
 halves the denials (paper, Table III).</em></td>
@@ -191,12 +190,10 @@ halves the denials (paper, Table III).</em></td>
 
 ![Cost](docs/figures/cost.png)
 
-*Where the cost goes, as run with the original Div4 panel: (a) denials per 100
-legitimate actions by principle and domain, (b) median benign-incident latency,
-(c) tokens per incident. Denials in (a) are counted per proposed action (tool calls and
-memory operations). JUDGEONLY's benign runs overlapped the validator outage and are
-shown for completeness only. With two local judges, median latency is 60 s
-(calibration run).*
+*Where the cost goes (v3.1, as run with the two local judges): (a) denials per 100
+legitimate actions by principle and domain, counted per proposed action (tool calls and
+memory operations); (b) median benign-incident latency (FLAT 37 s, FULL 68 s, JUDGEONLY
+79 s); (c) tokens per incident.*
 
 ### Third-party benchmarks and calibration
 

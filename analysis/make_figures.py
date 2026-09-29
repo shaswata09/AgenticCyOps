@@ -43,9 +43,22 @@ LOCAL4 = _os.environ.get("DEFER_PANEL", "") == "local4"
 ALL_TRIALS = BASE_DIR / "results" / "eval_attacks" / ("all_trials_local4.csv" if LOCAL4 else "all_trials.csv")
 LOGS = BASE_DIR / "logs"
 
+# the earlier runs (v2.2 code): the ablation, P5, carry-over and judge figures,
+# which need arms the v3.1 runs do not have
 DEV_GROUP = "q235_div4"
-# the reported configuration (defense-freeze-v3.1); the pipeline figure describes it
+# the reported configuration (defense-freeze-v3.1): every figure the v3.1 runs
+# can feed (all five configurations in four domains)
 REPORTED_GROUP = "q235_local2_v31"
+BOUNDARY_GROUP = REPORTED_GROUP
+# (domain, ap, variant) of the reported variants; the v3.1 runs also carry the
+# E2 siblings, which main() drops. Filled by main().
+ORIGINAL: set = set()
+
+
+def _original_tid(tid: str) -> bool:
+    """Whether an attack trial_id is one of the reported variants."""
+    p = tid.split("_")
+    return not ORIGINAL or p[1] == "benign" or (p[0], p[1], p[2].lstrip("v")) in ORIGINAL
 DEV_DOMAIN = "cyberops"
 
 # CSV config -> paper label, in the judgment-boundary order
@@ -60,7 +73,7 @@ CFG_BY_LABEL = {v: k for k, v in fs.CONFIG_LABEL.items()}
 MAIN_CONFIGS = {"flat", "acl_hardened", "llm_judge", "symbolic_only", "agenticcyops"}
 
 
-def dev_attacks(trials: list[dict], group: str = DEV_GROUP,
+def dev_attacks(trials: list[dict], group: str = BOUNDARY_GROUP,
                 domain: str = DEV_DOMAIN) -> list[dict]:
     """Measurable attack trials on the development split, main arms only."""
     return [t for t in trials
@@ -70,7 +83,7 @@ def dev_attacks(trials: list[dict], group: str = DEV_GROUP,
             and t.get("outcome") in MEASURABLE]
 
 
-def benign_trials(trials: list[dict], group: str = DEV_GROUP,
+def benign_trials(trials: list[dict], group: str = BOUNDARY_GROUP,
                   domain: str = DEV_DOMAIN) -> list[dict]:
     """Benign incidents, main arms only (matches generate_tables.t3_benign)."""
     return [t for t in trials
@@ -163,6 +176,8 @@ def scan_proposals(group: str, domain: str, configs: list[str],
                         continue
                     if benign != (ap == "benign"):
                         continue
+                    if not _original_tid(tid):
+                        continue
                     if act == "tool_proposed":
                         per_tf[(tid, f)][0] += 1
                     elif act == "consensus_result" and (e.get("votes") or []):
@@ -203,8 +218,8 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
 
     att = by_config(dev_attacks(trials))
     ben = by_config(benign_trials(trials))
-    judged = judged_fraction(DEV_GROUP, DEV_DOMAIN, cfgs)
-    ben_scan = scan_proposals(DEV_GROUP, DEV_DOMAIN, cfgs, benign=True)
+    judged = judged_fraction(BOUNDARY_GROUP, DEV_DOMAIN, cfgs)
+    ben_scan = scan_proposals(BOUNDARY_GROUP, DEV_DOMAIN, cfgs, benign=True)
 
     # (a) attack success
     asr = [asr_ci(att.get(c, [])) for c in cfgs]
@@ -218,16 +233,12 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
     denied, completed = [], []
     for c in cfgs:
         ts = ben.get(c, [])
-        by_var = proposal_denials_by_variant(DEV_GROUP, DEV_DOMAIN, c)
+        by_var = proposal_denials_by_variant(BOUNDARY_GROUP, DEV_DOMAIN, c)
         if LOCAL4 and c in ("agenticcyops", "llm_judge"):
             by_var = _local4_benign_by_scenario(c)
         units = [(k, float(d), float(p)) for k, (d, p) in by_var.items() if p]
         denied.append(_ratio_bootstrap(units))
         done = [t for t in ts if str(t.get("task_completed", "")).strip() != ""]
-        if LOCAL4 and c == "llm_judge":
-            # completion is a property of the live run; JudgeOnly's ran during
-            # the validator outage and cannot be re-adjudicated
-            done = []
         completed.append(rate_ci(done, lambda t: str(t["task_completed"]).lower() == "true"))
 
     fig, (axa, axb) = plt.subplots(
@@ -304,7 +315,7 @@ def fig_judgment_boundary(trials: list[dict], outdir: Path) -> tuple[Path, dict]
                      "the judges without the rules barely beat no checks; DEFER sits between "
                      "them, at a cost set mostly by its rules."),
         "data_sources": ["results/eval_attacks/all_trials.csv",
-                         f"logs/{DEV_DOMAIN}_eval_attacks_{DEV_GROUP}/*.jsonl"],
+                         f"logs/{DEV_DOMAIN}_eval_attacks_{BOUNDARY_GROUP}/*.jsonl"],
         "n": {
             "attack_trials": {fs.CONFIG_LABEL[c]: len(att.get(c, [])) for c in cfgs},
             "attack_variants": len({_CLUSTER(t) for t in dev_attacks(trials)}),
@@ -378,7 +389,7 @@ def fig_interception_tiers(trials: list[dict], outdir: Path) -> tuple[Path, dict
 
     def blocked_mechs(domains):
         return [t["blocked_by"] for t in trials
-                if t["group"] == DEV_GROUP and t["domain"] in domains
+                if t["group"] == BOUNDARY_GROUP and t["domain"] in domains
                 and t["ap"] != "benign" and not t.get("suffix")
                 and t["config"] == "agenticcyops" and t["outcome"] == "blocked"]
 
@@ -861,12 +872,17 @@ def validator_rounds(group: str = DEV_GROUP) -> tuple[list[str], list[dict[str, 
     return _logged_rounds(group)
 
 
-def _local4_benign_by_scenario(config: str) -> dict:
+def _local4_benign_by_scenario(config: str, group: str = BOUNDARY_GROUP) -> dict:
     """Per benign scenario (denied, proposed) under the Local4 replay."""
     from analysis.replay_panels import load_all_votes, load_rounds, outcomes
     arm = "full" if config == "agenticcyops" else "judgeonly"
-    res = outcomes(arm, DEV_GROUP, config, (DEV_DOMAIN,), "", "Local4",
-                   load_all_votes(), load_rounds()[arm])
+    if group == REPORTED_GROUP:           # the v3.1 rounds are kept apart
+        arm = f"v31_{arm}"
+        rounds = [json.loads(ln) for ln in open(BASE_DIR / "cache" / "replay_v31" / "rounds.jsonl")]
+        rounds = [r for r in rounds if r["arm"] == arm]
+    else:
+        rounds = load_rounds()[arm]
+    res = outcomes(arm, group, config, (DEV_DOMAIN,), "", "Local4", load_all_votes(), rounds)
     return dict(res["domains"][DEV_DOMAIN]["benign_by_scenario"])
 
 
@@ -1011,7 +1027,7 @@ CHANNEL_CODE = {"alert_text": "C1 task input", "tool_response": "C2 tool respons
 def fig_channels(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     import matplotlib.pyplot as plt
 
-    pool = [t for t in trials if t["group"] == DEV_GROUP and t["ap"] != "benign"
+    pool = [t for t in trials if t["group"] == BOUNDARY_GROUP and t["ap"] != "benign"
             and not t.get("suffix") and t.get("outcome") in MEASURABLE and t.get("channel")]
     chans = [c for c in CHANNEL_CODE if any(t["channel"] == c for t in pool)]
 
@@ -1063,7 +1079,14 @@ def fig_channels(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     axr.spines["top"].set_visible(False)
     axr.spines["right"].set_visible(True)
     axr.spines["right"].set_linewidth(0.6)
-    ax.legend(loc="upper right", handlelength=1.1, borderpad=0.2)
+    # below the axes: the exposure markers fill the top of the plot
+    from matplotlib.lines import Line2D
+    handles, labels = ax.get_legend_handles_labels()
+    handles.append(Line2D([], [], linestyle="none", marker="o", markerfacecolor="none",
+                          markeredgecolor="black", markersize=4))
+    labels.append("exposure")
+    ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, -0.24), ncol=3,
+              handlelength=1.1, borderpad=0.2, frameon=False)
 
     path = fs.save(fig, "channels", outdir, fs.WIDTH_1COL)
     meta = {
@@ -1164,10 +1187,10 @@ def fig_transfer(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     def clean(g):
         return not any(t in g for t in TAGGED)
 
-    rows = [("q235_div4", d) for d in ("cyberops", "finance", "healthcare", "legal")]
+    rows = [(BOUNDARY_GROUP, d) for d in ("cyberops", "finance", "healthcare", "legal")]
     rows += [(g, "cyberops") for g in ("scout_div4", "mistral_div3p", "llama8b_div4")]
     rows = [(g, d) for g, d in rows if clean(g)]
-    name = {"q235_div4": "Qwen3-235B", "scout_div4": "Llama-4-Scout",
+    name = {BOUNDARY_GROUP: "Qwen3-235B", "q235_div4": "Qwen3-235B", "scout_div4": "Llama-4-Scout",
             "mistral_div3p": "Mistral-Small", "llama8b_div4": "Llama-3.1-8B"}
 
     fig, (ax, axb) = plt.subplots(
@@ -1206,7 +1229,7 @@ def fig_transfer(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     ax.set_ylim(-0.6, len(rows) - 0.4)
     for a in (ax, axb):
         fs.style_axes(a, ygrid=False, xgrid=True)
-    n_dom = sum(1 for g, _d in rows if g == DEV_GROUP)
+    n_dom = sum(1 for g, _d in rows if g == BOUNDARY_GROUP)
     ax.axhline(len(rows) - n_dom - 0.5, color="#cccccc", linewidth=0.6)
     ax.legend(loc="lower right", handlelength=0.8, borderpad=0.2, fontsize=6)
 
@@ -1396,11 +1419,11 @@ def fig_cost(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     import matplotlib.pyplot as plt
 
     domains = ("cyberops", "finance", "healthcare", "legal")
-    cost = benign_cost_from_logs(DEV_GROUP, domains, ("agenticcyops",))
+    cost = benign_cost_from_logs(BOUNDARY_GROUP, domains, ("agenticcyops",))
     lat_cfgs = [("Flat", "flat"), ("NoJudge", "symbolic_only"),
                 ("DEFER", "agenticcyops"), ("JudgeOnly", "llm_judge")]
-    latc = benign_cost_from_logs(DEV_GROUP, (DEV_DOMAIN,), [c for _l, c in lat_cfgs])
-    scan = scan_proposals(DEV_GROUP, DEV_DOMAIN, [c for _l, c in lat_cfgs], benign=True)
+    latc = benign_cost_from_logs(BOUNDARY_GROUP, (DEV_DOMAIN,), [c for _l, c in lat_cfgs])
+    scan = scan_proposals(BOUNDARY_GROUP, DEV_DOMAIN, [c for _l, c in lat_cfgs], benign=True)
 
     fig, axes = plt.subplots(1, 3, figsize=(fs.WIDTH_2COL, 3.15),
                              gridspec_kw={"wspace": 0.42})
@@ -1490,7 +1513,7 @@ def fig_cost(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
         "takeaway": ("The judges account for most of the time the cascade adds, while the "
                      "benign work it blocks is spread across the deterministic checks and "
                      "the memory checks, and is much heavier outside the development domain."),
-        "data_sources": [f"logs/*_eval_attacks_{DEV_GROUP}/*.jsonl",
+        "data_sources": [f"logs/*_eval_attacks_{BOUNDARY_GROUP}/*.jsonl",
                          "results/eval_attacks/all_trials.csv"],
         "n": {"denied_pct_of_proposals": a_out, "median_latency_s": b_out,
               "tokens_per_incident": c_out, "benign_proposals": props},
@@ -1556,7 +1579,8 @@ def write_cascade_defs(trials: list[dict], outdir: Path) -> dict:
     cfgs = [CFG_BY_LABEL[c] for c in fs.CONFIG_ORDER]
     judged = judged_fraction(REPORTED_GROUP, DEV_DOMAIN, cfgs)["agenticcyops"]
     # the v3.1 runs also carry the E2 siblings; count the reported 75 variants only
-    keep = {(t["ap"], t["variant"]) for t in dev_attacks(trials)}
+    keep = {(t["ap"], t["variant"]) for t in dev_attacks(trials, group=DEV_GROUP)
+            if t["config"] == "agenticcyops"}
     blocked = [t["blocked_by"] for t in dev_attacks(trials, group=REPORTED_GROUP)
                if t["config"] == "agenticcyops" and t["outcome"] == "blocked"
                and (t["ap"], t["variant"]) in keep]
@@ -1624,6 +1648,12 @@ def main() -> None:
         outdir = BASE_DIR / outdir
     fs.apply()
     trials = load_trials(ALL_TRIALS)
+    # the reported variants: the v3.1 runs also carry the E2 siblings
+    ORIGINAL.update((t["domain"], t["ap"], str(t["variant"])) for t in trials
+                    if t["group"] == DEV_GROUP and t["ap"] != "benign" and not t.get("suffix")
+                    and t["config"] == "agenticcyops")
+    trials = [t for t in trials if t["group"] != BOUNDARY_GROUP or t["ap"] == "benign"
+              or (t["domain"], t["ap"], str(t["variant"])) in ORIGINAL]
 
     wanted = args.only or list(FIGURES)
     manifest = []
