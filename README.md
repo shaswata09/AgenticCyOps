@@ -124,7 +124,7 @@ approved all 60; its cost appears as 9 memory writes blocked by P4. Numbers:
 
 *The check that first intercepted each blocked attack, by decision tier. Rules decide
 88% of interceptions in the development domain and 67% in the three transfer domains
-(earlier runs, v2.2); at v3.1 they decide 93% of the 95 development-domain interceptions.
+(earlier runs, v2.2); at v3.1 they decide 98% of the 90 development-domain interceptions.
 On Agent Security Bench, whose injected actions use in-scope tools with plausible
 arguments, they decide at most 40%, and only through rules that read the case's text.*
 
