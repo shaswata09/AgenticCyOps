@@ -65,6 +65,7 @@ replay-v3:
 replay-v31:
 	$(PY) -m analysis.replay_v31 tables > /dev/null
 	$(PY) -m analysis.v31_extras > /dev/null
+	$(PY) -m analysis.results_page > /dev/null
 
 # Live v2.9 calibration run vs its replay (results/b2_live.json).
 b2:

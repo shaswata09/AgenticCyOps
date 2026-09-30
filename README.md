@@ -197,7 +197,9 @@ memory operations); (b) median benign-incident latency (FLAT 37 s, FULL 68 s, JU
 
 ### Robustness of the v3.1 results
 
-From [`results/v31_extras.md`](results/v31_extras.md) (`make replay-v31`; logs and cached votes only):
+A browsable view of all results and figures is [`docs/results/index.html`](docs/results/index.html)
+(open it locally; it needs no network). From [`results/v31_extras.md`](results/v31_extras.md)
+(`make replay-v31`; logs and cached votes only):
 
 - **Where the blocks fall.** Weighting each attack-incident tool call by a FAIR-style loss class
   (admin action on a critical asset or irreversible action 5 to 9, high-criticality asset 3,
