@@ -32,7 +32,15 @@ PANEL_FREE = {"FLAT": "flat", "ACL": "acl_hardened", "NOJUDGE": "symbolic_only"}
 JUDGED = {"JUDGEONLY": ("llm_judge", "v31_judgeonly"), "FULL": ("agenticcyops", "v31_full")}
 # (label, group, config, domains, suffix, include_unjudged)
 ARMS = [("v31_full", GROUP, "agenticcyops", D4, "", True),
-        ("v31_judgeonly", GROUP, "llm_judge", D4, "", False)]
+        ("v31_judgeonly", GROUP, "llm_judge", D4, "", False),
+        # leave-one-out at v3.1 (CyberOps); -P3 has no panel
+        *[(f"v31_full_minus_p{i}", "q235_local2", "agenticcyops", ("cyberops",), f"_disabled_P{i}_v31", False)
+          for i in (1, 2, 4, 5)],
+        # the other two primaries at v3.1 (CyberOps)
+        ("v31_oss120_full", "oss120_local2_v31", "agenticcyops", ("cyberops",), "", True),
+        ("v31_oss120_judgeonly", "oss120_local2_v31", "llm_judge", ("cyberops",), "", False),
+        ("v31_llama8b_full", "llama8b_local2_v31", "agenticcyops", ("cyberops",), "", True),
+        ("v31_llama8b_judgeonly", "llama8b_local2_v31", "llm_judge", ("cyberops",), "", False)]
 
 
 def build() -> None:

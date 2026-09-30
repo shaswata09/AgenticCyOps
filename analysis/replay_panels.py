@@ -36,7 +36,8 @@ PANELS = {
 }
 # a model never validates its own proposals
 SELF = {"scout": "L4_scout", "mistral": "L1_mistral",
-        "oss120_full": "L3_gptoss", "oss120_judgeonly": "L3_gptoss"}
+        "oss120_full": "L3_gptoss", "oss120_judgeonly": "L3_gptoss",
+        "v31_oss120_full": "L3_gptoss", "v31_oss120_judgeonly": "L3_gptoss"}
 
 
 def load_all_votes() -> dict[str, dict[str, str]]:
