@@ -48,8 +48,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from config import LOGS_DIR, model_display_name
+from config import BASE_DIR, LOGS_DIR, model_display_name
 from .run_metadata import HEADER_FIELDS, build_run_header
+
+
+_ROOT = str(BASE_DIR)
+
+
+def _relative(line: str) -> str:
+    """Write paths inside this checkout as repo-relative ("./...") so no log
+    carries the absolute path of the machine that ran it (e.g. the
+    changed_files of a config-integrity event)."""
+    return line.replace(_ROOT + "/", "./").replace(_ROOT, ".")
 
 
 class EventBuilder:
@@ -182,7 +192,7 @@ class ExperimentLogger:
             entry[k] = header.get(k)
         for k, v in header.items():
             entry.setdefault(k, v)
-        self._file_handle.write(json.dumps(entry, default=str) + "\n")
+        self._file_handle.write(_relative(json.dumps(entry, default=str)) + "\n")
 
     def update_header(self, **fields):
         """Record header fields learned after the file was opened (e.g. the
@@ -340,7 +350,7 @@ class ExperimentLogger:
         # Remove None values for cleaner logs
         entry = {k: v for k, v in entry.items() if v is not None}
 
-        line = json.dumps(entry, default=str)
+        line = _relative(json.dumps(entry, default=str))
         self._file_handle.write(line + "\n")
 
     # ------------------------------------------------------------------ #

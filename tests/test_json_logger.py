@@ -65,3 +65,19 @@ def test_update_header_records_late_fields(tmp_path):
     assert rows[1]["action"] == "run_header_update"
     assert rows[1]["primary_model"] == "Qwen/Qwen3-32B" and rows[1]["seed"] == 7
     assert lg.header["seed"] == 7
+
+
+def test_no_event_field_carries_the_checkout_path(tmp_path):
+    """Paths inside the checkout (e.g. a config-integrity event's changed_files)
+    are written repo-relative, so no log carries the machine's absolute path."""
+    from config import BASE_DIR
+    lg = ExperimentLogger(eval_name="t_eval", domain="cyberops", config="agenticcyops",
+                          model="Qwen/Qwen3-32B", logs_dir=str(tmp_path))
+    lg.set_trial("ap15", 3, 1)
+    changed = str(BASE_DIR / "domains" / "cyberops" / "configs" / "asset_criticality.json")
+    lg.log(source="host", destination="configs", action="config_verification",
+           auth_decision="deny", extra={"changed_files": [changed]})
+    lg.close()
+    text = open(lg.log_file).read()
+    assert str(BASE_DIR) not in text
+    assert _lines(lg.log_file)[-1]["changed_files"] == ["./domains/cyberops/configs/asset_criticality.json"]
