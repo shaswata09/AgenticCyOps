@@ -325,7 +325,55 @@ recorded before this change are an upper bound.
 
 ---
 
-## 7. Out-of-scope (documented honestly)
+## 7. Code audit and `defense-freeze-v3.1` (2026-09-25)
+
+A read-only audit of the whole code base (seven parts) found defects that the
+reported runs of `defense-freeze-v2.2` carried. The lessons generalize beyond
+this testbed:
+
+### 7.1 Shared mutable state between trials
+The harness reused one payload dict for every trial of a variant, and the
+fault hooks marked a fault "applied" on it, so AP-15's faults fired in the
+first trial only. Anything a hook mutates must be copied per incident
+(`copy.deepcopy`), and a trial's inputs should be checked equal across trials.
+
+### 7.2 A check that reads the wrong input still passes
+P3-L0 always validated the monitor-to-analyze handoff, so the admin and report
+phases never checked the handoff they received. Nothing failed: the check
+passed on the wrong, benign input. Each check needs a test that feeds it the
+tampered input at the phase it guards.
+
+### 7.3 Configuration keys that no code reads
+Checks keyed on `(tool, action)` or `target` never fired outside CyberOps,
+because those domains' tools take no `action` argument and name their target
+`account_id`, `case_number`, ... The time-policy, change-conflict and
+maintenance-window checks decided nothing there, and the intent-chain
+thresholds were read from a key the configs do not have. Counting how often
+each check fires per domain, on every run, exposes these at once.
+
+### 7.4 The oracle must score what the defense can mediate
+The outcome oracle counted a canary that reached another agent's handoff as a
+leak, although no check mediates handoffs, and scored a response rejected after
+the tool ran as a block. Its scoring rules are part of the evaluation and were
+audited like the defense (`attacks/effects.py`, tests in `tests/test_effects.py`).
+
+### 7.5 Replaying decisions must not undo later rules
+The offline re-adjudication rewrote a call's final decision whenever the
+replayed panel approved it, even when a rule after the panel (the bulk-action
+cap, response integrity) had denied it. Re-judging must patch only the panel's
+own decision (`p3_rule_after_panel`).
+
+### 7.6 Run hygiene
+Launchers that pipe the harness through `grep ... || true` hid failures;
+logs carried the checkout's absolute path until the logger wrote paths
+repo-relative (`defense-freeze-v3.1.2`); an anonymous mirror is built and
+checked by `scripts/make_anonymous_mirror.sh`.
+
+`defense-freeze-v3.1` fixes 7.1-7.3 and the oracle fixes of 7.4 apply to all
+runs; `REPRODUCE.md` lists every fix, and the README's known limitations list
+what remains open.
+
+## 8. Out-of-scope (documented honestly)
 
 Problems acknowledged but not addressed at the integration layer:
 
