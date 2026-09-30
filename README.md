@@ -195,6 +195,24 @@ legitimate actions by principle and domain, counted per proposed action (tool ca
 memory operations); (b) median benign-incident latency (FLAT 37 s, FULL 68 s, JUDGEONLY
 79 s); (c) tokens per incident.*
 
+### Robustness of the v3.1 results
+
+From [`results/v31_extras.md`](results/v31_extras.md) (`make replay-v31`; logs and cached votes only):
+
+- **Where the blocks fall.** Weighting each attack-incident tool call by a FAIR-style loss class
+  (admin action on a critical asset or irreversible action 5 to 9, high-criticality asset 3,
+  other admin action or memory write 2, read 1), FULL blocks 53% of the weighted calls against
+  43% unweighted; ACL blocks 45% either way.
+- **Significance.** Paired by variant, the rules' contribution (JUDGEONLY → FULL) is significant in
+  every domain: −32.4 points [−42.7, −22.7] in CyberOps, −11.3 [−15.6, −7.3] pooled over the
+  others. Outside CyberOps the judges alone help too (FLAT → JUDGEONLY 29.3% → 14.5%,
+  [−19.7, −10.2]); in CyberOps they do not.
+- **Run-to-run variation.** Two independent runs of FLAT and ACL on the attack paths the audit
+  fixes did not touch differ by under one point pooled (up to five in one domain); 12% of FLAT
+  and 2% of FULL variants give different outcomes across their three trials.
+- **Judges transfer unevenly.** Gemma and gpt-oss approve 91–93% of legitimate CyberOps proposals
+  but 59–68% in healthcare and legal; Mistral-Small and Llama-4-Scout barely change.
+
 ### Third-party benchmarks and calibration
 
 - **Agent Security Bench** (255 cases, frozen pipeline, 2 trials per case): attack
@@ -301,7 +319,8 @@ make b2               # live calibration run vs its replay -> results/b2_live.js
 make primaries-tables # gpt-oss-120b and Llama-3.1-8B boundary -> results/primaries_v29.md
 make tamas-tables     # TAMAS outcomes (needs scored.jsonl, below) -> results/tamas.md
 make replay-v3        # v2.9 vs v3.0 panel input, offline and live -> results/replay_v3.md
-make replay-v31       # the boundary at v3.1, Local4 -> results/replay_v31.md, docs/figures/boundary_v31.png
+make replay-v31       # the boundary at v3.1, Local4 -> results/replay_v31.md, docs/figures/boundary_v31.png,
+                      #   and the robustness analyses -> results/v31_extras.md
 make freeze-check     # the decision code equals the default tag (FREEZE_TAG=... for another)
 ```
 
@@ -321,6 +340,7 @@ as-run Div4 values. The offline analyses behind the revision are single modules:
 | `analysis/tamas_tables.py` | TAMAS outcomes as run and re-judged, benign cost |
 | `analysis/replay_v3.py` | the v3.0 panel input: every judged round re-judged with it, and the live v3.0 runs |
 | `analysis/replay_v31.py` | the boundary at v3.1: rounds for the Local4 re-judging, the table and its figure |
+| `analysis/v31_extras.py` | impact-weighted blocking, run-to-run variation, paired tests, judge transfer (v3.1) |
 
 ### Level 2: re-adjudication with local judges
 
@@ -364,7 +384,8 @@ RUN_TAG=mytag REQUIRE_FREEZE=1 \
 - `scripts/run_v29_live.sh` is the exact launcher of the calibration run,
   `scripts/run_primaries_v29.sh` of the gpt-oss-120b and Llama-3.1-8B runs, and
   `scripts/run_v30_live.sh` and `scripts/run_v30_oss.sh` of the v3.0 re-run, and
-  `scripts/run_v31.sh` of the reported v3.1 boundary.
+  `scripts/run_v31.sh` of the reported v3.1 boundary. `scripts/make_anonymous_mirror.sh`
+  builds the anonymous artifact and fails if anything identifying remains.
 - `scripts/vllm_profiles.sh` has the serving commands used for each model.
 
 **TAMAS.** CrewAI runs in its own environment; DEFER's checks run in a local HTTP gate
@@ -537,6 +558,8 @@ docs/              review response, figures for this README
   not re-run at v3.1. In the v3.0 panel input, `UNTRUSTED_KEYS` misses several
   attacker-writable fields (`analyst_notes`, `rationale`, `justification`, ...), part of
   the v3.0 result above.
+- **Implementation lessons.** [`docs/engineering_challenges.md`](docs/engineering_challenges.md)
+  records the engineering problems of the build and the lessons of the code audit.
 - **Log names.** Configuration names beginning with `agenticcyops` in the logs denote
   FULL; the project's earlier name survives in log fields and some module docstrings.
 
