@@ -650,22 +650,28 @@ def fig_paired_variants(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
 def fig_ablation(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     import matplotlib.pyplot as plt
 
-    att = [t for t in trials if t["group"] == DEV_GROUP and t["domain"] == DEV_DOMAIN
-           and t["ap"] != "benign" and t.get("outcome") in MEASURABLE]
-    suffixes = sorted({t["suffix"] for t in att if t.get("suffix")})
-    # shared subset: variants present in every leave-one-out arm
-    subset = set.intersection(*[{_CLUSTER(t) for t in att if t["suffix"] == s} for s in suffixes])
+    # arms as (label, group, suffix): the v3.1 leave-one-out runs are groups of
+    # their own (q235_local2_disabled_P<i>_v31); the earlier ones are suffixes
+    v31 = {i: f"q235_local2_disabled_P{i}_v31" for i in range(1, 6)}
+    have_v31 = [i for i, g in v31.items() if any(t["group"] == g for t in trials)]
+    if len(have_v31) == 5:
+        arms = [("DEFER (subset)", BOUNDARY_GROUP, "")] + [(f"minus P{i}", v31[i], "") for i in have_v31]
+    else:
+        sufs = sorted({t["suffix"] for t in trials if t["group"] == DEV_GROUP and t.get("suffix")})
+        arms = [("DEFER (subset)", DEV_GROUP, "")] + [(f"minus {s.split('_')[-1]}", DEV_GROUP, s) for s in sufs]
 
-    arms = [("DEFER (subset)", "")] + [(f"minus {s.split('_')[-1]}", s) for s in suffixes]
+    def pick(g, suf, benign):
+        return [t for t in trials if t["group"] == g and t["domain"] == DEV_DOMAIN
+                and t.get("suffix", "") == suf and t["config"] == "agenticcyops"
+                and ((t["ap"] == "benign" and t["outcome"] == "benign") if benign
+                     else (t["ap"] != "benign" and t.get("outcome") in MEASURABLE))]
+
+    # shared subset: variants present in every arm
+    subset = set.intersection(*[{_CLUSTER(t) for t in pick(g, suf, False)} for _l, g, suf in arms])
     asr, ben = [], []
-    for _lbl, suf in arms:
-        ts = [t for t in att if t.get("suffix", "") == suf and _CLUSTER(t) in subset
-              and (t["config"] == "agenticcyops")]
-        asr.append(asr_ci(ts))
-        bt = [t for t in trials if t["group"] == DEV_GROUP and t["domain"] == DEV_DOMAIN
-              and t["ap"] == "benign" and t["outcome"] == "benign"
-              and t.get("suffix", "") == suf and t["config"] == "agenticcyops"]
-        ben.append(rate_ci(bt, lambda t: float(t.get("collateral_denials") or 0) > 0))
+    for _lbl, g, suf in arms:
+        asr.append(asr_ci([t for t in pick(g, suf, False) if _CLUSTER(t) in subset]))
+        ben.append(rate_ci(pick(g, suf, True), lambda t: float(t.get("collateral_denials") or 0) > 0))
 
     fig, (ax, axb) = plt.subplots(
         1, 2, figsize=(fs.WIDTH_1COL, 2.4), sharey=True,
@@ -1254,7 +1260,10 @@ def fig_transfer(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
 def fig_state_carryover(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     import matplotlib.pyplot as plt
 
-    pers_group = f"{DEV_GROUP}_persistent"
+    # the v3.1 persistent runs when present, the earlier ones otherwise
+    v31p = any(t["group"] == "q235_local2_v31persist" for t in trials)
+    pers_group = "q235_local2_v31persist" if v31p else f"{DEV_GROUP}_persistent"
+    iso_group = BOUNDARY_GROUP if v31p else DEV_GROUP
     # first timestamp per benign trial, from the persistent logs
     order: dict[tuple[str, str], str] = {}
     for d in ("cyberops", "finance", "healthcare", "legal"):
@@ -1278,7 +1287,7 @@ def fig_state_carryover(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     for t in ben:
         by_dom[t["domain"]].append((order.get(trial_id(t), ""), float(t.get("collateral_denials") or 0)))
 
-    iso = [t for t in trials if t["group"] == DEV_GROUP and t["domain"] == DEV_DOMAIN
+    iso = [t for t in trials if t["group"] == iso_group and t["domain"] == DEV_DOMAIN
            and t["ap"] == "benign" and t["outcome"] == "benign"
            and not t.get("suffix") and t["config"] == "agenticcyops"]
     iso_mean = float(np.mean([float(t.get("collateral_denials") or 0) for t in iso])) if iso else float("nan")

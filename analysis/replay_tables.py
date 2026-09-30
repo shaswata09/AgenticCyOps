@@ -244,6 +244,10 @@ def write_local4_trials(path=None) -> int:
     arms = [("full", "q235_div4", "agenticcyops", D4, ""),
             ("v31_full", "q235_local2_v31", "agenticcyops", D4, ""),
             ("v31_judgeonly", "q235_local2_v31", "llm_judge", D4, ""),
+            *[(f"v31_full_minus_p{i}", f"q235_local2_disabled_P{i}_v31", "agenticcyops", ("cyberops",), "")
+              for i in (1, 2, 4, 5)],
+            *[(f"v31_{m}_{a}", f"{m}_local2_v31", cfg, ("cyberops",), "")
+              for m in ("oss120", "llama8b") for a, cfg in (("full", "agenticcyops"), ("judgeonly", "llm_judge"))],
             ("judgeonly", "q235_div4", "llm_judge", ("cyberops",), ""),
             *[(f"full_minus_p{i}", "q235_div4", "agenticcyops", ("cyberops",), f"_disabled_P{i}") for i in (1, 2, 4, 5)],
             ("scout", "scout_div4", "agenticcyops", ("cyberops", "finance"), ""),
@@ -254,6 +258,8 @@ def write_local4_trials(path=None) -> int:
               for m in ("oss120", "llama8b") for a, cfg in (("full", "agenticcyops"), ("judgeonly", "llm_judge"))]]
     new, ben = {}, {}
     for arm, g, cfg, doms, suf in arms:
+        if not R.get(arm):
+            continue                  # rounds not built (the run has not happened)
         res = outcomes(arm, g, cfg, doms, suf, MAIN, V, R[arm])
         for d, v in res["domains"].items():
             for t in v["attack"]:

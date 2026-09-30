@@ -10,6 +10,7 @@ payload files also carry the E2 siblings; only the original 75 variants
 count.
 
     python -m analysis.primaries_tables     # -> results/primaries_v29.json, .md
+    python -m analysis.primaries_tables --v31   # the same at v3.1 -> results/primaries_v31.*, primaries_boundary_v31.png
 """
 from __future__ import annotations
 
@@ -25,6 +26,9 @@ from config import BASE_DIR
 
 DOM = "cyberops"
 PRIMARIES = {"gpt-oss-120b": ("oss120_local2_v29", "oss120"), "Llama-3.1-8B": ("llama8b_local2_v29", "llama8b")}
+# the same primaries at defense-freeze-v3.1 (``--v31``): rounds in cache/replay_v31
+PRIMARIES_V31 = {"gpt-oss-120b": ("oss120_local2_v31", "v31_oss120"),
+                 "Llama-3.1-8B": ("llama8b_local2_v31", "v31_llama8b")}
 PANEL_FREE = {"FLAT": "flat", "ACL": "acl_hardened", "NOJUDGE": "symbolic_only"}
 JUDGED = {"JUDGEONLY": ("llm_judge", "judgeonly"), "FULL": ("agenticcyops", "full")}
 
@@ -77,11 +81,16 @@ def summarize(attack, benign, paths=None) -> dict:
     return out
 
 
-def build() -> dict:
+def build(v31: bool = False) -> dict:
     V, R = load_all_votes(), load_rounds()
+    if v31:
+        R = {}
+        for ln in open(BASE_DIR / "cache" / "replay_v31" / "rounds.jsonl"):
+            r = json.loads(ln)
+            R.setdefault(r["arm"], []).append(r)
     keep = original_variants()
     res: dict = {}
-    for name, (group, arm) in PRIMARIES.items():
+    for name, (group, arm) in (PRIMARIES_V31 if v31 else PRIMARIES).items():
         row: dict = {}
         for label, cfg in PANEL_FREE.items():
             a, b, _p = as_run(group, cfg, keep)
@@ -104,7 +113,7 @@ def _parse(ci: str) -> tuple[float, float, float]:
     return (v[0], v[1], v[2]) if len(v) == 3 else (float("nan"),) * 3
 
 
-def figure(out: dict) -> Path:
+def figure(out: dict, v31: bool = False) -> Path:
     """Grouped bars: attack success per boundary configuration, one bar per
     primary (Qwen3-235B from results/replay_tables.json), 95% intervals."""
     import matplotlib
@@ -112,7 +121,11 @@ def figure(out: dict) -> Path:
     import matplotlib.pyplot as plt
     from analysis import figstyle as fs
     fs.apply()
-    qwen = json.loads((BASE_DIR / "results" / "replay_tables.json").read_text())["development"]
+    if v31:
+        q = json.loads((BASE_DIR / "results" / "replay_v31.json").read_text())["cyberops"]
+        qwen = {k: {"asr": q[k]["asr"]} for k in ("FLAT", "ACL", "JUDGEONLY", "NOJUDGE", "FULL")}
+    else:
+        qwen = json.loads((BASE_DIR / "results" / "replay_tables.json").read_text())["development"]
     rows = {"Qwen3-235B": {k: qwen[k]["asr"] for k in ("FLAT", "ACL", "JUDGEONLY", "NOJUDGE", "FULL")},
             **{n: {k: r[k]["asr"] for k in ("FLAT", "ACL", "JUDGEONLY", "NOJUDGE", "FULL")} for n, r in out.items()}}
     cfgs = ["FLAT", "ACL", "JUDGEONLY", "NOJUDGE", "FULL"]
@@ -131,17 +144,21 @@ def figure(out: dict) -> Path:
     ax.set_ylabel("Attack success (%)")
     ax.legend(frameon=False, fontsize=7, ncol=3, loc="upper right")
     fs.style_axes(ax)
-    path = BASE_DIR / "docs" / "figures" / "primaries_boundary.png"
+    name = "primaries_boundary_v31" if v31 else "primaries_boundary"
+    path = BASE_DIR / "docs" / "figures" / f"{name}.png"
     fig.savefig(path, dpi=200, bbox_inches="tight")
-    fig.savefig(BASE_DIR / "paper" / "figs" / "primaries_boundary.pdf", bbox_inches="tight")  # for the paper
+    fig.savefig(BASE_DIR / "paper" / "figs" / f"{name}.pdf", bbox_inches="tight")  # for the paper
     plt.close(fig)
     return path
 
 
 def main() -> None:
-    out = build()
-    (BASE_DIR / "results" / "primaries_v29.json").write_text(json.dumps(out, indent=1))
-    lines = ["# Judgment boundary for gpt-oss-120b and Llama-3.1-8B (live at v2.9, CyberOps)", "",
+    import sys
+    v31 = "--v31" in sys.argv[1:]
+    tag = "v31" if v31 else "v29"
+    out = build(v31)
+    (BASE_DIR / "results" / f"primaries_{tag}.json").write_text(json.dumps(out, indent=1))
+    lines = [f"# Judgment boundary for gpt-oss-120b and Llama-3.1-8B (live at {'v3.1' if v31 else 'v2.9'}, CyberOps)", "",
              "JUDGEONLY and FULL: direct outcome under Local4 (live local2 value in `live_local2`).", ""]
     for name, row in out.items():
         lines += [f"## {name}", "", "| Config | ASR % [95% CI] | Attempt % | Block|att. % | Judged % | Benign denied % |",
@@ -151,8 +168,8 @@ def main() -> None:
             lines.append(f"| {label} | {r['asr']} | {r['attempt']} | {r['block_given_attempt']} | "
                          f"{r.get('judged', '0' if label in PANEL_FREE else 'n/a')} | {r.get('benign_denied', 'n/a')} |")
         lines.append("")
-    (BASE_DIR / "results" / "primaries_v29.md").write_text("\n".join(lines))
-    figure(out)
+    (BASE_DIR / "results" / f"primaries_{tag}.md").write_text("\n".join(lines))
+    figure(out, v31)
     print("\n".join(lines))
 
 

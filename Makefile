@@ -6,7 +6,7 @@ PY ?= python
 DEFER_PANEL ?= local4
 export DEFER_PANEL
 
-.PHONY: paper-tables paper-reports parse stats tables reports asb-reports figures readme-figures replay-tables replay-v3 replay-v31 b2 primaries-tables tamas-tables test freeze-check check-payloads
+.PHONY: paper-tables paper-reports parse stats tables reports asb-reports figures readme-figures replay-tables replay-v3 replay-v31 b2 primaries-tables primaries-v31 tamas-tables test freeze-check check-payloads
 
 paper-tables: parse stats tables
 
@@ -76,6 +76,9 @@ b2:
 # docs/figures/tamas.png); both read the cached Local4 votes.
 primaries-tables:
 	$(PY) -m analysis.primaries_tables > /dev/null
+
+primaries-v31:
+	$(PY) -m analysis.primaries_tables --v31 > /dev/null
 
 tamas-tables:
 	$(PY) -m analysis.tamas_tables > /dev/null
