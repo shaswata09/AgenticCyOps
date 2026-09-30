@@ -34,7 +34,8 @@ JUDGED = {"JUDGEONLY": ("llm_judge", "v31_judgeonly"), "FULL": ("agenticcyops", 
 ARMS = [("v31_full", GROUP, "agenticcyops", D4, "", True),
         ("v31_judgeonly", GROUP, "llm_judge", D4, "", False),
         # leave-one-out at v3.1 (CyberOps); -P3 has no panel
-        *[(f"v31_full_minus_p{i}", "q235_local2", "agenticcyops", ("cyberops",), f"_disabled_P{i}_v31", False)
+        # (the run tag follows the ablation tag, so these parse as their own groups)
+        *[(f"v31_full_minus_p{i}", f"q235_local2_disabled_P{i}_v31", "agenticcyops", ("cyberops",), "", False)
           for i in (1, 2, 4, 5)],
         # the other two primaries at v3.1 (CyberOps)
         ("v31_oss120_full", "oss120_local2_v31", "agenticcyops", ("cyberops",), "", True),
