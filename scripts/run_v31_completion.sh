@@ -71,26 +71,27 @@ if [ "$PHASE" = A ]; then
     for i in 1 2 3 4 5; do
         (
             rc=0
-            SLOT=$((10 + i)) RUN_TAG=v31 DISABLE_PRINCIPLES="P$i" \
+            SLOT=$((i - 1)) RUN_TAG=v31 DISABLE_PRINCIPLES="P$i" \
                 scripts/run_attack_paths.sh q235_local2 cyberops "$ALL" agenticcyops 3 || rc=$?
-            SLOT=$((10 + i)) RUN_TAG=v31 DISABLE_PRINCIPLES="P$i" \
+            SLOT=$((i - 1)) RUN_TAG=v31 DISABLE_PRINCIPLES="P$i" \
                 scripts/run_attack_paths.sh q235_local2 cyberops benign agenticcyops 3 || rc=$?
             note "stream abl_P$i done (rc=$rc)"
         ) > "logs/v31b_abl_P$i.log" 2>&1 &
         sleep 8
     done
-    s=20
+    # slots as recorded in the run headers (tool base = 10000 + group*160 +
+    # domain*40 + slot*3000, so every port stays below 65535)
     for d in cyberops healthcare finance legal; do
-        persist "$d" v31persist "$ALL" "$s" & s=$((s + 1)); sleep 8
+        persist "$d" v31persist "$ALL" 5 & sleep 8
     done
-    persist cyberops v31persist2 "$REV" "$s" & sleep 8
-    boundary llama8b_local2 30 llama
+    persist cyberops v31persist2 "$REV" 6 & sleep 8
+    boundary llama8b_local2 0 llama
     wait
     note "phase A: finished"
 elif [ "$PHASE" = B ]; then
     curl -s --max-time 20 "http://127.0.0.1:8200/health" >/dev/null || { note "ABORT: :8200 down"; exit 1; }
     note "phase B: start"
-    boundary oss120_local2 40 oss
+    boundary oss120_local2 0 oss
     wait
     note "phase B: finished"
 fi

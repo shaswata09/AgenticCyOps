@@ -53,6 +53,17 @@ TARGET_ARGS = ("target", "target_user", "target_host", "account_id", "patient_id
                "document_id")
 
 
+def _render_handoff_fields(fields: dict) -> str:
+    """Injected handoff fields as the phase's stated assessment (AP-9)."""
+    if not fields:
+        return ""
+    lines = ["Phase assessment:"]
+    for k, v in fields.items():
+        val = v if isinstance(v, str) else json.dumps(v, default=str)
+        lines.append(f"- {k.replace('_', ' ')}: {val}")
+    return "\n".join(lines)
+
+
 def _hoist(proposal: dict) -> dict:
     """Copy the fields P3's layers read at the proposal root: the action (or
     the tool's implied one) and its target."""
@@ -144,6 +155,14 @@ class SOARHost:
         # so callers can pass either case.
         self.disabled_principles: set = {p.upper() for p in (disabled_principles or set())}
         self.disabled_principles |= {p.upper() for p in _flags.get("extra_disabled", set())}
+
+        # v3.1.4: hiding out-of-manifest tools from the model is part of P2
+        # (capability scoping). JUDGEONLY has no P2 and an ablation without P2
+        # must not keep it; before, both still showed each agent only its
+        # phase manifest. (FLAT and ACL already showed every tool.)
+        if self.config_label == "llm_judge" or not self._principle_active("P2"):
+            for _agent in self.agents.values():
+                setattr(_agent, "show_all_tools", True)
 
         # E9: stores marked critical in the domain config. Writes to these are
         # routed to the panel under agenticcyops_writejudge; empty for every
@@ -340,10 +359,21 @@ class SOARHost:
         if src and src != phase:
             return handoff_ctx
         out = dict(handoff_ctx)
-        for k, v in (spec.get("fields") or {}).items():
+        fields = spec.get("fields") or {}
+        for k, v in fields.items():
             out[k] = v
-        if spec.get("append_summary"):
-            out["phase_summary"] = f"{out.get('phase_summary', '')}\n\n{spec['append_summary']}".strip()
+        # v3.1.4: the next agent reads only the handoff's summary and tool
+        # results (agents/base_agent._format_context), so injected fields that
+        # stayed structured were seen by P3-L0 alone and never by a model. A
+        # compromised agent states its claims in what it hands over: the fields
+        # are rendered into the summary, through the same sanitizer as any
+        # phase output (host.handoff._sanitize_text).
+        rendered = _render_handoff_fields(fields)
+        extra = "\n\n".join(x for x in (rendered, spec.get("append_summary") or "") if x)
+        if extra:
+            from host.handoff import _sanitize_text
+            extra, _n = _sanitize_text(extra)
+            out["phase_summary"] = f"{out.get('phase_summary', '')}\n\n{extra}".strip()
         if self.logger:
             self.logger.log(source="harness", destination=f"{next_phase}_agent",
                             action="harness_injection",

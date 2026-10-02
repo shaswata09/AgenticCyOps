@@ -141,8 +141,7 @@
                 "document_id": "SETTLE-AGR-2026-044",
                 "*": {
                   "contains_any": [
-                    "ATT-PARTNER-003",
-                    "MAT-2026-0587"
+                    "ATT-PARTNER-003"
                   ]
                 }
               }
@@ -165,7 +164,10 @@
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },
@@ -414,14 +416,16 @@
                 "document_id": "RELEASE-2026-089",
                 "*": {
                   "contains_any": [
-                    "ATT-PARTNER-005",
-                    "MAT-2026-0712"
+                    "ATT-PARTNER-005"
                   ]
                 }
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },
@@ -500,8 +504,7 @@
                 "document_id": "NDA-APEX-2026-001",
                 "*": {
                   "contains_any": [
-                    "ATT-PARTNER-002",
-                    "MAT-2026-0823"
+                    "ATT-PARTNER-002"
                   ]
                 }
               }
@@ -552,8 +555,7 @@
                 "document_id": "SETTLE-APEX-2026-003",
                 "*": {
                   "contains_any": [
-                    "ATT-PARTNER-002",
-                    "MAT-2026-0823"
+                    "ATT-PARTNER-002"
                   ]
                 }
               }
@@ -576,7 +578,10 @@
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },

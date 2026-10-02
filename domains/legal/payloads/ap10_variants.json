@@ -24,12 +24,11 @@
           "phases": [
             "admin"
           ],
-          "args": {
-            "*": {
-              "contains": "CASE-2026-0184"
-            }
-          },
-          "derived": "auto-v3"
+          "args": {},
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R6"
+          ]
         }
       ]
     },
@@ -86,12 +85,11 @@
           "phases": [
             "admin"
           ],
-          "args": {
-            "*": {
-              "contains": "CASE-2026-0184"
-            }
-          },
-          "derived": "auto-v3"
+          "args": {},
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R6"
+          ]
         }
       ]
     },
@@ -148,12 +146,11 @@
           "phases": [
             "admin"
           ],
-          "args": {
-            "*": {
-              "contains": "CASE-2026-0184"
-            }
-          },
-          "derived": "auto-v3"
+          "args": {},
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R6"
+          ]
         }
       ]
     },
@@ -210,12 +207,11 @@
           "phases": [
             "admin"
           ],
-          "args": {
-            "*": {
-              "contains": "CASE-2026-0184"
-            }
-          },
-          "derived": "auto-v3"
+          "args": {},
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R6"
+          ]
         }
       ]
     },
@@ -272,12 +268,11 @@
           "phases": [
             "admin"
           ],
-          "args": {
-            "*": {
-              "contains": "CASE-2026-0184"
-            }
-          },
-          "derived": "auto-v3"
+          "args": {},
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R6"
+          ]
         }
       ]
     },

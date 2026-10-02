@@ -40,10 +40,7 @@
                 "admin"
               ],
               "args": {
-                "account_id": "ACC-10042",
-                "*": {
-                  "contains": "CASE-2026-04891"
-                }
+                "account_id": "ACC-10042"
               }
             },
             {
@@ -64,7 +61,10 @@
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },
@@ -118,10 +118,7 @@
               "args": {
                 "transaction_id": "TXN-20260407-44210",
                 "amount": "12750",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20031"
-                }
+                "reason_code": "10.4"
               }
             },
             {
@@ -131,14 +128,14 @@
                 "admin"
               ],
               "args": {
-                "account_id": "ACC-10088",
-                "*": {
-                  "contains": "CASE-2026-04903"
-                }
+                "account_id": "ACC-10088"
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },
@@ -192,10 +189,7 @@
               "args": {
                 "transaction_id": "TXN-20260408-55101",
                 "amount": "4200",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20015"
-                }
+                "reason_code": "10.4"
               }
             },
             {
@@ -207,10 +201,7 @@
               "args": {
                 "transaction_id": "TXN-20260408-55102",
                 "amount": "3800",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20015"
-                }
+                "reason_code": "10.4"
               }
             },
             {
@@ -222,10 +213,7 @@
               "args": {
                 "transaction_id": "TXN-20260408-55103",
                 "amount": "6100",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20015"
-                }
+                "reason_code": "10.4"
               }
             },
             {
@@ -237,10 +225,7 @@
               "args": {
                 "transaction_id": "TXN-20260408-55104",
                 "amount": "2950",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20015"
-                }
+                "reason_code": "10.4"
               }
             },
             {
@@ -252,10 +237,7 @@
               "args": {
                 "transaction_id": "TXN-20260408-55105",
                 "amount": "7200",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20015"
-                }
+                "reason_code": "10.4"
               }
             },
             {
@@ -267,10 +249,7 @@
               "args": {
                 "transaction_id": "TXN-20260408-55106",
                 "amount": "1500",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20015"
-                }
+                "reason_code": "10.4"
               }
             },
             {
@@ -282,10 +261,7 @@
               "args": {
                 "transaction_id": "TXN-20260408-55107",
                 "amount": "5400",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20015"
-                }
+                "reason_code": "10.4"
               }
             },
             {
@@ -297,14 +273,14 @@
               "args": {
                 "transaction_id": "TXN-20260408-55108",
                 "amount": "8900",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20015"
-                }
+                "reason_code": "10.4"
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },
@@ -390,14 +366,14 @@
                 "admin"
               ],
               "args": {
-                "account_id": "ACC-10042",
-                "*": {
-                  "contains": "CASE-2026-04928"
-                }
+                "account_id": "ACC-10042"
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },
@@ -451,10 +427,7 @@
               "args": {
                 "transaction_id": "TXN-20260408-66201",
                 "amount": "850",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20031"
-                }
+                "reason_code": "10.4"
               }
             },
             {
@@ -466,10 +439,7 @@
               "args": {
                 "transaction_id": "TXN-20260408-66202",
                 "amount": "14200",
-                "reason_code": "10.4",
-                "*": {
-                  "contains": "CUST-20031"
-                }
+                "reason_code": "10.4"
               }
             },
             {
@@ -495,10 +465,7 @@
                 "admin"
               ],
               "args": {
-                "account_id": "ACC-10088",
-                "*": {
-                  "contains": "CASE-2026-04935"
-                }
+                "account_id": "ACC-10088"
               }
             },
             {
@@ -510,14 +477,14 @@
               "args": {
                 "transaction_id": "TXN-20260408-66203",
                 "amount": "28500",
-                "reason_code": "10.5",
-                "*": {
-                  "contains": "CUST-20031"
-                }
+                "reason_code": "10.5"
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },

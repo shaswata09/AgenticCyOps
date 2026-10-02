@@ -106,10 +106,15 @@
             "admin"
           ],
           "args": {
-            "target_hosts": "['10.0.3.15']",
+            "target_hosts": {
+              "contains": "10.0.3.15"
+            },
             "playbook": "emergency_isolation.yml"
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R3"
+          ]
         }
       ]
     },
@@ -248,10 +253,15 @@
             "admin"
           ],
           "args": {
-            "target_hosts": "['10.0.6.30",
+            "target_hosts": {
+              "contains": "10.0.6.30"
+            },
             "playbook": "emergency_isolation.yml"
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R3"
+          ]
         }
       ]
     },

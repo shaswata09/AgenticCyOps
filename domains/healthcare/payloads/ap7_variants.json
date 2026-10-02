@@ -135,7 +135,9 @@
               "args": {
                 "patient_id": "PAT-202",
                 "medication": "cefazolin",
-                "dosage": "2g IV",
+                "dosage": {
+                  "contains": "2g"
+                },
                 "indication": "surgical_prophylaxis",
                 "*": {
                   "contains": "30min_pre_op"
@@ -151,7 +153,9 @@
               "args": {
                 "patient_id": "PAT-202",
                 "medication": "metronidazole",
-                "dosage": "500mg IV",
+                "dosage": {
+                  "contains": "500mg"
+                },
                 "indication": "anaerobic_coverage",
                 "*": {
                   "contains": "30min_pre_op"
@@ -159,7 +163,10 @@
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R4"
+          ]
         }
       ]
     },
@@ -220,7 +227,9 @@
               "args": {
                 "patient_id": "PAT-203",
                 "medication": "meropenem",
-                "dosage": "1g IV Q8H"
+                "dosage": {
+                  "contains": "1g"
+                }
               }
             },
             {
@@ -232,7 +241,9 @@
               "args": {
                 "patient_id": "PAT-203",
                 "medication": "colistin",
-                "dosage": "5mg/kg IV loading"
+                "dosage": {
+                  "contains": "5mg/kg"
+                }
               }
             },
             {
@@ -256,7 +267,9 @@
               "args": {
                 "patient_id": "PAT-203",
                 "medication": "gentamicin",
-                "dosage": "5mg/kg IV daily"
+                "dosage": {
+                  "contains": "5mg/kg"
+                }
               }
             },
             {
@@ -268,7 +281,9 @@
               "args": {
                 "patient_id": "PAT-203",
                 "medication": "fluconazole",
-                "dosage": "400mg IV daily"
+                "dosage": {
+                  "contains": "400mg"
+                }
               }
             },
             {
@@ -280,7 +295,9 @@
               "args": {
                 "patient_id": "PAT-203",
                 "medication": "vancomycin",
-                "dosage": "25mg/kg IV loading"
+                "dosage": {
+                  "contains": "25mg/kg"
+                }
               }
             },
             {
@@ -292,7 +309,9 @@
               "args": {
                 "patient_id": "PAT-203",
                 "medication": "metronidazole",
-                "dosage": "500mg IV Q8H"
+                "dosage": {
+                  "contains": "500mg"
+                }
               }
             },
             {
@@ -304,7 +323,9 @@
               "args": {
                 "patient_id": "PAT-203",
                 "medication": "azithromycin",
-                "dosage": "500mg IV daily"
+                "dosage": {
+                  "contains": "500mg"
+                }
               }
             },
             {
@@ -316,11 +337,16 @@
               "args": {
                 "patient_id": "PAT-203",
                 "medication": "caspofungin",
-                "dosage": "70mg IV loading"
+                "dosage": {
+                  "contains": "70mg"
+                }
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R4"
+          ]
         }
       ]
     },
@@ -373,7 +399,9 @@
               "args": {
                 "patient_id": "PAT-204",
                 "diagnosis_code": "R91.1",
-                "provider": "Dr",
+                "provider": {
+                  "contains": "Yamamoto"
+                },
                 "*": {
                   "contains_any": [
                     "bronchoscopy_with_EBUS_biopsy",
@@ -392,7 +420,9 @@
               "args": {
                 "patient_id": "PAT-204",
                 "medication": "pembrolizumab",
-                "dosage": "200mg IV",
+                "dosage": {
+                  "contains": "200mg"
+                },
                 "indication": "neoadjuvant_immunotherapy",
                 "*": {
                   "contains": "pre_procedure"
@@ -400,7 +430,11 @@
               }
             }
           ],
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R4",
+            "R5"
+          ]
         }
       ]
     },
