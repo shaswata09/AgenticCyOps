@@ -12,7 +12,12 @@
 #                         + benign, and AP-9 under the other four configs
 #
 # Each tag runs from its own clean worktree (models/ and .env symlinked; the
-# ChromaDB setup reads <worktree>/models). Panel live: local2 = Mistral-Small
+# ChromaDB setup reads <worktree>/models). Every tool and MMA port stays below
+# 32768: run_attack_paths.sh kill -9s whatever holds a port of its block, and
+# the kernel's ephemeral range (32768-60999) carries the vLLM workers' own
+# connections, so a block there can kill a model server (it did, 2026-10-02).
+# Streams that share a group and domain are separated by PORT_EXTRA and
+# CHROMA_TAG instead of high slot numbers. Panel live: local2 = Mistral-Small
 # :8101 + Gemma-4 :8102 (2 of 2) on GPU4; Local4 offline afterwards.
 #
 #   bash scripts/run_v32.sh            # phases A, B, C; status in logs/v32.log
@@ -33,7 +38,15 @@ stop_port() { local pid; pid=$(ps -eo pid,cmd | grep "[v]llm serve" | grep -- "-
 worktree() {  # worktree <dir> <tag>
     if [ ! -d "$1" ]; then git -C "$MAIN" worktree add --detach "$1" "$2" >>"$STATUS" 2>&1 || return 1; fi
     [ "$(git -C "$1" rev-parse HEAD)" = "$(git -C "$MAIN" rev-parse "$2^{commit}")" ] || { note "ABORT: $1 is not at $2"; return 1; }
-    ln -sfn "$MAIN/models" "$1/models"; ln -sfn "$MAIN/.env" "$1/.env"
+    # models/ holds tracked files, so link each weights directory into it
+    # (a link to models/ itself lands at models/models; ChromaDB setup and the
+    # memory gateway read <worktree>/models/<org>/<name>)
+    for m in "$MAIN"/models/*/; do
+        m="${m%/}"; [ -e "$1/models/$(basename "$m")" ] || ln -s "$m" "$1/models/$(basename "$m")"
+    done
+    rm -f "$1/models/models"
+    ln -sfn "$MAIN/.env" "$1/.env"
+    [ -e "$1/models/Qwen/Qwen3-Embedding-8B" ] || { note "ABORT: embedding model not visible in $1"; return 1; }
     (cd "$1" && bash scripts/check_freeze.sh) >>"$STATUS" 2>&1 || { note "ABORT: freeze guard in $1"; return 1; }
 }
 
@@ -88,15 +101,16 @@ note "phase A: servers up"
 
 boundary "$W32" q235_local2 q235 v32
 for i in 1 2 3 4 5; do
-    stream "$W32" "abl_P$i" $((6 + i)) q235_local2 cyberops "$ALL" agenticcyops 1 RUN_TAG=v32 DISABLE_PRINCIPLES="P$i"
+    stream "$W32" "abl_P$i" $((i - 1)) q235_local2 cyberops "$ALL" agenticcyops 1 RUN_TAG=v32 \
+        DISABLE_PRINCIPLES="P$i" PORT_EXTRA=-1000 CHROMA_TAG=abl
 done
 boundary "$W32" llama8b_local2 llama v32
 for d in healthcare finance legal; do
-    stream "$W314" "${d}_judge_h1" 12 q235_local2 "$d" "$H1" llm_judge 1 RUN_TAG=v314
-    stream "$W314" "${d}_judge_h2" 13 q235_local2 "$d" "$H2" llm_judge 0 RUN_TAG=v314
-    s=14
+    stream "$W314" "${d}_judge_h1" 0 q235_local2 "$d" "$H1" llm_judge 1 RUN_TAG=v314 PORT_EXTRA=-1400
+    stream "$W314" "${d}_judge_h2" 1 q235_local2 "$d" "$H2" llm_judge 0 RUN_TAG=v314 PORT_EXTRA=-1400
+    s=2
     for cfg in flat acl_hardened symbolic_only agenticcyops; do
-        stream "$W314" "${d}_ap9_${cfg}" $s q235_local2 "$d" ap9 "$cfg" 0 RUN_TAG=v314
+        stream "$W314" "${d}_ap9_${cfg}" $s q235_local2 "$d" ap9 "$cfg" 0 RUN_TAG=v314 PORT_EXTRA=-1400
         s=$((s + 1))
     done
 done
