@@ -29,9 +29,12 @@ It contains:
 ![Overview](docs/figures/overview.png)
 
 *Attacker content enters through five channels on two surfaces (left). DEFER settles
-what it can with deterministic checks and sends only undecided proposals to a panel of
-LLM judges (center). Right: attack success on Agent Security Bench with the frozen
-pipeline, and headline numbers from our suite.*
+what it can with 27 deterministic checks and sends only the undecided proposals, about a
+quarter, to a panel of four open-weight judges (center). Right: attack success in the
+security-operations domain with no checks, with the same judges alone, and with DEFER
+(32.0%, 34.7%, 2.2%), and on the 255 Agent Security Bench cases with no checks, access
+control only, and DEFER (28.8%, 30.0%, 1.8%); 10 to 27% of legitimate actions are denied
+across the four domains.*
 
 ---
 
