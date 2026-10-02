@@ -393,27 +393,22 @@ def fig_interception_tiers(trials: list[dict], outdir: Path) -> tuple[Path, dict
                 and t["ap"] != "benign" and not t.get("suffix")
                 and t["config"] == "agenticcyops" and t["outcome"] == "blocked"]
 
-    asb_root = BASE_DIR / "results" / "asb"
-    legacy = BASE_DIR / "results_legacy_v1" / "asb"
-    live: list[str] = []
-    for g in ("A", "C", "D", "E"):
-        live += asb_mechanisms(legacy / f"e2e_validator_group_{g}" / "general" / "results.csv")
-
-    replay = asb_mechanisms(asb_root / "e2e_validator_group_q235_div4_div4" / "general" / "results.csv")
+    # ASB: the live run the paper reports (the frozen pipeline, 1,530 trials).
+    # Its logged panel rejected every round; under Local4 the rounds it approves
+    # are let through and leave the blocked set.
+    live = asb_mechanisms(BASE_DIR / "results" / "asb" / "e2e_validator_group_q235_div4_frozen_full"
+                          / "general" / "results.csv")
     if LOCAL4:
-        # the logged replay's panel rejected every round it saw; under Local4
-        # the rounds it approves are let through and leave the blocked set
         from analysis.replay_panels import decide, load_all_votes, load_rounds, panel_for
         V, R = load_all_votes(), load_rounds()
         mem, q = panel_for("Local4", "asb")
-        let = sum(bool(decide(r["key"], mem, q, V)) for r in R["asb_replay405"])
-        panel = [m for m in replay if tiers.tier_of(m) == "panel"]
-        replay = [m for m in replay if tiers.tier_of(m) != "panel"] + panel[:len(panel) - let]
+        let = sum(bool(decide(r["key"], mem, q, V)) for r in R["asb_frozen"])
+        panel = [m for m in live if tiers.tier_of(m) == "panel"]
+        live = [m for m in live if tiers.tier_of(m) != "panel"] + panel[:len(panel) - let]
     sources = [
-        ("Development", blocked_mechs({DEV_DOMAIN})),
-        ("Transfer (3 domains)", blocked_mechs({"finance", "healthcare", "legal"})),
-        ("ASB replay", replay),
-        ("ASB April (pre-freeze)" if LOCAL4 else "ASB live", live),
+        ("CyberOps", blocked_mechs({DEV_DOMAIN})),
+        ("Other three domains", blocked_mechs({"finance", "healthcare", "legal"})),
+        ("ASB (live)", live),
     ]
 
     fig, ax = plt.subplots(figsize=(fs.WIDTH_1COL, 2.3))
@@ -455,8 +450,7 @@ def fig_interception_tiers(trials: list[dict], outdir: Path) -> tuple[Path, dict
                      "attacks, and well under half on the semantic third-party benchmark, "
                      "there only through content-dependent rules."),
         "data_sources": ["results/eval_attacks/all_trials.csv",
-                         "results/asb/e2e_validator_group_q235_div4_div4/general/results.csv",
-                         "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"],
+                         "results/asb/e2e_validator_group_q235_div4_frozen_full/general/results.csv"],
         "n": {lbl: n for (lbl, _m), n in zip(sources, ns)}
         | {f"{lbl} tier %": {t: round(100 * s.get(t, 0), 1) for t in tiers.TIERS}
            for (lbl, _m), s in zip(sources, shares)},
@@ -655,7 +649,7 @@ def fig_ablation(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     v31 = {i: f"q235_local2_disabled_P{i}_v31" for i in range(1, 6)}
     have_v31 = [i for i, g in v31.items() if any(t["group"] == g for t in trials)]
     if len(have_v31) == 5:
-        arms = [("DEFER (subset)", BOUNDARY_GROUP, "")] + [(f"minus P{i}", v31[i], "") for i in have_v31]
+        arms = [("DEFER", BOUNDARY_GROUP, "")] + [(f"minus P{i}", v31[i], "") for i in have_v31]
     else:
         sufs = sorted({t["suffix"] for t in trials if t["group"] == DEV_GROUP and t.get("suffix")})
         arms = [("DEFER (subset)", DEV_GROUP, "")] + [(f"minus {s.split('_')[-1]}", DEV_GROUP, s) for s in sufs]
@@ -679,7 +673,7 @@ def fig_ablation(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     y = np.arange(len(arms))[::-1]
     base = 100 * asr[0][0]
     for ax_, vals, xlabel in ((ax, asr, "Attack success (%)"),
-                              (axb, ben, "Benign any-denial (%)")):
+                              (axb, ben, "Any denial (%)")):
         pts = [100 * v[0] for v in vals]
         lo = [100 * (v[0] - v[1]) for v in vals]
         hi = [100 * (v[2] - v[0]) for v in vals]
@@ -688,8 +682,8 @@ def fig_ablation(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
         ax_.errorbar(pts, y, xerr=[lo, hi], fmt="none", zorder=3, **fs.ERRORBAR_KW)
         ax_.set_xlabel(xlabel)
         fs.style_axes(ax_, ygrid=False, xgrid=True)
-    for yi, p in zip(y, [100 * v[0] for v in asr]):
-        ax.text(p + 1.0, yi, f"{p:.1f}", va="center", ha="left", fontsize=6)
+    for yi, v in zip(y, asr):            # label right of the interval
+        ax.text(100 * v[2] + 0.8, yi, f"{100 * v[0]:.1f}", va="center", ha="left", fontsize=6)
     ax.axvline(base, color=fs.EMPHASIS, linestyle="--", linewidth=0.8, zorder=4)
     ax.set_yticks(y)
     ax.set_yticklabels([a[0] for a in arms], fontsize=7)
@@ -698,7 +692,10 @@ def fig_ablation(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     path = fs.save(fig, "ablation", outdir, fs.WIDTH_1COL)
     meta = {
         "name": "ablation", "file": path.name,
-        "takeaway": ("Removing P3, P2 or P4 each lets attacks through that the others do not "
+        "takeaway": ("Removing any principle lets attacks through that the others do not catch, "
+                     "P3 most; removing P2 halves the benign incidents with a denial."
+                     if len(have_v31) == 5 else
+                     "Removing P3, P2 or P4 each lets attacks through that the others do not "
                      "catch; on this subset P1 and P5 never bind."),
         "data_sources": ["results/eval_attacks/all_trials.csv"],
         "n": {"shared_variants": len(subset),
@@ -716,10 +713,17 @@ def fig_ablation(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
 def fig_p5_reads(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     import matplotlib.pyplot as plt
 
-    pool = [t for t in trials if t["group"] == DEV_GROUP and t["domain"] == DEV_DOMAIN
+    # the v3.1 runs when the v3.1 minus-P5 arm exists (a group of its own),
+    # the earlier runs (a suffix of DEV_GROUP) otherwise
+    p5_v31 = "q235_local2_disabled_P5_v31"
+    if any(t["group"] == p5_v31 for t in trials):
+        g, gp5, sp5 = BOUNDARY_GROUP, p5_v31, ""
+    else:
+        g, gp5, sp5 = DEV_GROUP, DEV_GROUP, "_disabled_P5"
+    pool = [t for t in trials if t["group"] in (g, gp5) and t["domain"] == DEV_DOMAIN
             and t.get("outcome") in MEASURABLE and t["ap"] in ("ap4", "ap14")]
-    arms = [("Flat", "flat", ""), ("ACL", "acl_hardened", ""), ("JudgeOnly", "llm_judge", ""),
-            ("DEFER\nminus P5", "agenticcyops", "_disabled_P5"), ("DEFER", "agenticcyops", "")]
+    arms = [("Flat", "flat", "", g), ("ACL", "acl_hardened", "", g), ("JudgeOnly", "llm_judge", "", g),
+            ("DEFER\nminus P5", "agenticcyops", sp5, gp5), ("DEFER", "agenticcyops", "", g)]
     # AP-14 only earns a place if it succeeds somewhere; on this split it never does
     aps = [a for a in ("ap4", "ap14") if any(_EXEC(t) for t in pool if t["ap"] == a)]
 
@@ -730,9 +734,9 @@ def fig_p5_reads(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     meta_n = {}
     for k, ap in enumerate(aps):
         vals, expo = [], []
-        for _lbl, cfg, suf in arms:
+        for _lbl, cfg, suf, grp in arms:
             ts = [t for t in pool if t["ap"] == ap and t["config"] == cfg
-                  and t.get("suffix", "") == suf]
+                  and t.get("suffix", "") == suf and t["group"] == grp]
             vals.append(asr_ci(ts))
             known = [t for t in ts if str(t.get("exposed", "")).lower() in ("true", "false")]
             expo.append(sum(1 for t in known if str(t["exposed"]).lower() == "true") / len(known)
@@ -893,12 +897,19 @@ def _local4_benign_by_scenario(config: str, group: str = BOUNDARY_GROUP) -> dict
 
 
 def _local4_rounds() -> tuple[list[str], list[dict[str, str]]]:
-    """Every judged FULL round (four domains) with the four local votes."""
+    """Every judged FULL round (four domains) with the four local votes: the
+    reported (v3.1) runs when their rounds are cached, the earlier runs otherwise."""
+    from analysis.p3_eligibility import JUDGED_PATHS
     from analysis.replay_panels import PANELS, load_all_votes, load_rounds
     members = list(PANELS["Local4"][0])
     V = load_all_votes()
-    rounds = [{m: V[m].get(r["key"], "error") for m in members}
-              for r in load_rounds()["full"] if r["path"] != "allowed_no_p3"]
+    v31 = BASE_DIR / "cache" / "replay_v31" / "rounds.jsonl"
+    if REPORTED_GROUP == "q235_local2_v31" and v31.exists():
+        src = [r for r in map(json.loads, open(v31))
+               if r["arm"] == "v31_full" and r["path"] in JUDGED_PATHS]
+    else:
+        src = [r for r in load_rounds()["full"] if r["path"] != "allowed_no_p3"]
+    rounds = [{m: V[m].get(r["key"], "error") for m in members} for r in src]
     return members, rounds
 
 
@@ -987,7 +998,7 @@ def fig_validator_behavior(trials: list[dict], outdir: Path) -> tuple[Path, dict
     ax.grid(False)
     for s in ax.spines.values():
         s.set_visible(False)
-    ax.set_title("kappa (diag: reject rate)", fontsize=6, loc="left", pad=3)
+    ax.set_title("kappa (diag: reject rate)", fontsize=6, loc="right", pad=3)
 
     # quorum sweep
     app = np.vstack([approve[v] for v in panel]).sum(axis=0)
@@ -1010,7 +1021,9 @@ def fig_validator_behavior(trials: list[dict], outdir: Path) -> tuple[Path, dict
         "name": "validator_behavior", "file": path.name,
         "takeaway": ("The four judges agree only moderately with each other, so how many of "
                      "them must approve changes what gets through by tens of points."),
-        "data_sources": [f"logs/*_eval_attacks_{DEV_GROUP}/agenticcyops_*.jsonl"],
+        "data_sources": (["cache/replay_v31/rounds.jsonl", "cache/validators/*.jsonl"]
+                         if (BASE_DIR / "cache" / "replay_v31" / "rounds.jsonl").exists()
+                         else [f"logs/*_eval_attacks_{DEV_GROUP}/agenticcyops_*.jsonl"]),
         "n": {"rounds": len(rounds), "rounds_all_voted": len(clean), "panel": list(panel),
               "kappa": {f"{a}|{b}": round(float(M[i, j]), 2) for i, a in enumerate(panel)
                         for j, b in enumerate(panel) if i < j},
@@ -1194,10 +1207,15 @@ def fig_transfer(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
         return not any(t in g for t in TAGGED)
 
     rows = [(BOUNDARY_GROUP, d) for d in ("cyberops", "finance", "healthcare", "legal")]
-    rows += [(g, "cyberops") for g in ("scout_div4", "mistral_div3p", "llama8b_div4")]
+    # primaries: the v3.1 runs where they exist, the earlier runs otherwise
+    have = {t["group"] for t in trials}
+    prim = ["scout_div4", "mistral_div3p"]
+    prim += ["llama8b_local2_v31", "oss120_local2_v31"] if "llama8b_local2_v31" in have else ["llama8b_div4"]
+    rows += [(g, "cyberops") for g in prim if g in have]
     rows = [(g, d) for g, d in rows if clean(g)]
     name = {BOUNDARY_GROUP: "Qwen3-235B", "q235_div4": "Qwen3-235B", "scout_div4": "Llama-4-Scout",
-            "mistral_div3p": "Mistral-Small", "llama8b_div4": "Llama-3.1-8B"}
+            "mistral_div3p": "Mistral-Small", "llama8b_div4": "Llama-3.1-8B",
+            "llama8b_local2_v31": "Llama-3.1-8B", "oss120_local2_v31": "gpt-oss-120b"}
 
     fig, (ax, axb) = plt.subplots(
         1, 2, figsize=(fs.WIDTH_2COL, 3.15), sharey=True,
@@ -1243,7 +1261,7 @@ def fig_transfer(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     meta = {
         "name": "transfer", "file": path.name,
         "takeaway": ("The cascade holds its attack-success reduction across four domains and "
-                     "four primary models; what it costs on benign work does not transfer "
+                     "five primary models; what it costs on benign work does not transfer "
                      "and varies widely by domain."),
         "data_sources": ["results/eval_attacks/all_trials.csv"],
         "n": out,
@@ -1661,7 +1679,8 @@ def main() -> None:
     ORIGINAL.update((t["domain"], t["ap"], str(t["variant"])) for t in trials
                     if t["group"] == DEV_GROUP and t["ap"] != "benign" and not t.get("suffix")
                     and t["config"] == "agenticcyops")
-    trials = [t for t in trials if t["group"] != BOUNDARY_GROUP or t["ap"] == "benign"
+    # every v3.1 run (boundary, ablation arms, other primaries) carries them
+    trials = [t for t in trials if not t["group"].endswith("_v31") or t["ap"] == "benign"
               or (t["domain"], t["ap"], str(t["variant"])) in ORIGINAL]
 
     wanted = args.only or list(FIGURES)

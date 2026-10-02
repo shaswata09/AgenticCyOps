@@ -53,37 +53,29 @@
     "takeaway": "Deterministic checks decide most interceptions on policy and structure attacks, and well under half on the semantic third-party benchmark, there only through content-dependent rules.",
     "data_sources": [
       "results/eval_attacks/all_trials.csv",
-      "results/asb/e2e_validator_group_q235_div4_div4/general/results.csv",
-      "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"
+      "results/asb/e2e_validator_group_q235_div4_frozen_full/general/results.csv"
     ],
     "n": {
-      "Development": 90,
-      "Transfer (3 domains)": 218,
-      "ASB replay": 387,
-      "ASB April (pre-freeze)": 1606,
-      "Development tier %": {
+      "CyberOps": 90,
+      "Other three domains": 218,
+      "ASB (live)": 154,
+      "CyberOps tier %": {
         "content_independent": 31.1,
         "content_dependent": 63.3,
         "similarity": 3.3,
         "panel": 2.2
       },
-      "Transfer (3 domains) tier %": {
+      "Other three domains tier %": {
         "content_independent": 11.0,
         "content_dependent": 42.2,
         "similarity": 16.5,
         "panel": 30.3
       },
-      "ASB replay tier %": {
+      "ASB (live) tier %": {
         "content_independent": 0.0,
-        "content_dependent": 40.1,
+        "content_dependent": 40.3,
         "similarity": 0.0,
-        "panel": 59.9
-      },
-      "ASB April (pre-freeze) tier %": {
-        "content_independent": 0.0,
-        "content_dependent": 37.0,
-        "similarity": 0.0,
-        "panel": 63.0
+        "panel": 59.7
       }
     }
   },
@@ -141,14 +133,14 @@
   {
     "name": "ablation",
     "file": "ablation.pdf",
-    "takeaway": "Removing P3, P2 or P4 each lets attacks through that the others do not catch; on this subset P1 and P5 never bind.",
+    "takeaway": "Removing any principle lets attacks through that the others do not catch, P3 most; removing P2 halves the benign incidents with a denial.",
     "data_sources": [
       "results/eval_attacks/all_trials.csv"
     ],
     "n": {
       "shared_variants": 75,
       "asr_pct": {
-        "DEFER (subset)": 2.2,
+        "DEFER": 2.2,
         "minus P1": 4.9,
         "minus P2": 6.7,
         "minus P3": 16.9,
@@ -156,7 +148,7 @@
         "minus P5": 6.7
       },
       "benign_any_denial_pct": {
-        "DEFER (subset)": 81.7,
+        "DEFER": 81.7,
         "minus P1": 68.3,
         "minus P2": 43.3,
         "minus P3": 55.0,
@@ -175,10 +167,10 @@
     "n": {
       "AP-4": {
         "asr_pct": {
-          "Flat": 76.2,
+          "Flat": 57.1,
           "ACL": 14.3,
-          "JudgeOnly": 81.0,
-          "DEFER minus P5": 33.3,
+          "JudgeOnly": 85.7,
+          "DEFER minus P5": 28.6,
           "DEFER": 0.0
         },
         "exposure_pct": {
@@ -227,11 +219,12 @@
     "file": "validator_behavior.pdf",
     "takeaway": "The four judges agree only moderately with each other, so how many of them must approve changes what gets through by tens of points.",
     "data_sources": [
-      "logs/*_eval_attacks_q235_div4/agenticcyops_*.jsonl"
+      "cache/replay_v31/rounds.jsonl",
+      "cache/validators/*.jsonl"
     ],
     "n": {
-      "rounds": 3980,
-      "rounds_all_voted": 3980,
+      "rounds": 3880,
+      "rounds_all_voted": 3880,
       "panel": [
         "L1_mistral",
         "L2_gemma",
@@ -239,24 +232,24 @@
         "L4_scout"
       ],
       "kappa": {
-        "L1_mistral|L2_gemma": 0.52,
-        "L1_mistral|L3_gptoss": 0.46,
+        "L1_mistral|L2_gemma": 0.56,
+        "L1_mistral|L3_gptoss": 0.5,
         "L1_mistral|L4_scout": 0.56,
-        "L2_gemma|L3_gptoss": 0.63,
-        "L2_gemma|L4_scout": 0.41,
-        "L3_gptoss|L4_scout": 0.44
+        "L2_gemma|L3_gptoss": 0.66,
+        "L2_gemma|L4_scout": 0.42,
+        "L3_gptoss|L4_scout": 0.46
       },
       "reject_rate_pct": {
-        "L1_mistral": 37.9,
-        "L2_gemma": 49.8,
-        "L3_gptoss": 47.3,
-        "L4_scout": 26.6
+        "L1_mistral": 38.5,
+        "L2_gemma": 50.2,
+        "L3_gptoss": 46.7,
+        "L4_scout": 27.9
       },
       "approved_pct_by_quorum": {
-        "1": 80.6,
-        "2": 68.3,
-        "3": 52.0,
-        "4": 37.4
+        "1": 79.7,
+        "2": 66.7,
+        "3": 52.1,
+        "4": 38.2
       }
     }
   },
@@ -376,7 +369,7 @@
   {
     "name": "transfer",
     "file": "transfer.pdf",
-    "takeaway": "The cascade holds its attack-success reduction across four domains and four primary models; what it costs on benign work does not transfer and varies widely by domain.",
+    "takeaway": "The cascade holds its attack-success reduction across four domains and five primary models; what it costs on benign work does not transfer and varies widely by domain.",
     "data_sources": [
       "results/eval_attacks/all_trials.csv"
     ],
@@ -418,10 +411,16 @@
         "benign any-denial": 40.0
       },
       "Llama-3.1-8B / cyberops": {
-        "Flat": 36.0,
-        "ACL": 33.3,
-        "DEFER": 5.3,
-        "benign any-denial": 45.0
+        "Flat": 34.7,
+        "ACL": 33.8,
+        "DEFER": 8.4,
+        "benign any-denial": 38.3
+      },
+      "gpt-oss-120b / cyberops": {
+        "Flat": 21.3,
+        "ACL": 18.7,
+        "DEFER": 6.2,
+        "benign any-denial": 0.0
       }
     }
   },

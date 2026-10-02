@@ -20,6 +20,8 @@ import json
 from collections import Counter
 from dataclasses import asdict
 
+import numpy as np
+
 from analysis.p3_eligibility import _payload, trials
 from analysis.replay_panels import asr, load_all_votes, outcomes
 from attacks.effects import build_calls, evaluate_effects
@@ -191,6 +193,50 @@ def figure(res: dict | None = None):
     path = BASE_DIR / "docs" / "figures" / "boundary_v31.png"
     fig.savefig(path, dpi=200, bbox_inches="tight")
     fig.savefig(BASE_DIR / "paper" / "figs" / "boundary_v31.pdf", bbox_inches="tight")
+    plt.close(fig)
+    figure_domains(res)
+    return path
+
+
+def figure_domains(res: dict | None = None):
+    """The boundary at v3.1 only, in every domain: attack success (top, 95%
+    intervals) and legitimate tool proposals denied or escalated (bottom)."""
+    import re
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from analysis import figstyle as fs
+    fs.apply()
+    res = res or json.loads((BASE_DIR / "results" / "replay_v31.json").read_text())
+    parse = lambda ci: [float(x) for x in re.findall(r"[0-9.]+", ci or "")][:3]
+    cfgs = ("FLAT", "ACL", "JUDGEONLY", "NOJUDGE", "FULL")
+    names = {"FLAT": "Flat", "ACL": "ACL", "JUDGEONLY": "JudgeOnly", "NOJUDGE": "NoJudge", "FULL": "DEFER"}
+    fig, axes = plt.subplots(2, 4, figsize=(fs.WIDTH_2COL, 3.4), sharey="row", sharex=True,
+                             gridspec_kw={"height_ratios": [1.6, 1.0], "hspace": 0.12})
+    x = np.arange(len(cfgs))
+    for k, d in enumerate(D4):
+        ax, axb = axes[0, k], axes[1, k]
+        for i, c in enumerate(cfgs):
+            a, lo, hi = parse(res[d][c]["asr"])
+            col = fs.CONFIG_COLOR[names[c]]
+            ax.bar(i, a, width=0.66, color=col, zorder=2, edgecolor="#555555", linewidth=0.4)
+            ax.errorbar(i, a, yerr=[[a - lo], [hi - a]], fmt="none", zorder=3, **fs.ERRORBAR_KW)
+            ax.text(i, hi + 1.0, f"{a:.1f}", ha="center", va="bottom", fontsize=5.5)
+            b = res[d][c]["benign_denied"]
+            axb.bar(i, b, width=0.66, color=col, alpha=0.55, zorder=2, edgecolor="#555555", linewidth=0.4)
+            axb.text(i, b + 1.5, f"{b:.0f}", ha="center", va="bottom", fontsize=5.5)
+        ax.set_title({"cyberops": "CyberOps"}.get(d, d.capitalize()), fontsize=8)
+        axb.set_xticks(x)
+        axb.set_xticklabels([names[c] for c in cfgs], rotation=45, ha="right", fontsize=6.5)
+        ax.set_ylim(0, 52)
+        axb.set_ylim(0, 72)
+        fs.style_axes(ax)
+        fs.style_axes(axb)
+    axes[0, 0].set_ylabel("Attack success (%)")
+    axes[1, 0].set_ylabel("Legit. denied (%)")
+    path = BASE_DIR / "docs" / "figures" / "boundary_domains.png"
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    fig.savefig(BASE_DIR / "paper" / "figs" / "boundary_domains.pdf", bbox_inches="tight")
     plt.close(fig)
     return path
 

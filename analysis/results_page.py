@@ -43,6 +43,7 @@ def build() -> str:
     prim = _load("primaries_v31.json") or _load("primaries_v29.json")
     prim_tag = "v3.1" if (RES / "primaries_v31.json").exists() else "v2.9"
     tam = _load("tamas.json")
+    mech = _load("v31_mechanisms.json")
     figs_n = {}
     fj = BASE_DIR / "paper" / "figs" / "figures.json"
     if fj.exists():
@@ -84,15 +85,32 @@ def build() -> str:
                  tam.get("full", {}).get(a, {}).get("asr_local4", "as run")]
                 for a in ("DPI", "impersonation", "colluding", "byzantine", "contradicting")]
 
-    figs = [("boundary_v31", "The boundary at v3.1 in four domains"),
+    g, sb, ev, xp = (mech.get("gate", {}).get("q235_local2_v31", {}), mech.get("siblings", {}),
+                     mech.get("evidence", {}), mech.get("expiry", {}).get("q235_local2_v31persist", {}))
+    mech_rows = [
+        ["Approve gate, offline (CyberOps)", f'approves {g.get("attack_approved_pct")}% of attack proposals, '
+         f'{g.get("benign_approved_pct")}% of legitimate ones; substituted for the panel: '
+         f'{g.get("executed_as_run")} -> {g.get("executed_with_gate")} executed trials'],
+        ["Rule-evading siblings (24)", f'held {sb.get("held")}, the panel intercepting in '
+         f'{sb.get("held_with_a_panel_interception")}; executed: {", ".join(sb.get("executed", []))}'],
+        ["P2.2 on structured evidence", f'{ev.get("attack|denied_trusted")} attack proposals denied instead of '
+         f'{ev.get("attack|denied_full")}; benign {ev.get("benign|denied_trusted")} of {ev.get("benign|calls")}'],
+        ["State expiry (first persistent pass)", f'as shipped {xp.get("shipped", {}).get("pct")}% denied; '
+         f'identity key, one-incident window {xp.get("identity_1", {}).get("pct")}%'],
+        ["Replay fidelity", f'{mech.get("fidelity", {}).get("all", {}).get("pct")}% of '
+         f'{mech.get("fidelity", {}).get("all", {}).get("of")} live votes reproduced'],
+    ] if mech else []
+
+    figs = [("boundary_domains", "The boundary at v3.1 in four domains, with its cost"),
+            ("boundary_v31", "The boundary at v3.1 beside the earlier runs"),
             ("judgment_boundary", "The boundary in CyberOps: attack success and legitimate work denied (v3.1)"),
-            ("interception_tiers", "First interception by decision tier (v3.1; ASB)"),
+            ("interception_tiers", "First interception by decision tier (v3.1; ASB live run)"),
             ("ap_heatmap", "Attack success per attack path (v3.1, CyberOps)"),
             ("paired_variants", "Paired outcome per variant, JudgeOnly vs DEFER (v3.1)"),
-            ("transfer", "Across domains (v3.1) and primaries (earlier runs)"),
+            ("transfer", "Across domains and primaries (v3.1; Scout and Mistral earlier runs)"),
             ("channels", "By injection channel (v3.1)"), ("cost", "Where the cost goes (v3.1)"),
             ("ablation", "Leave-one-out ablation (v3.1)"),
-            ("validator_behavior", "Judge agreement and quorum (earlier runs)"),
+            ("validator_behavior", "Judge agreement and quorum (v3.1)"),
             ("panel_composition", "Panel composition and lineage (earlier runs)"),
             ("state_carryover", "Persistent state (v3.1)"),
             ("primaries_boundary_v31", "Three primaries (v3.1)"), ("tamas", "TAMAS"),
@@ -137,6 +155,8 @@ figcaption{{color:var(--muted);font-size:13px;margin-top:6px}}
 <div class="wrap">{_table(["Arm", "Earlier run %", "v3.1 %", "Difference"], between)}</div>
 <p class="note">Each judge's approval of legitimate proposals it judged (%).</p>
 <div class="wrap">{_table(["Judge", *[NAMES[d] for d in D4]], jt)}</div>
+<p class="note">Mechanism analyses repeated on the v3.1 runs (results/v31_mechanisms.md).</p>
+<div class="wrap">{_table(["Analysis", "Result"], mech_rows)}</div>
 
 <h2 id="earlier">Ablation, other primaries, TAMAS</h2>
 <div class="wrap">{_table([abl_head, "Attack success %", "Benign incidents with a denial %"], abl_rows)}</div>

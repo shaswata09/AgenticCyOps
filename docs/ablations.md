@@ -1,5 +1,12 @@
 # Ablation Studies
 
+> **Reported ablation.** The paper's leave-one-out arms are the v3.1 runs
+> `q235_local2_disabled_P{1..5}_v31` (CyberOps, all 75 variants, launched by
+> `scripts/run_v31_completion.sh A` through `scripts/run_attack_paths.sh` with
+> `DISABLE_PRINCIPLES=P<i>`), re-judged under Local4. Results: README, "Results at a
+> glance"; figure `paper/figs/ablation.pdf`. The tooling below is the earlier,
+> development-time workflow.
+
 Two paths, both driven by [scripts/run_ablations.sh](../scripts/run_ablations.sh):
 
 | Mode | Cost | What you get |

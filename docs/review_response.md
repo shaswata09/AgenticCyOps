@@ -61,6 +61,15 @@ gate's decision substituted; the oracle then re-scores the trial (direct outcome
   before the attack step (85 not-attempted trials with an open round).
 - **The paper's claim that the gate "cleared a third of proposals without letting
   an attack through" is withdrawn.**
+- **At v3.1** (`results/v31_mechanisms.md`, 75 original CyberOps variants): the gate
+  approves 15% of attack-incident proposals, 90% of the attack proposals themselves
+  (27 of 30), and 36% of benign ones, so it is still anti-selective. Substituting it
+  executes no further attack (4 -> 4 trials): the fixed rules stop all but two blocked
+  CyberOps attempts before the panel, and the attack proposals the gate would approve
+  belong to replays and chains one approval does not complete. In the v2.9 calibration
+  run, on the same 75 variants, it executes nine more (2.7% -> 6.7%). The live default
+  gate decided none of the 3,880 consequential proposals. The paper now states the
+  anti-selectivity as the finding and the doubling as the earlier run's.
 
 ### B1. The scorer fixed, evaluated offline `done`
 Alignment gets the incident evidence (as P2 uses it) and Qwen3-Embedding-0.6B;
@@ -176,6 +185,16 @@ legitimate proposals escalated.
 **Rule evasion with a working panel (E2).** Of the 24 siblings, **22 were held
 by the judges and 2 executed** (CyberOps AP-10, finance AP-5; 6 of 72 trials).
 Evading a rule hands the decision to the judges, who then fail on 2 of 24.
+At v3.1 (the siblings ran with the boundary): parents and siblings succeed alike under
+FLAT (87.5% and 88.9%); under FULL 22 of 24 are held, the panel intercepting in 14
+(handoff validation, configuration integrity, and drift checks hold the rest), and two
+CyberOps handoff-poisoning siblings (AP-9) execute, 6 of 72 trials.
+
+**At v3.1** the leave-one-out arms ran on all 75 CyberOps variants: FULL 2.2%,
+minus P1 / P2 / P3 / P4 / P5 4.9 / 6.7 / 16.9 / 7.6 / 6.7%; paired by variant every
+increase excludes zero (P1 +2.7 points [0.4, 5.8]). Judge approval of attack vs benign
+proposals over the 3,880 v3.1 FULL rounds: Gemma 21/75%, gpt-oss 34/80%, Mistral 38/92%,
+Scout 62/94%; mean kappa 0.53.
 
 ## B2: the live run at defense-freeze-v2.9 and the replay calibration `done`
 Source: `analysis/b2_live.py` -> `results/b2_live.json`. Group `q235_local2_v29`:
@@ -229,6 +248,13 @@ Source: `analysis/ledger_expiry.py` (drives the shipped `CrossIncidentLedger` an
   one-incident window halves the denials and keeps every stateful interception in
   the isolated attack runs (48 of 48 CyberOps trials). Values are upper bounds
   (some remaining denials are retries that only exist because of earlier denials).
+- **At v3.1** (`results/v31_mechanisms.md`; first pass, 80 consequential benign
+  proposals): as shipped 96.2%; skeleton expiry after 5 / 2 / 1 incidents 77.5 / 62.5 /
+  48.8%; identity, never expiring 83.8%; identity with a one-incident window 38.8%,
+  keeping 55 of 55 stateful interceptions in the isolated CyberOps attack runs. The
+  reversed pass agrees (98.8% as shipped, 45.9% with identity and one incident). Benign
+  completion is 97% isolated and 5% persistent in both passes; the first benign incident
+  has no stateful denial.
 
 ## Major 4: rules that trust attacker-controlled evidence `done`
 Source: `analysis/trusted_evidence.py` (re-runs the shipped `ParameterValidator`
@@ -248,6 +274,10 @@ target-in-evidence check on every logged tool call under FULL, four domains).
 
 - On this suite, trusting only structured evidence **strengthens P2.2 at no
   benign cost**: naming the target in the alert text no longer satisfies it.
+- **At v3.1** (four domains, the E2 siblings included): 713 attack proposals, 301
+  denied with the full incident and 501 with trusted fields only; benign 21 of 1,386
+  either way. (Re-run with the current attribution code, the earlier runs give 201 and
+  270 of 494, benign 23 of 1,376.)
   (Per-call overlap between the two sets not yet computed.)
 
 ## Adaptive attacker (two-stage) `not done`

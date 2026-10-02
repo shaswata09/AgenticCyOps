@@ -101,6 +101,28 @@ The other eleven attack paths keep their v2.1 results (no defense decision
 changed); the superseded v2.1 rows for AP-2/3/4/14 are archived under
 `results/eval_attacks/_superseded_v2.1/` and excluded from `all_trials.csv`.
 
+## The reported runs at `defense-freeze-v3.1`
+
+All local (Qwen3-235B or the named primary; live panel local2 = Mistral-Small +
+Gemma-4, two of two; Local4 offline afterwards from `cache/replay_v31`), RUN_TAG-labeled,
+freeze guard on, decision code equal to `defense-freeze-v3.1.1`.
+
+| Launcher | Groups | What | Trials |
+|---|---|---|---|
+| `scripts/run_v31.sh` | `q235_local2_v31` | the boundary: five configurations, four domains, all paths (plus the 24 E2 siblings) and the benign scenarios | 5,385 |
+| `scripts/run_v31_completion.sh A` | `q235_local2_disabled_P{1..5}_v31` | leave-one-out, CyberOps, all paths and benign | 1,500 |
+| | `q235_local2_v31persist`, `..._v31persist2` | persistent state: 2 variants x 1 trial per path, then the benign scenarios; four domains, and CyberOps reversed | 205 |
+| | `llama8b_local2_v31` | Llama-3.1-8B boundary, CyberOps | 1,500 |
+| `scripts/run_v31_completion.sh B` | `oss120_local2_v31` | gpt-oss-120b boundary, CyberOps | 1,500 |
+
+Afterwards (no model calls except the Local4 votes):
+
+```
+python -m analysis.replay_v31 build                  # rounds -> cache/replay_v31
+python -m analysis.replay_run query --validator L1_mistral --url ... --replay-dir cache/replay_v31   # x4 judges
+make replay-v31 primaries-v31 v31-mechanisms figures
+```
+
 ## Tables and reports
 
 ```

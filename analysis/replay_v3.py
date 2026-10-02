@@ -342,7 +342,7 @@ def figure() -> Path:
     fig.tight_layout(w_pad=1.0)
     path = BASE_DIR / "docs" / "figures" / "panel_context_v3.png"
     fig.savefig(path, dpi=200, bbox_inches="tight")
-    fig.savefig(BASE_DIR / "paper" / "figs" / "panel_context_v3.pdf", bbox_inches="tight")  # for the paper
+    fig.savefig(BASE_DIR / "paper" / "figs" / "panel_context.pdf", bbox_inches="tight")  # the paper's fig:context
     plt.close(fig)
     return path
 
