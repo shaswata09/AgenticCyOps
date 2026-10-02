@@ -76,7 +76,14 @@ boundary() {  # boundary <worktree> <group> <prefix> <tag>: the seven streams of
     stream "$wt" "${p}_s6" 6 "$g" cyberops "$ALL" symbolic_only 1 RUN_TAG="$tag"
 }
 
-note "pipeline: start"
+# PHASES: which parts to run (default all). A resume after a change of plan
+# (2026-10-02: the ablation re-split into four streams per arm) runs
+# PHASES="ablation B C"; the wait before phase B covers every stream still
+# running from the worktrees, not only this shell's children.
+PHASES="${PHASES:-boundary ablation llama other B C}"
+want() { [[ " $PHASES " == *" $1 "* ]]; }
+streams_running() { ps -eo cmd | grep -E "^(/bin/)?bash scripts/run_attack_paths.sh" | grep -q .; }
+note "pipeline: start (phases: $PHASES)"
 worktree "$W32" defense-freeze-v3.2 || exit 1
 worktree "$W314" defense-freeze-v3.1.4 || exit 1
 set -a; . "$MAIN/.env"; set +a
@@ -99,13 +106,23 @@ curl -s --max-time 20 -H "Authorization: Bearer ${REMOTE_5090_API_KEY:-}" "${REM
     || { note "ABORT: Llama-3.1-8B node unreachable"; exit 1; }
 note "phase A: servers up"
 
-boundary "$W32" q235_local2 q235 v32
-for i in 1 2 3 4 5; do
-    stream "$W32" "abl_P$i" $((i - 1)) q235_local2 cyberops "$ALL" agenticcyops 1 RUN_TAG=v32 \
-        DISABLE_PRINCIPLES="P$i" PORT_EXTRA=-1000 CHROMA_TAG=abl
-done
-boundary "$W32" llama8b_local2 llama v32
-for d in healthcare finance legal; do
+want boundary && boundary "$W32" q235_local2 q235 v32
+ablation() {  # each arm as four streams (one stream per arm took ~12 h); the
+    # sub-streams of an arm share its slot and are kept apart by PORT_EXTRA
+    # (10600/10800/11000/11200 + 3000*slot) and CHROMA_TAG
+    local parts=("ap1,ap2,ap3,ap4" "ap5,ap6,ap7,ap8" "ap9,ap10,ap11,ap12" "ap13,ap14,ap15")
+    local extra=(-1000 -800 -600 -400) j
+    for i in 1 2 3 4 5; do
+        for j in 0 1 2 3; do
+            stream "$W32" "abl_P${i}_$j" $((i - 1)) q235_local2 cyberops "${parts[$j]}" agenticcyops \
+                $([ $j = 3 ] && echo 1 || echo 0) RUN_TAG=v32 DISABLE_PRINCIPLES="P$i" \
+                PORT_EXTRA="${extra[$j]}" CHROMA_TAG="abl$j"
+        done
+    done
+}
+want ablation && ablation
+want llama && boundary "$W32" llama8b_local2 llama v32
+want other && for d in healthcare finance legal; do
     stream "$W314" "${d}_judge_h1" 0 q235_local2 "$d" "$H1" llm_judge 1 RUN_TAG=v314 PORT_EXTRA=-1400
     stream "$W314" "${d}_judge_h2" 1 q235_local2 "$d" "$H2" llm_judge 0 RUN_TAG=v314 PORT_EXTRA=-1400
     s=2
@@ -115,7 +132,9 @@ for d in healthcare finance legal; do
     done
 done
 wait
+while streams_running; do sleep 60; done
 note "phase A: finished"
+want B || { note "pipeline: stopping before phase B"; exit 0; }
 
 # ---------------- phase B: gpt-oss-120b primary ----------------
 stop_port 8000; sleep 60
@@ -126,6 +145,7 @@ wait_up 8200 || { note "ABORT: gpt-oss :8200 not up"; exit 1; }
 note "phase B: gpt-oss-120b up"
 boundary "$W32" oss120_local2 oss v32
 wait
+while streams_running; do sleep 60; done
 note "phase B: finished"
 
 # ---------------- phase C: logs into the main tree, servers down ----------------
