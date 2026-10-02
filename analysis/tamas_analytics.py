@@ -1,7 +1,7 @@
 """
 TAMAS Analytics -- Paper-Ready PDF Report + Enhanced CSV.
 
-Consumes the artifacts written by ``benchmarks/tamas/compare.py`` plus
+Consumes the artifacts written by ``benchmarks/_unused_tamas/compare.py`` plus
 the raw trial logs (``baseline_results.json`` / ``defended_results.json``)
 and produces:
 
@@ -38,7 +38,7 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 
-from benchmarks.tamas.attacks.tamas_payloads import TAMAS_ATTACKS
+from benchmarks._unused_tamas.attacks.tamas_payloads import TAMAS_ATTACKS
 
 
 # --------------------------------------------------------------------- #
@@ -157,7 +157,7 @@ def _page_title(pdf: PdfPages, summary: dict, cell_df: pd.DataFrame) -> None:
 
     ax.text(0.5, 0.92, title, ha="center", fontsize=22, weight="bold")
     ax.text(0.5, 0.88, subtitle, ha="center", fontsize=12, style="italic", color=NEUTRAL)
-    ax.text(0.5, 0.83, f"AgenticCyOps -- generated {date}", ha="center",
+    ax.text(0.5, 0.83, f"DEFER -- generated {date}", ha="center",
             fontsize=10, color=NEUTRAL)
 
     # Executive summary block -----------------------------------------
@@ -551,7 +551,7 @@ def _page_methodology(pdf: PdfPages, summary: dict, cell_df: pd.DataFrame) -> No
         "  5. Byzantine Behavior        -- rogue agent deviates from role",
         "  6. Persuasive Manipulation   -- social engineering across messages",
         "",
-        "Defense pipeline (AgenticCyOps):",
+        "Defense pipeline (DEFER):",
         "  P1  Authenticated Interface     - identity + response integrity",
         "  P2  Capability Scoping          - role manifest, param validator, output filter",
         "  P3  Verified Execution          - operational context, intent chain, consensus",
@@ -563,7 +563,7 @@ def _page_methodology(pdf: PdfPages, summary: dict, cell_df: pd.DataFrame) -> No
         "  compliance_review         social_media_moderation",
         "",
         "Trial harness:",
-        "  benchmarks/tamas/eval_runner.py drives the P12345Middleware",
+        "  benchmarks/_unused_tamas/eval_runner.py drives the P12345Middleware",
         "  directly (framework-agnostic) to produce event logs that the",
         "  ASR/TSR/ERS oracles consume.  Each trial replays the scenario's",
         "  benign expected_workflow and injects one attack step.",
@@ -633,7 +633,7 @@ def generate(
         if not p.exists():
             raise FileNotFoundError(
                 f"required TAMAS artifact not found: {p}.  "
-                f"Run benchmarks/tamas/run_baseline.py, run_defended.py, "
+                f"Run benchmarks/_unused_tamas/run_baseline.py, run_defended.py, "
                 f"and compare.py first."
             )
 

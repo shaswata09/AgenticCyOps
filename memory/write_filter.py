@@ -13,7 +13,7 @@ Usage:
     from memory.write_filter import WriteFilter
 
     wf = WriteFilter(
-        embedding_model_path="/storage/data/AgenticCyOps_Private/models/Qwen/Qwen3-Embedding-8B",
+        embedding_model_path=str(MODELS_DIR / "Qwen" / "Qwen3-Embedding-8B"),
         similarity_threshold=0.5,
     )
 
@@ -26,6 +26,8 @@ Usage:
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
+
+from config import MODELS_DIR
 
 
 class WriteFilter:
@@ -46,8 +48,7 @@ class WriteFilter:
             similarity_threshold: Minimum cosine similarity for a write to pass.
         """
         if embedding_model_path is None:
-            from config import BASE_DIR
-            embedding_model_path = str(BASE_DIR / "models" / "Qwen" / "Qwen3-Embedding-0.6B")
+            embedding_model_path = str(MODELS_DIR / "Qwen" / "Qwen3-Embedding-0.6B")
         self._model = SentenceTransformer(embedding_model_path, device="cpu")
         self._threshold = similarity_threshold
 

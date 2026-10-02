@@ -65,12 +65,24 @@ class ServerRegistry:
             except Exception as e:
                 print(f"  Warning: Failed to load {module_path}: {e}")
 
+    def assign_ports(self, base_port: int = 9000) -> dict:
+        """Deterministic tool -> port map: sorted tool ids, sequential ports.
+
+        Both sides use this one method -- ``start_all`` (the process that
+        serves the tools) and every client (harness, baseline runner).
+        Until 2026-09 the servers were numbered in module-discovery order
+        while the clients assumed sorted order, so most calls reached the
+        wrong tool's server and came back as 404 "Not Found".
+        """
+        self._ports = {tool_id: base_port + i for i, tool_id in enumerate(sorted(self._servers))}
+        return dict(self._ports)
+
     async def start_all(self, base_port: int = 9000):
         """Start all loaded tool servers on sequential ports."""
         self.load_tools()
-        port = base_port
-        for tool_id, server in self._servers.items():
-            self._ports[tool_id] = port
+        self.assign_ports(base_port)
+        for tool_id, port in self._ports.items():
+            server = self._servers[tool_id]
             config = uvicorn.Config(
                 server.app,
                 host="127.0.0.1",
@@ -81,7 +93,6 @@ class ServerRegistry:
             task = asyncio.create_task(uv_server.serve())
             self._uvicorn_servers.append(uv_server)
             self._tasks.append(task)
-            port += 1
 
     async def stop_all(self):
         """Stop all running tool servers."""

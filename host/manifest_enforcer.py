@@ -67,11 +67,19 @@ class ManifestEnforcer:
 
         return True, "allowed"
 
+    @staticmethod
+    def _store_allowed(store_id: str, allowed: list) -> bool:
+        """Manifests list short store ids (``M2``); agents and payloads emit
+        either form (``M2`` or ``M2_case_context``).  Compare on the short
+        id, as the MMA's AccessController does."""
+        short = str(store_id).split("_", 1)[0]
+        return any(str(a).split("_", 1)[0] == short for a in allowed)
+
     def validate_memory_read(self, agent_phase: str, store_id: str) -> tuple[bool, str]:
         manifest = self._manifests.get(agent_phase)
         if not manifest:
             return False, f"Unknown phase: {agent_phase}"
-        if store_id not in manifest.get("allowed_memory_read", []):
+        if not self._store_allowed(store_id, manifest.get("allowed_memory_read", [])):
             return False, f"Store {store_id} not readable by {agent_phase}"
         return True, "allowed"
 
@@ -79,7 +87,7 @@ class ManifestEnforcer:
         manifest = self._manifests.get(agent_phase)
         if not manifest:
             return False, f"Unknown phase: {agent_phase}"
-        if store_id not in manifest.get("allowed_memory_write", []):
+        if not self._store_allowed(store_id, manifest.get("allowed_memory_write", [])):
             return False, f"Store {store_id} not writable by {agent_phase}"
         return True, "allowed"
 

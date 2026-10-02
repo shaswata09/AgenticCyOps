@@ -8,7 +8,7 @@ Produces:
     baseline_summary.csv + baseline_summary.pdf — per-config metrics table
     tool_call_heatmap.png — which tools each phase called per config
     latency_comparison.png — E2E latency across configs
-    principle_activity.png — P1-P5 activation (AgenticCyOps only)
+    principle_activity.png — P1-P5 activation (DEFER only)
     config_comparison.png — side-by-side metrics comparison
 """
 
@@ -25,6 +25,7 @@ import numpy as np
 import seaborn as sns
 
 from config import BASE_DIR
+from analysis.runlogs import config_files
 
 # ---- Seaborn style ----
 sns.set_theme(style="whitegrid", font_scale=1.1, palette="muted")
@@ -38,7 +39,7 @@ plt.rcParams.update({
 })
 
 CONFIGS = ["flat", "acl_hardened", "agenticcyops"]
-CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened", "agenticcyops": "AgenticCyOps"}
+CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened", "agenticcyops": "DEFER"}
 CONFIG_COLORS = {"flat": "#e74c3c", "acl_hardened": "#f39c12", "agenticcyops": "#2ecc71"}
 PHASES = ["monitor", "analyze", "admin", "report"]
 
@@ -46,7 +47,7 @@ PHASES = ["monitor", "analyze", "admin", "report"]
 def load_logs(domain: str, config: str) -> list[dict]:
     log_dir = BASE_DIR / "logs" / f"{domain}_baseline"
     events = []
-    for f in sorted(log_dir.glob(f"{config}*.jsonl")):
+    for f in sorted(config_files(log_dir, config)):
         with open(f) as fh:
             for line in fh:
                 line = line.strip()
@@ -327,7 +328,7 @@ def generate_latency_chart(domain: str, output_dir: Path):
 
 
 def generate_principle_chart(domain: str, output_dir: Path):
-    """P1-P5 activation chart for AgenticCyOps config."""
+    """P1-P5 activation chart for DEFER config."""
     events = load_logs(domain, "agenticcyops")
     if not events:
         return

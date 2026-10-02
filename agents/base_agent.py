@@ -7,13 +7,14 @@ structured output for handoff.
 """
 
 import json
+import os
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Optional
 
 from openai import OpenAI
 
-from config import BASE_DIR
+from config import BASE_DIR, model_display_name
 from logging_utils import ExperimentLogger
 
 
@@ -22,6 +23,11 @@ class ToolCallProposal:
     tool_id: str
     arguments: dict
     justification: str = ""
+    # Assigned by the host when the proposal is first seen; links the
+    # ``tool_proposed`` audit event to every later event for this call.
+    # Deliberately not part of ``to_proposal()``: P3 hashes proposals for
+    # replay detection and the id must not make every call look unique.
+    call_id: str = ""
 
     def to_proposal(self) -> dict:
         return {
@@ -80,7 +86,7 @@ class BaseAgent:
         """
         Args:
             llm_provider: "openai" for vLLM/OpenAI-compatible, "anthropic" for Claude API
-            llm_model: Model name override (e.g. "claude-sonnet-4-20250514")
+            llm_model: Model name override (e.g. "claude-sonnet-4-5-20250929")
             api_key_env: Env-var name to read the OpenAI-compatible API key
                 from (e.g. "NVIDIA_API_KEY" for NVIDIA cloud). Absent for
                 self-hosted vLLM which ignores the key.
@@ -99,17 +105,20 @@ class BaseAgent:
         self.logger = logger
         self._api_key_env = api_key_env
         self._extra_body = extra_body
+        # Sampling (H7): the primary samples at PRIMARY_TEMPERATURE (default
+        # 0.7); the harness sets a per-trial seed which is passed to the
+        # server (vLLM / OpenAI honour it; Anthropic has no seed) and logged.
+        self.temperature: float = float(os.environ.get("PRIMARY_TEMPERATURE", "0.7"))
+        self.seed: Optional[int] = None
 
         if llm_provider == "anthropic":
-            import os
             from anthropic import Anthropic
             from config import load_env
             load_env()
             self._anthropic_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-            self._model_name = llm_model or "claude-sonnet-4-20250514"
+            self._model_name = llm_model or "claude-sonnet-4-5-20250929"
             self._client = None
         else:
-            import os
             from config import load_env
             load_env()
             api_key = os.environ.get(api_key_env, "") if api_key_env else "unused"
@@ -118,6 +127,13 @@ class BaseAgent:
             self._anthropic_client = None
 
         self._system_prompt = self._load_prompt()
+
+    def set_seed(self, seed: Optional[int]) -> None:
+        """Per-trial sampling seed (H7)."""
+        self.seed = None if seed is None else int(seed)
+
+    def set_temperature(self, temperature: float) -> None:
+        self.temperature = float(temperature)
 
     def _load_prompt(self) -> str:
         path = BASE_DIR / "domains" / self.domain / "prompts" / f"{self.phase}.txt"
@@ -140,12 +156,11 @@ class BaseAgent:
         """Switch LLM endpoint or provider (for diversity checks)."""
         self.llm_provider = provider
         if provider == "anthropic":
-            import os
             from anthropic import Anthropic
             from config import load_env
             load_env()
             self._anthropic_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-            self._model_name = model or "claude-sonnet-4-20250514"
+            self._model_name = model or "claude-sonnet-4-5-20250929"
             self._client = None
         else:
             self.llm_url = url or self.llm_url
@@ -157,8 +172,21 @@ class BaseAgent:
         parts = []
 
         incident = context.get("incident", {})
+        # ``memory_ops`` is harness scripting (which reads / writes to
+        # perform), not part of the alert the operator would see.
+        shown = {k: v for k, v in incident.items() if k != "memory_ops"} if isinstance(incident, dict) else incident
         parts.append("## Incident")
-        parts.append(json.dumps(incident, indent=2, default=str))
+        parts.append(json.dumps(shown, indent=2, default=str))
+
+        # Results of this phase's memory reads (performed by the host
+        # before this call, H4)
+        reads = (context.get("memory_context") or {}).get(self.phase) or []
+        entries = [(r.get("store"), d) for r in reads if isinstance(r, dict)
+                   for d in (r.get("documents") or [])]
+        if entries:
+            parts.append("\n## Memory Context")
+            for store, doc in entries[:6]:
+                parts.append(f"[{store}] {doc}")
 
         # Include prior phase handoffs
         for phase in ("monitor", "analyze", "admin"):
@@ -211,8 +239,10 @@ class BaseAgent:
                 tokens_prompt=tokens_prompt,
                 tokens_completion=tokens_completion,
                 extra={
-                    "model": self._model_name,
+                    "model": model_display_name(self._model_name),
                     "provider": self.llm_provider,
+                    "temperature": self.temperature,
+                    "seed": self.seed,
                     "tools_visible": len(tools) if tools else 0,
                     "config": self.config,
                 },
@@ -231,9 +261,11 @@ class BaseAgent:
                 {"role": "system", "content": self._system_prompt},
                 {"role": "user", "content": user_message},
             ],
-            "temperature": 0.0,
+            "temperature": self.temperature,
             "max_tokens": 4096,
         }
+        if self.seed is not None:
+            kwargs["seed"] = int(self.seed)
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = "auto"
@@ -271,7 +303,7 @@ class BaseAgent:
             "model": self._model_name,
             "system": self._system_prompt,
             "messages": [{"role": "user", "content": user_message}],
-            "temperature": 0.0,
+            "temperature": self.temperature,
             "max_tokens": 4096,
         }
         if anthropic_tools:
@@ -293,10 +325,12 @@ class BaseAgent:
                 result.reasoning += block.text
                 try:
                     parsed = json.loads(block.text)
+                    if not isinstance(parsed, dict):
+                        raise TypeError("non-object JSON")
                     result.summary = parsed.get("triage_summary",
                                      parsed.get("response_summary",
                                      parsed.get("summary", block.text[:200])))
-                except (json.JSONDecodeError, TypeError):
+                except (json.JSONDecodeError, TypeError, ValueError):
                     result.summary = block.text[:200]
 
             elif block.type == "tool_use":
@@ -322,17 +356,21 @@ class BaseAgent:
         content = message.content or ""
         result.reasoning = content
 
-        # Try to parse JSON from content
+        # Try to parse JSON from content.  Models sometimes answer with a
+        # JSON array or scalar; anything that is not an object is treated as
+        # free text (this raised AttributeError and voided the trial before).
         try:
             parsed = json.loads(content)
+            if not isinstance(parsed, dict):
+                raise TypeError("non-object JSON")
             result.summary = parsed.get("triage_summary",
                              parsed.get("response_summary",
                              parsed.get("summary", content[:200])))
             # Extract memory write proposals
             for key in ("memory_writes", "proposed_writes"):
-                if key in parsed:
-                    result.memory_writes = parsed[key]
-        except (json.JSONDecodeError, TypeError):
+                if key in parsed and isinstance(parsed[key], list):
+                    result.memory_writes = [w for w in parsed[key] if isinstance(w, dict)]
+        except (json.JSONDecodeError, TypeError, ValueError):
             result.summary = content[:200] if content else "No content"
 
         # Extract tool calls from structured response
@@ -341,6 +379,9 @@ class BaseAgent:
                 try:
                     args = json.loads(tc.function.arguments)
                 except (json.JSONDecodeError, TypeError):
+                    args = {}
+                if not isinstance(args, dict):
+                    # v3.1: a list or string crashed P2 in the defended configs only
                     args = {}
                 result.proposed_tool_calls.append(
                     ToolCallProposal(

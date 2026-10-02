@@ -1,0 +1,537 @@
+[
+  {
+    "name": "judgment_boundary",
+    "file": "judgment_boundary.pdf",
+    "takeaway": "Never judging is the safest and escalates half of the legitimate work; the judges without the rules barely beat no checks; DEFER sits between them, at a cost set mostly by its rules.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv",
+      "logs/cyberops_eval_attacks_q235_local2_v31/*.jsonl"
+    ],
+    "n": {
+      "attack_trials": {
+        "Flat": 225,
+        "ACL": 225,
+        "NoJudge": 225,
+        "DEFER": 225,
+        "JudgeOnly": 225
+      },
+      "attack_variants": 75,
+      "benign_incidents": {
+        "Flat": 60,
+        "ACL": 60,
+        "NoJudge": 60,
+        "DEFER": 60,
+        "JudgeOnly": 60
+      },
+      "benign_scenarios": 20,
+      "judged_pct": {
+        "Flat": 0.0,
+        "ACL": 0.0,
+        "NoJudge": 0.0,
+        "DEFER": 26.4,
+        "JudgeOnly": 99.9
+      },
+      "benign_denied_pct": {
+        "Flat": 0.0,
+        "ACL": 51.9,
+        "NoJudge": 54.3,
+        "DEFER": 9.9,
+        "JudgeOnly": 4.5
+      },
+      "benign_tasks_completed_pct": {
+        "Flat": 98.3,
+        "ACL": 30.0,
+        "NoJudge": 25.0,
+        "DEFER": 96.7,
+        "JudgeOnly": 95.0
+      }
+    }
+  },
+  {
+    "name": "interception_tiers",
+    "file": "interception_tiers.pdf",
+    "takeaway": "Deterministic checks decide most interceptions on policy and structure attacks, and well under half on the semantic third-party benchmark, there only through content-dependent rules.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv",
+      "results/asb/e2e_validator_group_q235_div4_frozen_full/general/results.csv"
+    ],
+    "n": {
+      "CyberOps": 90,
+      "Other three domains": 218,
+      "ASB (live)": 154,
+      "CyberOps tier %": {
+        "content_independent": 31.1,
+        "content_dependent": 63.3,
+        "similarity": 3.3,
+        "panel": 2.2
+      },
+      "Other three domains tier %": {
+        "content_independent": 11.0,
+        "content_dependent": 42.2,
+        "similarity": 16.5,
+        "panel": 30.3
+      },
+      "ASB (live) tier %": {
+        "content_independent": 0.0,
+        "content_dependent": 40.3,
+        "similarity": 0.0,
+        "panel": 59.7
+      }
+    }
+  },
+  {
+    "name": "ap_heatmap",
+    "file": "ap_heatmap.pdf",
+    "takeaway": "JudgeOnly leaves whole attack paths red that DEFER clears; what survives DEFER is concentrated on a few paths, led by persuasion of the judges through the proposal's rationale (AP-10).",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "variants": {
+        "ap1": 5,
+        "ap2": 5,
+        "ap3": 5,
+        "ap4": 7,
+        "ap6": 5,
+        "ap7": 5,
+        "ap8": 5,
+        "ap11": 5,
+        "ap12": 5,
+        "ap13": 5,
+        "ap14": 5,
+        "ap5": 5,
+        "ap9": 5,
+        "ap10": 5,
+        "ap15": 3
+      },
+      "harness_proposed": [
+        "ap5",
+        "ap9",
+        "ap10",
+        "ap15"
+      ],
+      "defer_nonzero": [
+        "ap7",
+        "ap13",
+        "ap10"
+      ]
+    }
+  },
+  {
+    "name": "paired_variants",
+    "file": "paired_variants.pdf",
+    "takeaway": "Variant by variant the cascade dominates the judge-only pipeline: it rescues many variants JudgeOnly loses and gives up almost none.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "variants": 75,
+      "JudgeOnly fails, DEFER holds": 26,
+      "both fail": 3
+    }
+  },
+  {
+    "name": "ablation",
+    "file": "ablation.pdf",
+    "takeaway": "Removing any principle lets attacks through that the others do not catch, P3 most; removing P2 halves the benign incidents with a denial.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "shared_variants": 75,
+      "asr_pct": {
+        "DEFER": 2.2,
+        "minus P1": 4.9,
+        "minus P2": 6.7,
+        "minus P3": 16.9,
+        "minus P4": 7.6,
+        "minus P5": 6.7
+      },
+      "benign_any_denial_pct": {
+        "DEFER": 81.7,
+        "minus P1": 68.3,
+        "minus P2": 43.3,
+        "minus P3": 55.0,
+        "minus P4": 78.3,
+        "minus P5": 75.0
+      }
+    }
+  },
+  {
+    "name": "p5_reads",
+    "file": "p5_reads.pdf",
+    "takeaway": "On the read-dependent paths the judges do not help: removing the store policy (P5) reopens the leak that DEFER closes, at unchanged exposure.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "AP-4": {
+        "asr_pct": {
+          "Flat": 57.1,
+          "ACL": 14.3,
+          "JudgeOnly": 85.7,
+          "DEFER minus P5": 28.6,
+          "DEFER": 0.0
+        },
+        "exposure_pct": {
+          "Flat": 100.0,
+          "ACL": 28.6,
+          "JudgeOnly": 100.0,
+          "DEFER minus P5": 100.0,
+          "DEFER": 28.6
+        }
+      }
+    }
+  },
+  {
+    "name": "panel_composition",
+    "file": "panel_composition.pdf",
+    "takeaway": "Lineage, not size, buys security: the mixed-lineage panels let through about 1% of replayed attack actions, a same-size single-lineage panel (Lin3) about 10%, at similar benign rejection.",
+    "data_sources": [
+      "results/benign_panel_rejection_local.csv",
+      "results/asb/e2e_validator_group_q235_div4_*/general/results.csv"
+    ],
+    "n": {
+      "Single": {
+        "benign_rejected_pct": 15.0,
+        "letthrough_pct": 2.8,
+        "security_n": 1275
+      },
+      "Lin3": {
+        "benign_rejected_pct": 14.1,
+        "letthrough_pct": 10.0,
+        "security_n": 1275
+      },
+      "Div3L": {
+        "benign_rejected_pct": 17.2,
+        "letthrough_pct": 1.4,
+        "security_n": 1275
+      },
+      "Local4": {
+        "benign_rejected_pct": 17.7,
+        "letthrough_pct": 1.4,
+        "security_n": 1275
+      }
+    }
+  },
+  {
+    "name": "validator_behavior",
+    "file": "validator_behavior.pdf",
+    "takeaway": "The four judges agree only moderately with each other, so how many of them must approve changes what gets through by tens of points.",
+    "data_sources": [
+      "cache/replay_v31/rounds.jsonl",
+      "cache/validators/*.jsonl"
+    ],
+    "n": {
+      "rounds": 3880,
+      "rounds_all_voted": 3880,
+      "panel": [
+        "L1_mistral",
+        "L2_gemma",
+        "L3_gptoss",
+        "L4_scout"
+      ],
+      "kappa": {
+        "L1_mistral|L2_gemma": 0.56,
+        "L1_mistral|L3_gptoss": 0.5,
+        "L1_mistral|L4_scout": 0.56,
+        "L2_gemma|L3_gptoss": 0.66,
+        "L2_gemma|L4_scout": 0.42,
+        "L3_gptoss|L4_scout": 0.46
+      },
+      "reject_rate_pct": {
+        "L1_mistral": 38.5,
+        "L2_gemma": 50.2,
+        "L3_gptoss": 46.7,
+        "L4_scout": 27.9
+      },
+      "approved_pct_by_quorum": {
+        "1": 79.7,
+        "2": 66.7,
+        "3": 52.1,
+        "4": 38.2
+      }
+    }
+  },
+  {
+    "name": "cost",
+    "file": "cost.pdf",
+    "takeaway": "The judges account for most of the time the cascade adds, while the benign work it blocks is spread across the deterministic checks and the memory checks, and is much heavier outside the development domain.",
+    "data_sources": [
+      "logs/*_eval_attacks_q235_local2_v31/*.jsonl",
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "denied_pct_of_proposals": {
+        "P2 parameter/scope": {
+          "cyberops": 5.39,
+          "finance": 3.95,
+          "healthcare": 0.85,
+          "legal": 1.79
+        },
+        "P3 LLM panel": {
+          "cyberops": 4.26,
+          "finance": 5.92,
+          "healthcare": 16.06,
+          "legal": 13.1
+        },
+        "P3 deterministic": {
+          "cyberops": 0.85,
+          "finance": 1.97,
+          "healthcare": 0.56,
+          "legal": 0.89
+        },
+        "P4 memory": {
+          "cyberops": 0.0,
+          "finance": 0.0,
+          "healthcare": 9.58,
+          "legal": 7.14
+        },
+        "P5 store policy": {
+          "cyberops": 0.0,
+          "finance": 0.99,
+          "healthcare": 0.0,
+          "legal": 0.0
+        },
+        "redactions": {
+          "cyberops": 7.1,
+          "finance": 0.99,
+          "healthcare": 0.0,
+          "legal": 5.95
+        }
+      },
+      "median_latency_s": {
+        "primary model": {
+          "Flat": 37.17,
+          "NoJudge": 33.19,
+          "DEFER": 50.05,
+          "JudgeOnly": 45.45
+        },
+        "deterministic checks": {
+          "Flat": 0.09,
+          "NoJudge": 0.04,
+          "DEFER": 0.09,
+          "JudgeOnly": 0.07
+        },
+        "LLM panel": {
+          "Flat": 0.0,
+          "NoJudge": 0.0,
+          "DEFER": 17.89,
+          "JudgeOnly": 33.66
+        }
+      },
+      "tokens_per_incident": {
+        "primary": {
+          "Flat": 20726,
+          "NoJudge": 11968,
+          "DEFER": 12233,
+          "JudgeOnly": 12189
+        },
+        "validator": {
+          "Flat": 0,
+          "NoJudge": 0,
+          "DEFER": 7694,
+          "JudgeOnly": 14538
+        }
+      },
+      "benign_proposals": {
+        "cyberops": 1057,
+        "finance": 304,
+        "healthcare": 355,
+        "legal": 336
+      }
+    }
+  },
+  {
+    "name": "state_carryover",
+    "file": "state_carryover.pdf",
+    "takeaway": "With state carried across incidents the first benign incident after the attacks is at the isolated level; from the second on, legitimate incidents deny each other through replay and ledger state that never expires.",
+    "data_sources": [
+      "logs/*_eval_attacks_q235_local2_v31persist/*.jsonl",
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "isolated_mean_denials": 1.45,
+      "sequence_len": {
+        "cyberops": 20,
+        "finance": 5,
+        "healthcare": 5,
+        "legal": 5
+      },
+      "persistent_mean_denials": {
+        "cyberops": 5.45,
+        "finance": 6.0,
+        "healthcare": 8.6,
+        "legal": 7.6
+      }
+    }
+  },
+  {
+    "name": "transfer",
+    "file": "transfer.pdf",
+    "takeaway": "The cascade holds its attack-success reduction across four domains and five primary models; what it costs on benign work does not transfer and varies widely by domain.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "Qwen3-235B / cyberops": {
+        "Flat": 32.0,
+        "ACL": 24.9,
+        "DEFER": 2.2,
+        "benign any-denial": 81.7
+      },
+      "Qwen3-235B / finance": {
+        "Flat": 35.1,
+        "ACL": 26.2,
+        "DEFER": 5.3,
+        "benign any-denial": 100.0
+      },
+      "Qwen3-235B / healthcare": {
+        "Flat": 23.1,
+        "ACL": 19.1,
+        "DEFER": 0.0,
+        "benign any-denial": 100.0
+      },
+      "Qwen3-235B / legal": {
+        "Flat": 29.8,
+        "ACL": 28.4,
+        "DEFER": 4.4,
+        "benign any-denial": 100.0
+      },
+      "Llama-4-Scout / cyberops": {
+        "Flat": 35.1,
+        "ACL": 29.8,
+        "DEFER": 4.0,
+        "benign any-denial": 83.3
+      },
+      "Mistral-Small / cyberops": {
+        "Flat": 21.8,
+        "ACL": 19.6,
+        "DEFER": 8.0,
+        "benign any-denial": 40.0
+      },
+      "Llama-3.1-8B / cyberops": {
+        "Flat": 34.7,
+        "ACL": 33.8,
+        "DEFER": 8.4,
+        "benign any-denial": 38.3
+      },
+      "gpt-oss-120b / cyberops": {
+        "Flat": 21.3,
+        "ACL": 18.7,
+        "DEFER": 6.2,
+        "benign any-denial": 0.0
+      }
+    }
+  },
+  {
+    "name": "channels",
+    "file": "channels.pdf",
+    "takeaway": "Where exposure is measured the injected content does reach the model, and the cascade reduces all five channels; the largest residual is on the handoff channel.",
+    "data_sources": [
+      "results/eval_attacks/all_trials.csv"
+    ],
+    "n": {
+      "Flat": {
+        "C1 task input": {
+          "asr_pct": 26.1,
+          "exposure_pct": 100.0
+        },
+        "C2 tool response": {
+          "asr_pct": 0.0,
+          "exposure_pct": 97.0
+        },
+        "C3 memory": {
+          "asr_pct": 14.3,
+          "exposure_pct": 100.0
+        },
+        "C4 handoff": {
+          "asr_pct": 45.6,
+          "exposure_pct": 100.0
+        },
+        "C5 rationale": {
+          "asr_pct": 84.4,
+          "exposure_pct": 100.0
+        }
+      },
+      "DEFER": {
+        "C1 task input": {
+          "asr_pct": 2.5,
+          "exposure_pct": 100.0
+        },
+        "C2 tool response": {
+          "asr_pct": 0.0,
+          "exposure_pct": 74.7
+        },
+        "C3 memory": {
+          "asr_pct": 0.0,
+          "exposure_pct": 61.9
+        },
+        "C4 handoff": {
+          "asr_pct": 14.4,
+          "exposure_pct": 100.0
+        },
+        "C5 rationale": {
+          "asr_pct": 1.0,
+          "exposure_pct": 87.5
+        }
+      },
+      "channels": {
+        "C1 task input": 2550,
+        "C2 tool response": 495,
+        "C3 memory": 525,
+        "C4 handoff": 450,
+        "C5 rationale": 480
+      },
+      "defer_tool_response_residual": {}
+    }
+  },
+  {
+    "name": "asb_families",
+    "file": "asb_families.pdf",
+    "takeaway": "On a third-party benchmark, connectivity limits do almost nothing against actions injected on tools the agent already holds, while the cascade stops 94% of what the models actually emit.",
+    "data_sources": [
+      "results_legacy_v1/asb/e2e_validator_group_{A,C,D,E}/general/results.csv"
+    ],
+    "n": {
+      "Flat": {
+        "Direct PI": 31.9,
+        "Indirect PI": 30.3,
+        "Memory poisoning": 39.0,
+        "PoT backdoor": 30.7
+      },
+      "ACL": {
+        "Direct PI": 32.4,
+        "Indirect PI": 30.3,
+        "Memory poisoning": 41.4,
+        "PoT backdoor": 28.3
+      },
+      "DEFER": {
+        "Direct PI": 2.8,
+        "Indirect PI": 0.3,
+        "Memory poisoning": 1.5,
+        "PoT backdoor": 8.3
+      },
+      "emitted by primary": {
+        "Direct PI": 32.0,
+        "Indirect PI": 31.1,
+        "Memory poisoning": 40.0,
+        "PoT backdoor": 29.3
+      },
+      "trials_per_family_per_config": {
+        "DPI": 1800,
+        "IPI": 1800,
+        "MP": 1200,
+        "PoT": 300
+      },
+      "blocked_share_of_emitted_pct": {
+        "Direct PI": 91.2,
+        "Indirect PI": 99.0,
+        "Memory poisoning": 96.2,
+        "PoT backdoor": 71.7
+      },
+      "blocked_share_pooled_pct": 94.2,
+      "emitted_n": 1704
+    }
+  }
+]

@@ -1,0 +1,8 @@
+2026-09-22 08:37:39  ===== review programme start (budget ~10 h) =====
+[  ok] HEAD 31e7718 is after defense-freeze-v2.4; frozen directories are identical to the tag
+[  ok] frozen directories are clean
+2026-09-22 08:37:39  A1 start: q235 flat/acl/symbolic x 4 domains (T=3), 12 streams
+2026-09-22 09:58:46  A1 done
+2026-09-22 09:58:46  A2 start: q235 judge+aco x 4 domains, 5 ablation arms, ASB full run
+2026-09-22 10:04:11  A2 ASB: E4.2 frozen full run, 255 cases x 2 trials x 3 configs
+2026-09-22 10:04:11  A2 ASB done

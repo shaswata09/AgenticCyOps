@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Live System Monitor
+# DEFER — Live System Monitor
 # Usage: ./monitor.sh [refresh_seconds]
 # ============================================================
 
@@ -54,7 +54,7 @@ while true; do
     local_time=$(date '+%H:%M:%S')
     uptime_str=$(uptime -p 2>/dev/null | sed 's/up //')
     echo ""
-    echo "  ${BOLD}AgenticCyOps System Monitor${RESET}  ${DIM}${local_time}  up ${uptime_str}${RESET}"
+    echo "  ${BOLD}DEFER System Monitor${RESET}  ${DIM}${local_time}  up ${uptime_str}${RESET}"
     echo "  ══════════════════════════════════════════════════════════════════════════════"
 
     # ---- CPU ----

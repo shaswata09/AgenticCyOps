@@ -225,9 +225,20 @@ models/*
 !models/test_scripts/
 configs/hmac_key.txt
 logs/mma_gateway/
+logs_legacy_v1/mma_gateway/
 logs/tools/
+logs_legacy_v1/tools/
+logs/vllm/
+logs_legacy_v1/vllm/
 
 # TAMAS benchmark artifacts
 benchmarks/tamas/external/
 benchmarks/tamas/results/*.jsonl
 benchmarks/tamas/results/budget.jsonl
+
+# Claude Code local settings (contain absolute paths)
+.claude/settings.local.json
+
+# camera-ready author block: identifies the authors, never committed during review
+paper/*
+*.tex

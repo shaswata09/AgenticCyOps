@@ -1,7 +1,7 @@
 # Engineering Challenges
 
 Non-obvious engineering problems that consumed significant time during
-the AgenticCyOps build-out. Organized by subsystem.
+the DEFER build-out. Organized by subsystem.
 
 ---
 
@@ -246,7 +246,7 @@ module is still covered by a mock-based smoke test (22/22 passing).
 ### 5.3 AP → TAMAS category mapping
 
 Not a code challenge but worth noting: TAMAS has 6 attack categories;
-AgenticCyOps has 15 APs covering 35 attack vectors. Mapping is
+DEFER has 15 APs covering 35 attack vectors. Mapping is
 many-to-few and uneven — `byzantine_behavior` ends up as the largest
 bucket (APs 6, 7, 10, 12, 15 map to it). Reported in
 `analysis/tamas_from_logs.py` as a caveat and in a dedicated coverage
@@ -271,7 +271,7 @@ labelled with a fabricated `P2_capability_scoping` mechanism.
 **Resolution:** scoring v2 (`docs/scoring_v2.md`). Outcomes are succeeded, blocked,
 agent_refused, not_measurable or error; interceptions must be attributable to the
 attack through a tool or phase anchor. Pooled ASR for large primaries moved from
-53.8 / 52.6 / 8.1% to 28.7 / 21.8 / 0.9% for Flat / ACL / AgenticCyOps.
+53.8 / 52.6 / 8.1% to 28.7 / 21.8 / 0.9% for Flat / ACL / DEFER.
 
 ### 6.2 Dead-endpoint runs were scored as results
 
@@ -286,7 +286,7 @@ with 5% or more error trials in a config is invalid and excluded from pooled fig
 
 P3-L4, L4b and L5 keep state across incidents, which is the intended production
 behaviour. The harness replays each payload 25 times inside one process, so those
-layers also see the replays. 35% of AgenticCyOps blocks come from them, and ASR is
+layers also see the replays. 35% of DEFER blocks come from them, and ASR is
 9.1% on the first incident of a run against 0.3 to 0.7% later. The same mechanism
 inflated the simulated TAMAS result: one middleware instance was shared across all
 cells and trials of a scenario.
@@ -325,7 +325,55 @@ recorded before this change are an upper bound.
 
 ---
 
-## 7. Out-of-scope (documented honestly)
+## 7. Code audit and `defense-freeze-v3.1` (2026-09-25)
+
+A read-only audit of the whole code base (seven parts) found defects that the
+reported runs of `defense-freeze-v2.2` carried. The lessons generalize beyond
+this testbed:
+
+### 7.1 Shared mutable state between trials
+The harness reused one payload dict for every trial of a variant, and the
+fault hooks marked a fault "applied" on it, so AP-15's faults fired in the
+first trial only. Anything a hook mutates must be copied per incident
+(`copy.deepcopy`), and a trial's inputs should be checked equal across trials.
+
+### 7.2 A check that reads the wrong input still passes
+P3-L0 always validated the monitor-to-analyze handoff, so the admin and report
+phases never checked the handoff they received. Nothing failed: the check
+passed on the wrong, benign input. Each check needs a test that feeds it the
+tampered input at the phase it guards.
+
+### 7.3 Configuration keys that no code reads
+Checks keyed on `(tool, action)` or `target` never fired outside CyberOps,
+because those domains' tools take no `action` argument and name their target
+`account_id`, `case_number`, ... The time-policy, change-conflict and
+maintenance-window checks decided nothing there, and the intent-chain
+thresholds were read from a key the configs do not have. Counting how often
+each check fires per domain, on every run, exposes these at once.
+
+### 7.4 The oracle must score what the defense can mediate
+The outcome oracle counted a canary that reached another agent's handoff as a
+leak, although no check mediates handoffs, and scored a response rejected after
+the tool ran as a block. Its scoring rules are part of the evaluation and were
+audited like the defense (`attacks/effects.py`, tests in `tests/test_effects.py`).
+
+### 7.5 Replaying decisions must not undo later rules
+The offline re-adjudication rewrote a call's final decision whenever the
+replayed panel approved it, even when a rule after the panel (the bulk-action
+cap, response integrity) had denied it. Re-judging must patch only the panel's
+own decision (`p3_rule_after_panel`).
+
+### 7.6 Run hygiene
+Launchers that pipe the harness through `grep ... || true` hid failures;
+logs carried the checkout's absolute path until the logger wrote paths
+repo-relative (`defense-freeze-v3.1.2`); an anonymous mirror is built and
+checked by `scripts/make_anonymous_mirror.sh`.
+
+`defense-freeze-v3.1` fixes 7.1-7.3 and the oracle fixes of 7.4 apply to all
+runs; `REPRODUCE.md` lists every fix, and the README's known limitations list
+what remains open.
+
+## 8. Out-of-scope (documented honestly)
 
 Problems acknowledged but not addressed at the integration layer:
 

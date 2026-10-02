@@ -1,7 +1,7 @@
 # Eval I — Existing IPI-Defense Bypass Evaluation
 
 This directory contains the evaluation that establishes the **necessary
-condition** for the AgenticCyOps contribution: the 15-AP × 4-domain
+condition** for the DEFER contribution: the 15-AP × 4-domain
 dataset bypasses every published IPI defense, so the P1-P5 architectural
 stack isn't redundant with off-the-shelf solutions.
 
@@ -111,9 +111,9 @@ An earlier version of this README stated that existing defenses "have 0% coverag
 structural APs". The logs never showed that: prompt-modification defenses were scored 0%
 bypass there by construction, and static filters were never shown the relevant fields.
 
-Two gaps remain before these numbers can carry a comparison with AgenticCyOps: there is no
+Two gaps remain before these numbers can carry a comparison with DEFER: there is no
 no-defense baseline for the prompt-modification mode, and the evaluation is a single-turn
-Monitor-agent prompt, not the four-phase pipeline that produces the AgenticCyOps ASR.
+Monitor-agent prompt, not the four-phase pipeline that produces the DEFER ASR.
 
 ### Metrics
 

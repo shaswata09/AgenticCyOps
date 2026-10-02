@@ -22,7 +22,7 @@
         },
         "cancel": {
             "allowed_start": 0,
-            "allowed_end": 23,
+            "allowed_end": 24,
             "description": "Procedure cancellation allowed 24/7 for patient safety"
         }
     },
@@ -34,7 +34,7 @@
         },
         "check_status": {
             "allowed_start": 0,
-            "allowed_end": 23,
+            "allowed_end": 24,
             "description": "Preauth status checks allowed 24/7"
         }
     }

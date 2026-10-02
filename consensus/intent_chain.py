@@ -64,7 +64,9 @@ class IntentChainTracker:
             self._action_impacts = data.get("impacts", data)
 
             # Load thresholds from config
-            thresholds = data.get("thresholds", {})
+            # v3.1: every action_impacts.json keeps the thresholds at the top
+            # level; reading only data["thresholds"] fell back to the defaults
+            thresholds = data.get("thresholds") or data
             self._posture_threshold = thresholds.get(
                 "posture_threshold", self._posture_threshold
             )

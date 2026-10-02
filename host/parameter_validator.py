@@ -152,7 +152,8 @@ class ParameterValidator:
         """Return the matched wildcard string, or None. Recurses into lists and dicts."""
         if isinstance(value, str):
             stripped = value.strip().lower()
-            if stripped in self._wildcards:
+            # v3.1: the list holds "*ALL*"; compare lower-cased on both sides
+            if stripped in {str(w).lower() for w in self._wildcards}:
                 return value
             # Over-broad CIDR blocks (/0 .. /8) -- classified as wildcard scope
             if self._is_overbroad_cidr(stripped):
@@ -201,8 +202,13 @@ class ParameterValidator:
         targets = target if isinstance(target, list) else [target]
 
         for t in targets:
-            t_str = str(t)
+            t_str = str(t).strip()
             criticality = self._criticality_lookup.get(t_str)
+            if criticality is None:
+                # v3.1: exact match missed "DC-PRIMARY" or a trailing space
+                low = t_str.lower()
+                criticality = next((v for k, v in self._criticality_lookup.items()
+                                    if str(k).strip().lower() == low), None)
             if criticality is None:
                 continue
 
@@ -395,7 +401,7 @@ class ParameterValidator:
             for t in targets:
                 if str(t).lower() not in incident_evidence.lower():
                     return False, "P2_target_not_in_evidence", {
-                        "target": str(t), "check": "literal_only"}
+                        "target": str(t), "check": "literal_only", "deny_branch": "substring"}
             return True, "", {}
 
         for t in targets:
@@ -413,9 +419,12 @@ class ParameterValidator:
             score = float(np.dot(embeddings[0], embeddings[1]))
 
             if score < self._evidence_threshold:
+                # v2.9: the substring test failed first, so a denial here is
+                # decided by the cosine threshold
                 return False, "P2_target_not_in_evidence", {
                     "target": t_str,
                     "similarity": round(score, 4),
+                    "deny_branch": "cosine",
                 }
 
         return True, "", {}

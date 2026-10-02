@@ -87,6 +87,10 @@ class ReadPatternTracker:
 
     # ----- helpers ------------------------------------------------- #
 
+    def reset(self) -> None:
+        """Forget every recorded read (per-trial isolation, H3)."""
+        self._history.clear()
+
     def _prune(self, phase: str) -> None:
         """Remove entries outside the rolling window."""
         cutoff = time.time() - self._window_seconds
@@ -279,6 +283,10 @@ class AccessIsolation:
         self._injection_patterns: list[re.Pattern] = [
             re.compile(p) for p in self._RAW_INJECTION_PATTERNS
         ]
+
+    def reset(self) -> None:
+        """Clear P5-L4 read history (per-trial isolation, H3)."""
+        self._pattern_tracker.reset()
 
     # ------------------------------------------------------------------ #
     #  L1: Phase-store access control  (pass-through)

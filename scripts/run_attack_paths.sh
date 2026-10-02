@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Unified Experiment Runner
+# DEFER — Unified Experiment Runner
 #
 # Single script for all evaluations: baseline, Eval A, Eval F.
 # Select group, domain(s), APs, configs, trials interactively or via CLI.
@@ -69,24 +69,40 @@ GP_DESC[G]="Qwen3-32B (mid, self-host) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 GP_PRIMARY[H]="http://localhost:8003/v1"; GP_PROVIDER[H]="openai"; GP_PORTS[H]="8002 8003"; GP_CONSENSUS[H]="no_mistral_panel"
 GP_DESC[H]="Mistral-Small-3.2-24B (mid) + V1(Qwen) + V4(Claude) + V6(GPT-4o)"
 
-GP_PRIMARY[I]="http://10.116.35.188:8008/v1"; GP_PROVIDER[I]="openai"; GP_PORTS[I]="8002 8003"; GP_CONSENSUS[I]="with_mistral"
-GP_DESC[I]="Llama-3.1-8B-Instruct (small, external) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
+GP_PRIMARY[I]="${REMOTE_5090_URL:-}"; GP_PROVIDER[I]="openai"; GP_PORTS[I]="8002 8003"; GP_CONSENSUS[I]="with_mistral"; GP_API_KEY_ENV[I]="REMOTE_5090_API_KEY"
+GP_DESC[I]="Llama-3.1-8B-Instruct (small, RTX 5090 node via REMOTE_5090_URL) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 
 GP_PRIMARY[J]="http://localhost:8006/v1"; GP_PROVIDER[J]="openai"; GP_PORTS[J]="8006 8002 8003"; GP_CONSENSUS[J]="with_mistral"
 GP_DESC[J]="GPT-OSS-120B (mid-large) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
 
-# K: self-hosted vLLM Nemotron at 10.116.34.125:8003 (external host,
-# external port -- no localhost preflight on the primary).  GP_PORTS
-# still lists the localhost validator ports (V1 Qwen 8002, V5 Mistral
-# 8003) that the consensus panel needs.  No API key needed.
-# Thinking mode off -- the model otherwise burns 30+s per trivial call
-# on internal reasoning, even self-hosted.  Flip to true if you want
-# to measure the reasoning-mode variant separately.
-GP_PRIMARY[K]="http://10.116.34.125:8003/v1"; GP_PROVIDER[K]="openai"; GP_PORTS[K]="8002 8003"; GP_CONSENSUS[K]="with_mistral"
-GP_DESC[K]="Nemotron-3-Nano-Omni-30B BF16 (self-hosted vLLM @ 10.116.34.125:8003) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o)"
-GP_EXTRA_BODY[K]='{"chat_template_kwargs":{"enable_thinking":false}}'
 
-ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
+# ---- Revision-v2 groups (docs/REVISION_TASKS.md G1) ----------------------
+# Served-model names come from --served-model-name in scripts/vllm_profiles.sh;
+# the harness discovers them through /v1/models.
+GP_PRIMARY[q235_div4]="http://localhost:8000/v1"; GP_PROVIDER[q235_div4]="openai"; GP_PORTS[q235_div4]="8000 8002 8003"; GP_CONSENSUS[q235_div4]="div4"
+GP_DESC[q235_div4]="Qwen3-235B-A22B BF16 TP=4 + div4 [V1 Qwen, V5 Mistral, V4 Claude, V6 GPT-4o] 3/4"
+GP_PRIMARY[scout_div4]="http://localhost:8004/v1"; GP_PROVIDER[scout_div4]="openai"; GP_PORTS[scout_div4]="8004 8002 8003"; GP_CONSENSUS[scout_div4]="div4"
+GP_DESC[scout_div4]="Llama-4-Scout BF16 TP=2 + div4"
+GP_PRIMARY[mistral_div3p]="http://localhost:8003/v1"; GP_PROVIDER[mistral_div3p]="openai"; GP_PORTS[mistral_div3p]="8003 8002"; GP_CONSENSUS[mistral_div3p]="mistral_div3p"
+GP_DESC[mistral_div3p]="Mistral-Small-3.2-24B + [V1 Qwen, V4 Claude, V6 GPT-4o] 2/3"
+GP_PRIMARY[llama8b_div4]="${REMOTE_5090_URL:-}"; GP_PROVIDER[llama8b_div4]="openai"; GP_PORTS[llama8b_div4]="8002 8003"; GP_CONSENSUS[llama8b_div4]="div4"; GP_API_KEY_ENV[llama8b_div4]="REMOTE_5090_API_KEY"
+GP_DESC[llama8b_div4]="Llama-3.1-8B-Instruct BF16 on the RTX 5090 node (REMOTE_5090_URL) + div4"
+GP_PRIMARY[claude_loc]="anthropic"; GP_PROVIDER[claude_loc]="anthropic"; GP_PORTS[claude_loc]="8002 8003 8004"; GP_CONSENSUS[claude_loc]="claude_loc"
+GP_DESC[claude_loc]="claude-sonnet-4-5 (API) + [V1 Qwen, V5 Mistral, V3 Llama-4-Scout, V6 GPT-4o] 3/4"
+# v2.9 live calibration: Qwen3-235B primary, the two local validators that fit
+# beside it (Mistral-Small :8101, Gemma-4 :8102), 2 of 2. No API validator.
+GP_PRIMARY[q235_local2]="http://localhost:8000/v1"; GP_PROVIDER[q235_local2]="openai"; GP_PORTS[q235_local2]="8000 8101 8102"; GP_CONSENSUS[q235_local2]="local2"
+GP_DESC[q235_local2]="Qwen3-235B-A22B BF16 TP=4 + local2 [L1 Mistral, L2 Gemma] 2/2"
+GP_PRIMARY[oss120_local2]="http://localhost:8200/v1"; GP_PROVIDER[oss120_local2]="openai"; GP_PORTS[oss120_local2]="8200 8101 8102"; GP_CONSENSUS[oss120_local2]="local2"
+GP_DESC[oss120_local2]="gpt-oss-120b (native MXFP4) + local2 [L1 Mistral, L2 Gemma] 2/2"
+GP_PRIMARY[oss120_smoke]="http://localhost:8200/v1"; GP_PROVIDER[oss120_smoke]="openai"; GP_PORTS[oss120_smoke]="8200"; GP_CONSENSUS[oss120_smoke]="local2"
+GP_DESC[oss120_smoke]="gpt-oss-120b primary smoke test (panel-free configurations only)"
+GP_PRIMARY[llama8b_local2]="${REMOTE_5090_URL:-}"; GP_PROVIDER[llama8b_local2]="openai"; GP_PORTS[llama8b_local2]="8101 8102"; GP_CONSENSUS[llama8b_local2]="local2"; GP_API_KEY_ENV[llama8b_local2]="REMOTE_5090_API_KEY"
+GP_DESC[llama8b_local2]="Llama-3.1-8B-Instruct BF16 on the RTX 5090 node (REMOTE_5090_URL) + local2 [L1 Mistral, L2 Gemma] 2/2"
+GP_PRIMARY[glm_div4]="http://localhost:8001/v1"; GP_PROVIDER[glm_div4]="openai"; GP_PORTS[glm_div4]="8001 8002 8003"; GP_CONSENSUS[glm_div4]="div4"
+GP_DESC[glm_div4]="GLM-4.7-FP8 TP=4 + div4 (optional, lowest priority)"
+
+ALL_GROUPS=("q235_div4" "q235_local2" "oss120_local2" "oss120_smoke" "llama8b_local2" "scout_div4" "mistral_div3p" "llama8b_div4" "claude_loc" "glm_div4" "A" "B" "C" "D" "E" "F" "G" "H" "I" "J")
 
 # ---- Per-(group, domain) port + ChromaDB allocator -----------------------
 # Multiple groups can now run in parallel without their tool/MMA servers
@@ -107,17 +123,56 @@ ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
 declare -A GROUP_OFFSET DOMAIN_OFFSET
 GROUP_OFFSET[A]=0;  GROUP_OFFSET[B]=1; GROUP_OFFSET[C]=2; GROUP_OFFSET[D]=3
 GROUP_OFFSET[E]=4;  GROUP_OFFSET[F]=5; GROUP_OFFSET[G]=6; GROUP_OFFSET[H]=7
-GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9; GROUP_OFFSET[K]=10
+GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9
+GROUP_OFFSET[q235_div4]=10; GROUP_OFFSET[q235_local2]=10; GROUP_OFFSET[scout_div4]=11; GROUP_OFFSET[mistral_div3p]=12
+GROUP_OFFSET[llama8b_div4]=13; GROUP_OFFSET[claude_loc]=14; GROUP_OFFSET[glm_div4]=15
+GROUP_OFFSET[oss120_local2]=16; GROUP_OFFSET[oss120_smoke]=17; GROUP_OFFSET[llama8b_local2]=18
 DOMAIN_OFFSET[cyberops]=0; DOMAIN_OFFSET[healthcare]=1
 DOMAIN_OFFSET[finance]=2;  DOMAIN_OFFSET[legal]=3
 
+# SLOT (0..6) gives one (group, domain) several independent service sets
+# (tool stubs + MMA + ChromaDB) so configs / ablations of the same domain
+# can run concurrently without sharing tool state, injection queues or
+# trial-tagged memory.  Slot n shifts every port by n*3000.
 compute_tool_base() {
     local _grp="$1" _dom="$2"
-    echo $((10000 + GROUP_OFFSET[$_grp]*160 + DOMAIN_OFFSET[$_dom]*40))
+    # PORT_EXTRA shifts a helper stream into the gap between slot blocks
+    # (each slot block spans < 2600 ports of its 3000) so it can share a SLOT
+    # number with a running stream without sharing its ports.
+    echo $((10000 + GROUP_OFFSET[$_grp]*160 + DOMAIN_OFFSET[$_dom]*40 + ${SLOT:-0}*3000 + ${PORT_EXTRA:-0}))
 }
 
 # ---- Helpers ----
-run_py() { conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"; }
+# ---- CPU pinning -----------------------------------------------------------
+# Every stream (group, domain, slot) gets its own block of cores.  Without it
+# each MMA gateway / seeding job sizes its ONNX and torch thread pools to all
+# 128 cores, and 18 concurrent streams drove the load average to ~280 while
+# the GPUs sat idle (measured 2026-09-19).  Thread pools follow the affinity
+# mask, so pinning also bounds them.  PIN_CPUS=0 disables; CPU_WIDTH = cores
+# per stream; cores above 108 are left to the vLLM API servers.
+declare -A CPU_BASE PIN_DOMAIN_IDX
+CPU_BASE[q235_div4]=0; CPU_BASE[q235_local2]=0; CPU_BASE[glm_div4]=0; CPU_BASE[claude_loc]=0
+CPU_BASE[scout_div4]=0; CPU_BASE[mistral_div3p]=36; CPU_BASE[llama8b_div4]=72
+CPU_BASE[oss120_local2]=54; CPU_BASE[oss120_smoke]=54; CPU_BASE[llama8b_local2]=0
+PIN_DOMAIN_IDX[cyberops]=0; PIN_DOMAIN_IDX[finance]=1; PIN_DOMAIN_IDX[healthcare]=2; PIN_DOMAIN_IDX[legal]=3
+CPUSET=""
+set_cpuset() { # set_cpuset <domain>
+    CPUSET=""
+    [ "${PIN_CPUS:-1}" = "1" ] && command -v taskset > /dev/null || return 0
+    # explicit block from the driver (extra streams placed on free cores)
+    if [ -n "${CPUSET_OVERRIDE:-}" ]; then CPUSET="$CPUSET_OVERRIDE"; return 0; fi
+    local width="${CPU_WIDTH:-6}" ncpu; ncpu=$(nproc --all)
+    local idx=$(( ${PIN_DOMAIN_IDX[$1]:-0} * 3 + ${SLOT:-0} ))
+    local start=$(( ( ${CPU_BASE[$GROUP]:-0} + idx * width ) % (ncpu - width + 1) ))
+    CPUSET="${start}-$(( start + width - 1 ))"
+}
+run_py() {
+    if [ -n "$CPUSET" ]; then
+        taskset -c "$CPUSET" conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"
+    else
+        conda run --no-capture-output -n "$CONDA_ENV" python3 "$@"
+    fi
+}
 
 wait_for_health() {
     local url="$1" name="$2" timeout="${3:-60}" elapsed=0
@@ -144,7 +199,7 @@ ALLOCATED_PORTS=()
 # ---- Interactive or CLI ----
 if [ -z "$1" ]; then
     echo ""
-    echo "  AgenticCyOps — Experiment Runner"
+    echo "  DEFER — Experiment Runner"
     echo "  ──────────────────────────────────────────────"
     echo ""
 
@@ -213,16 +268,19 @@ if [ -z "$1" ]; then
 
     # Trials
     echo ""
-    read -p "  Trials per variant [6]: " input_trials
-    TRIALS="${input_trials:-6}"
+    read -p "  Trials per variant [3]: " input_trials
+    TRIALS="${input_trials:-3}"
 
 else
     # CLI: GROUP DOMAIN AP_FILTER CONFIG_FILTER TRIALS
-    GROUP="${1^^}"
+    #   env: STATE_MODE=isolated|persistent  SEED=<int>  TEMPERATURE=<float>
+    #        RESUME=1  REQUIRE_FREEZE=1  DISABLE_PRINCIPLES=P3,P5
+    GROUP="$1"
+    [ ${#GROUP} -eq 1 ] && GROUP="${GROUP^^}"     # legacy single-letter ids
     DOM_ARG="${2:-cyberops}"
     AP_ARG="${3:-all}"
     CFG_ARG="${4:-all}"
-    TRIALS="${5:-6}"
+    TRIALS="${5:-3}"
 
     # Parse domains
     if [ "$DOM_ARG" = "all" ]; then
@@ -240,7 +298,7 @@ else
     elif [ "$AP_ARG" = "auto" ]; then
         AP_MODE="auto"
     else
-        SELECTED_APS=("$AP_ARG")
+        IFS=',' read -r -a SELECTED_APS <<< "$AP_ARG"   # "ap2" or "ap2,ap3,ap4,ap14"
     fi
 
     # Parse configs
@@ -258,7 +316,7 @@ CONSENSUS_CFG="${GP_CONSENSUS[$GROUP]}"
 
 echo ""
 echo "============================================================"
-echo "  AgenticCyOps Experiment — Group ${GROUP}"
+echo "  DEFER Experiment — Group ${GROUP}"
 echo "  ${GP_DESC[$GROUP]}"
 echo "  Domains: ${SELECTED_DOMAINS[*]}"
 echo "  APs: ${AP_MODE} ${SELECTED_APS[*]}"
@@ -291,6 +349,9 @@ run_domain() {
             | tr ',' '\n' | tr '[:lower:]' '[:upper:]' \
             | sort -u | tr -d '\n')"
     fi
+    # RUN_TAG (e.g. "persistent", "smoke") keeps a special run out of the
+    # group's main log / result directories.
+    [ -n "${RUN_TAG:-}" ] && _ablation_tag="${_ablation_tag}_${RUN_TAG}"
     local log_dir="logs/${domain}_eval_attacks_${GROUP}${_ablation_tag}"
     local result_dir="results/eval_attacks/group_${GROUP}${_ablation_tag}/${domain}"
 
@@ -299,27 +360,24 @@ run_domain() {
     local TOOL_BASE_PORT
     TOOL_BASE_PORT=$(compute_tool_base "$GROUP" "$domain")
     local MMA_PORT=$((TOOL_BASE_PORT + 30))
-    local CHROMA_DB_PATH="./data/chromadb/group_${GROUP}"
+    local CHROMA_DB_PATH="./data/chromadb/group_${GROUP}${SLOT:+_s${SLOT}}${CHROMA_TAG:+_${CHROMA_TAG}}"
 
+    set_cpuset "$domain"
     echo ""
     echo "============================================================"
     echo "  ${domain} / Group ${GROUP}"
-    echo "  tool_base=${TOOL_BASE_PORT}  mma=${MMA_PORT}  chromadb=${CHROMA_DB_PATH}/${domain}"
+    echo "  tool_base=${TOOL_BASE_PORT}  mma=${MMA_PORT}  chromadb=${CHROMA_DB_PATH}/${domain}  cpus=${CPUSET:-all}"
     echo "============================================================"
 
-    # Check for existing data — prompt before overwriting
+    # Logs and results are append-only (every log file carries a timestamp,
+    # results.csv is appended per trial and rebuilt from the logs), so an
+    # existing run directory is never deleted: RESUME=1 continues it, and a
+    # repeat without RESUME adds new log files next to the old ones.  Only
+    # this slot's ChromaDB scratch directory is recreated and re-seeded.
     if [ -d "$log_dir" ] || [ -d "$result_dir" ]; then
-        echo ""
-        echo "  WARNING: Existing attack data found for ${domain}/Group ${GROUP}."
-        read -p "  Overwrite? (y/N): " confirm
-        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-            echo "  Skipping ${domain}."
-            return 0
-        fi
+        echo "  existing data for ${domain}/Group ${GROUP}: keeping it (RESUME=${RESUME:-0})"
     fi
-
-    # Clean previous run data
-    rm -rf "$log_dir" "$result_dir" "${CHROMA_DB_PATH}/${domain}" 2>/dev/null || true
+    rm -rf "${CHROMA_DB_PATH:?}/${domain}" 2>/dev/null || true
     mkdir -p "$result_dir" "$CHROMA_DB_PATH"
 
     # Kill only stale processes in *this* group/domain's port slot --
@@ -337,12 +395,17 @@ run_domain() {
 
     # Tools
     echo "[tools] Starting ${domain} servers on base port ${TOOL_BASE_PORT}..."
-    run_py -m domains.${domain}.tools.start_all --base-port "$TOOL_BASE_PORT" &
+    HARNESS_INJECTION=1 run_py -m domains.${domain}.tools.start_all --base-port "$TOOL_BASE_PORT" &
     PIDS+=($!); sleep 3
     wait_for_health "http://localhost:${TOOL_BASE_PORT}/health" "${domain} tools" 30
 
     # MMA
-    run_py -m memory.mma_gateway --domain "$domain" --port "$MMA_PORT" --db-path "$CHROMA_DB_PATH" &
+    # MMA_MODEL_PATH: flat / acl_hardened bypass P4 and P5, so their gateway
+    # never embeds anything; the driver points those slots at the 0.6B model
+    # to save ~30 GB of RAM per slot.  Default (unset) = the gateway's 8B model.
+    local _mma_model=()
+    [ -n "${MMA_MODEL_PATH:-}" ] && _mma_model=(--model-path "$MMA_MODEL_PATH")
+    HARNESS_INJECTION=1 run_py -m memory.mma_gateway --domain "$domain" --port "$MMA_PORT" --db-path "$CHROMA_DB_PATH" "${_mma_model[@]}" &
     PIDS+=($!); wait_for_health "http://localhost:${MMA_PORT}/health" "MMA" 30 || true
 
     # Determine APs for this domain
@@ -369,7 +432,19 @@ run_domain() {
             _disable_args=(--disable-principles "$DISABLE_PRINCIPLES")
         fi
 
-        # Cloud-API extras (e.g. Group K Nemotron on NVIDIA cloud).
+        # Revision-v2 run settings (H3 / H7 / G3 / H11), all optional.
+        local _run_args=(--state-mode "${STATE_MODE:-isolated}")
+        [ -n "${SEED:-}" ] && _run_args+=(--seed "$SEED")
+        [ -n "${TEMPERATURE:-}" ] && _run_args+=(--temperature "$TEMPERATURE")
+        [ "${RESUME:-0}" = "1" ] && _run_args+=(--resume)
+        [ "${REQUIRE_FREEZE:-0}" = "1" ] && _run_args+=(--require-freeze)
+        [ -n "${MAX_VARIANTS:-}" ] && _run_args+=(--max-variants "$MAX_VARIANTS")
+        [ -n "${RUN_TAG:-}" ] && _run_args+=(--run-tag "$RUN_TAG")
+        if [ -n "${RUN_TAG:-}" ] || [ -n "$DISABLE_PRINCIPLES" ]; then
+            _run_args+=(--results-dir "$result_dir")
+        fi
+
+        # Remote-endpoint extras (API key env var, model-specific extra_body).
         local _api_args=()
         if [ -n "${GP_API_KEY_ENV[$GROUP]:-}" ]; then
             _api_args+=(--api-key-env "${GP_API_KEY_ENV[$GROUP]}")
@@ -386,28 +461,29 @@ run_domain() {
                 --consensus-config "$CONSENSUS_CFG" \
                 --trials "$TRIALS" --tool-port "$TOOL_BASE_PORT" \
                 --mma-url "http://localhost:${MMA_PORT}" \
-                "${_disable_args[@]}" "${_api_args[@]}" \
-                --verbose 2>&1 | grep -E "v[0-9]+ t[0-9]+|Error|SUMMARY" || true
+                "${_disable_args[@]}" "${_api_args[@]}" "${_run_args[@]}" \
+                --verbose 2>&1 | grep -E "v[0-9]+ t[0-9]+|Error|SUMMARY|resumed" || true
         done
 
-        # Benign (only if explicitly requested via "benign" AP mode)
+        # Benign (only if explicitly requested via "benign" AP mode):
+        # every scenario of the domain x TRIALS repetitions.
         if [ "$AP_MODE" = "benign" ]; then
-            local benign_count=20
-            [ "$domain" != "cyberops" ] && benign_count=5
-            echo "  benign ($benign_count scenarios)..."
+            echo "  benign (all scenarios x $TRIALS trials)..."
             run_py -m attacks.harness \
                 --domain "$domain" --benign --config "$config" \
                 --group "$GROUP" --model-url "$LLM_URL" --llm-provider "$LLM_PROVIDER" \
                 --consensus-config "$CONSENSUS_CFG" \
-                --trials "$benign_count" --tool-port "$TOOL_BASE_PORT" \
+                --trials "$TRIALS" --tool-port "$TOOL_BASE_PORT" \
                 --mma-url "http://localhost:${MMA_PORT}" \
-                "${_disable_args[@]}" "${_api_args[@]}" \
-                2>&1 | grep -E "benign|Error|SUMMARY" || true
+                "${_disable_args[@]}" "${_api_args[@]}" "${_run_args[@]}" \
+                --verbose 2>&1 | grep -E "benign|Error|SUMMARY" || true
         fi
         echo ""
     done
 
-    # Generate CSV + charts + PDF report
+    # Generate CSV + charts + PDF report (SKIP_REPORT=1: the driver rebuilds
+    # results.csv from the logs with analysis.parse_logs once every slot is done)
+    if [ "${SKIP_REPORT:-0}" != "1" ]; then
     echo "[report] Generating analysis..."
     run_py -c "
 import json, sys, csv, os
@@ -425,7 +501,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 sns.set_theme(style='whitegrid', font_scale=1.0, palette='muted')
 CONFIGS = ['flat', 'acl_hardened', 'agenticcyops']
-CONFIG_LABELS = {'flat': 'Flat MAS', 'acl_hardened': 'ACL-Hardened', 'agenticcyops': 'AgenticCyOps'}
+CONFIG_LABELS = {'flat': 'Flat MAS', 'acl_hardened': 'ACL-Hardened', 'agenticcyops': 'DEFER'}
 CONFIG_COLORS = {'flat': '#e74c3c', 'acl_hardened': '#f39c12', 'agenticcyops': '#2ecc71'}
 HEADER_COLOR = '#2c3e50'
 
@@ -447,19 +523,20 @@ for f in sorted(log_dir.rglob('*.jsonl')) if log_dir.exists() else []:
 if not trials:
     print('No trial results'); sys.exit(0)
 
-# ---- CSV ----
+# ---- CSV (scoring v3 columns; the harness appends the same rows per trial) ----
+from attacks.harness import RESULT_COLUMNS
 csv_path = result_dir / 'results.csv'
 with open(csv_path, 'w', newline='') as f:
-    w = csv.writer(f)
-    w.writerow(['Domain','AP','Variant','Trial','Config','Group','Succeeded','Step','Mechanism','Outcome','Measurable'])
+    w = csv.DictWriter(f, fieldnames=RESULT_COLUMNS, extrasaction='ignore')
+    w.writeheader()
     for t in trials:
-        w.writerow([domain, t.get('ap',''), t.get('variant',''), t.get('trial',''),
-                     t.get('config',''), group, t.get('attack_succeeded',''),
-                     t.get('interception_step',''), t.get('blocking_mechanism',''),
-                     t.get('outcome',''), t.get('measurable','')])
+        w.writerow({**{c: t.get(c, '') for c in RESULT_COLUMNS}, 'domain': domain, 'group': group})
 print(f'Saved: {csv_path} ({len(trials)} trials)')
+for t in trials:
+    t['attack_succeeded'] = (t.get('outcome') == 'executed')
+    t['blocking_mechanism'] = t.get('blocked_by') or 'none'
 
-# ---- Compute ASR (scoring v2: not-measurable trials are excluded) ----
+# ---- Compute ASR (scoring v3: not-measurable trials are excluded) ----
 attack_trials = [t for t in trials if t.get('ap','').startswith('ap')
                  and t.get('outcome','') not in ('not_measurable', 'error')]
 aps = sorted(set(t.get('ap','') for t in attack_trials), key=lambda x: int(x.replace('ap','')) if x.startswith('ap') else 0)
@@ -522,7 +599,7 @@ for i, ap in enumerate(aps):
     for j, config in enumerate(CONFIGS):
         mt = [t for t in attack_trials if t.get('ap')==ap and t.get('config')==config]
         if mt:
-            blocked = sum(1 for t in mt if not t.get('attack_succeeded'))
+            blocked = sum(1 for t in mt if t.get('outcome') == 'blocked')
             matrix[i,j] = blocked/len(mt)*100
 fig, ax = plt.subplots(figsize=(8, max(4, len(aps)*0.8)))
 sns.heatmap(matrix, annot=True, fmt='.0f', cmap='RdYlGn',
@@ -541,8 +618,8 @@ aco_trials = [t for t in attack_trials if t.get('config')=='agenticcyops']
 if aco_trials:
     mechs = defaultdict(int)
     for t in aco_trials:
-        if not t.get('attack_succeeded'):
-            m = t.get('blocking_mechanism','unknown')
+        if t.get('outcome') == 'blocked':
+            m = t.get('blocked_by') or 'unknown'
             mechs[m] += 1
     if mechs:
         fig, ax = plt.subplots(figsize=(8, 5))
@@ -565,7 +642,7 @@ if aco_trials:
 with PdfPages(str(result_dir / 'attack_report.pdf')) as pdf:
     # Title
     fig, ax = plt.subplots(figsize=(11, 8.5)); ax.axis('off')
-    ax.text(0.5, 0.72, 'AgenticCyOps', transform=ax.transAxes,
+    ax.text(0.5, 0.72, 'DEFER', transform=ax.transAxes,
             ha='center', fontsize=36, fontweight='bold', color=HEADER_COLOR)
     ax.text(0.5, 0.62, 'Attack Path Evaluation Report', transform=ax.transAxes,
             ha='center', fontsize=22, color='#7f8c8d')
@@ -636,6 +713,7 @@ with PdfPages(str(result_dir / 'attack_report.pdf')) as pdf:
 
 print(f'Saved: {result_dir}/attack_report.pdf')
 " 2>&1
+    fi
 
     # Stop domain services -- only the ports allocated to *this* slot.
     for pid in "${PIDS[@]}"; do pkill -P "$pid" 2>/dev/null || true; kill "$pid" 2>/dev/null || true; done

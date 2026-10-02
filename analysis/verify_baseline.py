@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 
 from config import BASE_DIR
+from analysis.runlogs import config_files
 
 
 CONFIGS = ["flat", "acl_hardened", "agenticcyops"]
@@ -35,7 +36,7 @@ def load_logs(domain: str, config: str, group: str = "A") -> list[dict]:
     for log_dir in candidates:
         if not log_dir.is_dir():
             continue
-        for f in sorted(log_dir.glob(f"{config}*.jsonl")):
+        for f in sorted(config_files(log_dir, config)):
             with open(f) as fh:
                 for line in fh:
                     line = line.strip()

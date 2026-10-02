@@ -19,7 +19,17 @@ REVERSAL_PAIRS = {
     ("T8_iam_pam", "unlock"): ("T8_iam_pam", "revoke"),
     ("F8_account_freeze", "freeze"): ("F8_account_freeze", "unfreeze"),
     ("F8_account_freeze", "unfreeze"): ("F8_account_freeze", "freeze"),
+    # v3.1: the healthcare and legal reversals AP-11 v1 seeds
+    ("H8_prescription_writer", "prescribe"): ("H8_prescription_writer", "discontinue"),
+    ("H8_prescription_writer", "discontinue"): ("H8_prescription_writer", "prescribe"),
+    ("L8_court_filing", "file"): ("L8_court_filing", "withdraw"),
+    ("L8_court_filing", "withdraw"): ("L8_court_filing", "file"),
 }
+
+
+def tool_for_action(action: str) -> str:
+    """The tool a change-log action belongs to (payloads name only the action)."""
+    return next((t for t, a in REVERSAL_PAIRS if a == action), "")
 
 
 class OperationalContextChecker:
@@ -34,6 +44,15 @@ class OperationalContextChecker:
         self._time_policies: dict = {}
         self._incident_registry: dict = {}
 
+        self._load_configs()
+
+    def reset(self):
+        """Drop payload-seeded changes, windows and incident statuses and
+        reload the configured baseline (per-trial isolation, H3)."""
+        self._change_log = []
+        self._maintenance_windows = []
+        self._time_policies = {}
+        self._incident_registry = {}
         self._load_configs()
 
     # ------------------------------------------------------------------

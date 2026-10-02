@@ -38,7 +38,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
-from config import BASE_DIR
+from config import BASE_DIR, MODELS_DIR
 
 from benchmarks.injecagent.harness.live_llm_driver import (
     GROUP_CONFIGS, run_live_trial,
@@ -48,6 +48,7 @@ from benchmarks.injecagent.harness.tool_loader import (
 )
 from benchmarks.injecagent.harness.trial_driver import DefensePipeline
 from logging_utils import ExperimentLogger
+from logging_utils.run_metadata import build_run_header
 
 HERE = Path(__file__).resolve().parent
 CASES_PATH = HERE / "representative_cases.json"
@@ -142,7 +143,14 @@ async def run_sweep(group_id: str,
         for cfg in configs:
             loggers[(dom, cfg)] = ExperimentLogger(
                 eval_name=f"{dom}_injecagent_e2e_{group_id}", domain=dom,
-                config=cfg, model=primary_model)
+                config=cfg, model=primary_model,
+                header=build_run_header(
+                    group=group_id, config=cfg, domain=dom,
+                    primary_url=GROUP_CONFIGS[group_id].get("primary_url"),
+                    primary_provider=GROUP_CONFIGS[group_id].get("primary_type", "openai"),
+                    primary_model=primary_model,
+                    api_key_env=GROUP_CONFIGS[group_id].get("api_key_env"),
+                    consensus_config=GROUP_CONFIGS[group_id].get("consensus")))
 
     sem = asyncio.Semaphore(concurrency)
     all_rows: list[dict] = []
@@ -351,7 +359,7 @@ def main() -> None:
                     help="Max concurrent LLM calls")
     ap.add_argument("--out-root", type=Path, default=RESULTS_DIR)
     ap.add_argument("--embedding-model", type=str,
-                    default="/storage/data/AgenticCyOps_Private/models/Qwen/Qwen3-Embedding-0.6B")
+                    default=str(MODELS_DIR / "Qwen" / "Qwen3-Embedding-0.6B"))
     args = ap.parse_args()
 
     cases = load_cases()
@@ -372,7 +380,9 @@ def main() -> None:
     emb = None
     if args.embedding_model:
         from sentence_transformers import SentenceTransformer
-        emb = SentenceTransformer(args.embedding_model)
+        # CPU on purpose: the GPUs are owned by vLLM (>90% full), and the attack
+        # harness / MMA embed on CPU too, so every evaluation uses the same path.
+        emb = SentenceTransformer(args.embedding_model, device="cpu")
 
     rows = asyncio.run(run_sweep(
         group_id=args.group, cases=cases, domains=domains, configs=configs,

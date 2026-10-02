@@ -54,9 +54,23 @@ class VerifiedExecution:
         consensus_validator: Optional[ConsensusValidator] = None,
         embedding_model=None,
         logger: Optional[ExperimentLogger] = None,
+        adaptive_consent_path=None,
+        adaptive_consent_persist: bool = True,
+        symbolic_only: bool = False,
+        gate_mode: str = "default",          # E1 / E16: auto-approve rule
+        p3_deterministic_off: bool = False,   # E17: P2 + panel only
+
     ):
         self.domain = domain
         self.logger = logger
+        # H10: with symbolic_only the L6 LLM consensus is deliberately absent
+        # and a proposal that reaches L6 is escalated to a human.
+        self.symbolic_only = symbolic_only
+        self.gate_mode = gate_mode
+        # E17 (p2_judge): skip P3's deterministic layers and send every
+        # consequential proposal straight to the panel, so the value of the
+        # remaining deterministic checks can be isolated.
+        self.p3_deterministic_off = p3_deterministic_off
 
         # Layer instances
         self.handoff_validator = HandoffValidator(logger=logger)
@@ -69,12 +83,17 @@ class VerifiedExecution:
         self.cross_incident_ledger = CrossIncidentLedger(logger=logger)
         self.versioned_ledger = VersionedLedger(logger=logger)
         self.adaptive_consent = AdaptiveConsentModel(
-            domain=domain, logger=logger
+            domain=domain, logger=logger,
+            persist_path=adaptive_consent_path, persist=adaptive_consent_persist,
         )
+        # v2.9 (B1): the scorer is handed the replay ledger (precedent) and,
+        # through the P3 context, the incident evidence (alignment). Before
+        # v2.9 it received neither, so both scores sat at their 0.5 fallback.
         self.scorer = ProposalScorer(
-            domain=domain, embedding_model=embedding_model, logger=logger
+            domain=domain, embedding_model=embedding_model, logger=logger,
+            ledger=self.versioned_ledger,
         )
-        self.auto_gates = AutoGates(logger=logger)
+        self.auto_gates = AutoGates(logger=logger, mode=gate_mode)
         self.global_monitor = GlobalActionMonitor(logger=logger)  # TA-22
         self.llm_consensus = consensus_validator  # L6 — existing multi-model
 
@@ -89,6 +108,7 @@ class VerifiedExecution:
         Returns True if approved, False if rejected/escalated.
         """
         result = await self.validate_with_details(proposal, context)
+        self.last_result = result      # v3.1: the orchestrator's early exit reads it
         return result["approved"]
 
     async def validate_with_details(
@@ -99,12 +119,34 @@ class VerifiedExecution:
         Returns dict with: approved, mechanism, reason, layer, details
         """
 
+        # ── E17 (p2_judge): P2 + panel only ──
+        # Every consequential proposal goes straight to the judges, with none
+        # of P3's deterministic layers in front of them. Together with
+        # JUDGEONLY and FULL this isolates what the deterministic checks add.
+        if self.p3_deterministic_off:
+            if self.llm_consensus:
+                sanitized = self._sanitize_proposal(proposal)
+                approved = await self.llm_consensus.validate(sanitized, context)
+                mechanism = ("P3_llm_consensus_approve" if approved
+                             else "P3_llm_consensus_reject")
+                self._log_decision("allow" if approved else "deny", mechanism,
+                                   f"LLM consensus: {'approved' if approved else 'rejected'}",
+                                   "L6")
+                return self._result(approved, mechanism,
+                                    f"LLM consensus: {'approved' if approved else 'rejected'}",
+                                    "L6", {})
+            self._log_decision("deny", "P3_no_consensus", "No consensus validator", "L6")
+            return self._result(False, "P3_no_consensus",
+                                "No consensus validator available", "L6")
+
         # ── L0: Handoff Validation ──
         if "handoff_source" in context or "monitor_handoff" in context:
-            handoff_data = context.get(
-                "monitor_handoff",
-                context.get("analyze_handoff", context.get("admin_handoff", {})),
-            )
+            # the handoff into the current phase (v3.1): before, the monitor
+            # handoff was always picked, so admin and report never checked the
+            # analyze->admin / admin->report handoff they actually received
+            prev = {"analyze": "monitor", "admin": "analyze",
+                    "report": "admin"}.get(context.get("current_phase", ""))
+            handoff_data = context.get(f"{prev}_handoff", {}) if prev else {}
             raw_incident = context.get("incident", {})
 
             if handoff_data:
@@ -178,6 +220,10 @@ class VerifiedExecution:
 
         # ── L1: Quantified Scoring ──
         scores = self.scorer.score(proposal, context)
+        if self.logger:                 # v2.9: every P3 decision logs all five scores
+            self.logger.log(source="scorer", destination="P3_L1", action="P3_L1_scores",
+                            auth_decision="scored", mechanism="P3_scores",
+                            extra={k: round(float(v), 4) for k, v in scores.items()})
 
         # ── L2: Auto-Gates ──
         decided, reason, details = self.auto_gates.evaluate(scores)
@@ -207,7 +253,12 @@ class VerifiedExecution:
                 "L6", {"scores": scores},
             )
 
-        # No LLM consensus available — default deny
+        # No LLM consensus available — escalate (symbolic_only) / default deny
+        if self.symbolic_only:
+            self._log_decision("escalate", "P3_symbolic_escalate",
+                               "L6 disabled: escalated to human review", "L6")
+            return self._result(False, "P3_symbolic_escalate",
+                                "L6 disabled: escalated to human review", "L6")
         self._log_decision("deny", "P3_no_consensus", "No consensus validator", "L6")
         return self._result(False, "P3_no_consensus", "No consensus validator available", "L6")
 
@@ -267,6 +318,21 @@ class VerifiedExecution:
         self.intent_chain.reset()
         self.cross_incident_ledger.prune()
 
+    def reset_for_trial(self):
+        """Forget every cross-incident memory (isolated state mode, H3).
+
+        L4 / L4b / L5 / adaptive consent / global monitor / operational
+        context keep state across incidents by design; in isolated mode each
+        trial starts from the configured baseline so that a replayed payload
+        is never judged against its own earlier replays.
+        """
+        self.intent_chain.reset()
+        self.cross_incident_ledger.reset()
+        self.versioned_ledger.reset()
+        self.global_monitor.reset()
+        self.adaptive_consent.reset()
+        self.operational_context.reset()
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -320,6 +386,13 @@ class VerifiedExecution:
         # Sanitize argument values recursively (third+fourth-pass fix)
         if "arguments" in sanitized and isinstance(sanitized["arguments"], dict):
             sanitized["arguments"] = self._sanitize_dict_recursive(sanitized["arguments"])
+
+        # v3.1: the host copies argument fields (target, target_user, ...) to the
+        # proposal root; they reached the panel unsanitized
+        rest = {k: v for k, v in sanitized.items()
+                if k not in ("arguments", "tool_id", "phase", "justification",
+                             "reason", "description", "notes")}
+        sanitized.update(self._sanitize_dict_recursive(rest))
 
         return sanitized
 

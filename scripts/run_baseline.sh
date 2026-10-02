@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Full Baseline Verification
+# DEFER — Full Baseline Verification
 #
 # 1. Choose model group (A-G)
 # 2. Verify required servers are running
@@ -12,6 +12,7 @@
 #   ./scripts/run_baseline.sh A 5        # Group A, all domains
 #   ./scripts/run_baseline.sh A 1        # Group A, cyberops only
 #   ./scripts/run_baseline.sh B 2 3      # Group B, healthcare + finance
+#   STATE_MODE=persistent ./scripts/run_baseline.sh A 1   # E1b: state accumulates
 # ============================================================
 
 set -eE
@@ -89,11 +90,12 @@ GROUP_PORTS[H]="8002 8003"
 GROUP_CONSENSUS[H]="no_mistral_panel"
 GROUP_DESC[H]="Mistral-Small-3.2-24B (8003) + V1(Qwen) + V4(Claude) + V6(GPT-4o) [need 2 of 3 to approve, no V5]"
 
-GROUP_NAMES[I]="Group I: Llama-3.1-8B-Instruct Primary (small, external)"
-GROUP_PRIMARY[I]="http://10.116.35.188:8008/v1"
+GROUP_NAMES[I]="Group I: Llama-3.1-8B-Instruct Primary (small, RTX 5090 node)"
+GROUP_PRIMARY[I]="${REMOTE_5090_URL:-}"   # RTX 5090 node, address from .env only
 GROUP_PORTS[I]="8002 8003"
 GROUP_CONSENSUS[I]="with_mistral"
-GROUP_DESC[I]="Llama-3.1-8B-Instruct (10.116.35.188:8008 external) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
+GROUP_DESC[I]="Llama-3.1-8B-Instruct (REMOTE_5090_URL) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
+GROUP_API_KEY_ENV[I]="REMOTE_5090_API_KEY"
 
 GROUP_NAMES[J]="Group J: GPT-OSS-120B Primary (mid-large)"
 GROUP_PRIMARY[J]="http://localhost:8006/v1"
@@ -101,15 +103,8 @@ GROUP_PORTS[J]="8006 8002 8003"
 GROUP_CONSENSUS[J]="with_mistral"
 GROUP_DESC[J]="GPT-OSS-120B (8006) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
 
-GROUP_NAMES[K]="Group K: Nemotron-3-Nano-Omni-30B BF16 (self-hosted)"
-GROUP_PRIMARY[K]="http://10.116.34.125:8003/v1"
-GROUP_PORTS[K]="8002 8003"
-GROUP_CONSENSUS[K]="with_mistral"
-GROUP_DESC[K]="Nemotron-3-Nano-Omni-30B BF16 (10.116.34.125:8003 self-hosted vLLM) + V1(Qwen) + V5(Mistral) + V4(Claude) + V6(GPT-4o) [need 3 of 4 to approve]"
-# Thinking mode off -- the model otherwise burns 30+s per trivial call.
-GROUP_EXTRA_BODY[K]='{"chat_template_kwargs":{"enable_thinking":false}}'
 
-ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
+ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J")
 
 # ---- Per-(group, domain) port + ChromaDB allocator ----
 # Multiple groups can now run baselines in parallel without their tool
@@ -124,7 +119,7 @@ ALL_GROUPS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K")
 declare -A GROUP_OFFSET DOMAIN_OFFSET
 GROUP_OFFSET[A]=0;  GROUP_OFFSET[B]=1; GROUP_OFFSET[C]=2; GROUP_OFFSET[D]=3
 GROUP_OFFSET[E]=4;  GROUP_OFFSET[F]=5; GROUP_OFFSET[G]=6; GROUP_OFFSET[H]=7
-GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9; GROUP_OFFSET[K]=10
+GROUP_OFFSET[I]=8;  GROUP_OFFSET[J]=9
 DOMAIN_OFFSET[cyberops]=0; DOMAIN_OFFSET[healthcare]=1
 DOMAIN_OFFSET[finance]=2;  DOMAIN_OFFSET[legal]=3
 
@@ -136,7 +131,7 @@ compute_tool_base() {
 # ---- Interactive or CLI ----
 if [ -z "$1" ]; then
     echo ""
-    echo "  AgenticCyOps — Baseline Verification"
+    echo "  DEFER — Baseline Verification"
     echo "  ──────────────────────────────────────────────"
     echo ""
     echo "  Step 1: Select Model Group"
@@ -237,7 +232,7 @@ trap cleanup EXIT INT TERM
 
 echo ""
 echo "============================================================"
-echo "  AgenticCyOps — Baseline Verification"
+echo "  DEFER — Baseline Verification"
 echo "  ${GROUP_NAMES[$GROUP]}"
 echo "  ${GROUP_DESC[$GROUP]}"
 echo "  Domains: ${DOMAINS[*]}"
@@ -316,14 +311,14 @@ run_domain_baseline() {
 
     # Start tools (on this group's port slot)
     echo "[step 4/7] Starting ${domain} tool servers on base port ${TOOL_BASE_PORT}..."
-    run_py -m domains.${domain}.tools.start_all --base-port "$TOOL_BASE_PORT" &
+    HARNESS_INJECTION=1 run_py -m domains.${domain}.tools.start_all --base-port "$TOOL_BASE_PORT" &
     PIDS+=($!)
     sleep 3
     wait_for_health "http://localhost:${TOOL_BASE_PORT}/health" "${domain} tools" 30
 
     # Start MMA (on this group's MMA port + chromadb path)
     echo "[step 5/7] Starting MMA gateway on port ${MMA_PORT}..."
-    run_py -m memory.mma_gateway --domain "$domain" --port "$MMA_PORT" --db-path "$CHROMA_DB_PATH" &
+    HARNESS_INJECTION=1 run_py -m memory.mma_gateway --domain "$domain" --port "$MMA_PORT" --db-path "$CHROMA_DB_PATH" &
     PIDS+=($!)
     wait_for_health "http://localhost:${MMA_PORT}/health" "MMA" 30 || true
 
@@ -345,11 +340,13 @@ run_domain_baseline() {
         export BASELINE_MMA_URL="http://localhost:${MMA_PORT}"
         export BASELINE_API_KEY_ENV="$GROUP_API_KEY_ENV_VAL"
         export BASELINE_EXTRA_BODY="$GROUP_EXTRA_BODY_VAL"
+        export BASELINE_STATE_MODE="${STATE_MODE:-isolated}"   # H3: isolated | persistent
         run_py -c "
 import asyncio, json, os, sys
 sys.path.insert(0, '.')
 from pathlib import Path
 from logging_utils import ExperimentLogger
+from logging_utils.run_metadata import build_run_header
 from host.orchestrator import SOARHost
 from host.manifest_enforcer import ManifestEnforcer
 from mcp_servers.server_registry import ServerRegistry
@@ -368,14 +365,22 @@ async def run():
     tool_base_port = int(os.environ['BASELINE_TOOL_PORT'])
     mma_url = os.environ['BASELINE_MMA_URL']
     api_key_env = os.environ.get('BASELINE_API_KEY_ENV') or None
+    state_mode = os.environ.get('BASELINE_STATE_MODE') or 'isolated'
     extra_body_json = os.environ.get('BASELINE_EXTRA_BODY') or ''
     extra_body = json.loads(extra_body_json) if extra_body_json.strip() else None
 
+    header = build_run_header(
+        group=group, config=config, domain=domain, primary_url=llm_url,
+        primary_provider=llm_provider, api_key_env=api_key_env,
+        consensus_config=consensus_config if config in ('agenticcyops', 'llm_judge') else None,
+        state_mode=state_mode,
+    )
     logger = ExperimentLogger(
         eval_name=f'{domain}_baseline_{group}',
         domain=domain,
         config=config,
-        model=f'Group_{group}',
+        model=header.get('primary_model') or f'Group_{group}',
+        header=header,
     )
     logger.set_trial(ap='benign', variant=1, trial=1)
 
@@ -383,10 +388,7 @@ async def run():
 
     registry = ServerRegistry(domain=domain, logger=logger)
     registry.load_tools()
-    port = tool_base_port
-    for tool_id in sorted(registry._servers.keys()):
-        registry._ports[tool_id] = port
-        port += 1
+    registry.assign_ports(tool_base_port)
 
     all_schemas = registry.get_all_schemas()
 
@@ -431,6 +433,9 @@ async def run():
         consensus=consensus,
         agents=agents,
         logger=logger,
+        state_mode=state_mode,
+        adaptive_consent_path=(Path('data') / 'adaptive_consent' / group / f'{domain}.json'
+                               if state_mode == 'persistent' else None),
     )
 
     # Load domain-appropriate benign incident

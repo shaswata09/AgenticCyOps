@@ -1,5 +1,5 @@
 """
-Structured JSON Logger for AgenticCyOps Experiments
+Structured JSON Logger for DEFER Experiments
 
 Middleware for instrumenting all inter-component calls:
   agent -> tool, agent -> memory, agent <-> agent, consensus validation,
@@ -48,8 +48,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from config import BASE_DIR, LOGS_DIR, model_display_name
+from .run_metadata import HEADER_FIELDS, build_run_header
 
-LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
+
+_ROOT = str(BASE_DIR)
+
+
+def _relative(line: str) -> str:
+    """Write paths inside this checkout as repo-relative ("./...") so no log
+    carries the absolute path of the machine that ran it (e.g. the
+    changed_files of a config-integrity event)."""
+    return line.replace(_ROOT + "/", "./").replace(_ROOT, ".")
 
 
 class EventBuilder:
@@ -111,6 +121,7 @@ class ExperimentLogger:
         config: str = "agenticcyops",
         model: str = "Qwen3-235B-A22B-Instruct-2507",
         logs_dir: Optional[str] = None,
+        header: Optional[dict] = None,
     ):
         """
         Args:
@@ -120,18 +131,25 @@ class ExperimentLogger:
                        Determines the subdirectory under logs/.
             domain: Domain identifier ("cyberops", "healthcare", "finance", "legal").
             config: System configuration ("flat", "acl_hardened", "agenticcyops").
-            model: Primary model used for this run.
+            model: Primary model used for this run.  Host paths are stripped;
+                   only the ``<org>/<name>`` part or an API model id is kept.
             logs_dir: Override base logs directory. Defaults to project logs/.
+            header: Run metadata written as the first line of the file (see
+                    :func:`logging_utils.run_metadata.build_run_header`).
+                    When omitted a header with git state and the model is
+                    still written, so every log starts with a ``run_header``.
         """
         self.config = config
         self.domain = domain
-        self.model = model
+        self.model = model_display_name(model)
         self.eval_name = eval_name
+        self.header: dict = {}
 
         self._trial_id: Optional[str] = None
         self._ap: Optional[str] = None
         self._variant: Optional[int] = None
         self._trial_num: Optional[int] = None
+        self._canaries: list[str] = []
 
         base = Path(logs_dir) if logs_dir else LOGS_DIR
         self._log_dir = base / eval_name
@@ -140,6 +158,49 @@ class ExperimentLogger:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self._log_file = self._log_dir / f"{config}_{timestamp}.jsonl"
         self._file_handle = open(self._log_file, "a", buffering=1)  # line-buffered
+        self._write_header(header)
+
+    # ------------------------------------------------------------------ #
+    #  Run header
+    # ------------------------------------------------------------------ #
+
+    def _write_header(self, header: Optional[dict]):
+        """Write the ``run_header`` event as the first line of the file.
+
+        Unlike ordinary events, ``None`` values are kept so the schema is
+        visible even when a field is not known yet.
+        """
+        if header is None:
+            header = build_run_header(config=self.config, domain=self.domain,
+                                      primary_model=self.model, probe=False)
+        else:
+            header = dict(header)
+            header.setdefault("config", self.config)
+            header.setdefault("domain", self.domain)
+            if not header.get("primary_model"):
+                header["primary_model"] = self.model
+        header["primary_model"] = model_display_name(header.get("primary_model"))
+        self.header = header
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "eval": self.eval_name,
+            "action": "run_header",
+            "source": "harness",
+            "destination": "log",
+        }
+        for k in HEADER_FIELDS:
+            entry[k] = header.get(k)
+        for k, v in header.items():
+            entry.setdefault(k, v)
+        self._file_handle.write(_relative(json.dumps(entry, default=str)) + "\n")
+
+    def update_header(self, **fields):
+        """Record header fields learned after the file was opened (e.g. the
+        served model id) as a ``run_header_update`` event."""
+        self.header.update(fields)
+        if "primary_model" in fields:
+            fields["primary_model"] = model_display_name(fields["primary_model"])
+        self.log(source="harness", destination="log", action="run_header_update", extra=fields)
 
     def close(self):
         """Flush and close the log file."""
@@ -182,6 +243,30 @@ class ExperimentLogger:
         """Set trial_id directly for custom naming."""
         self._trial_id = trial_id
 
+    def set_canaries(self, canaries: Optional[list[str]]):
+        """Canary strings of the current trial.
+
+        Any event whose ``extra`` fields or payload text contain one of them
+        gets a ``canary_hits`` list; the text itself is never written.  The
+        effect oracle uses the hits to decide whether planted content
+        reached an outbound action (``mem_read_leak`` / ``exfil`` effects).
+        """
+        self._canaries = [str(c) for c in (canaries or []) if c]
+
+    def _canary_hits(self, *texts) -> list[str]:
+        if not self._canaries:
+            return []
+        hits = []
+        for t in texts:
+            if not t:
+                continue
+            if not isinstance(t, str):
+                t = json.dumps(t, default=str)
+            for c in self._canaries:
+                if c in t and c not in hits:
+                    hits.append(c)
+        return hits
+
     # ------------------------------------------------------------------ #
     #  Core logging
     # ------------------------------------------------------------------ #
@@ -200,6 +285,7 @@ class ExperimentLogger:
         tokens_completion: Optional[int] = None,
         payload_hash: Optional[str] = None,
         extra: Optional[dict] = None,
+        scan_text: Optional[Any] = None,
     ):
         """Write a single structured log entry.
 
@@ -219,6 +305,8 @@ class ExperimentLogger:
             tokens_completion: Completion/output tokens
             payload_hash: Hash of the payload (computed automatically if not provided)
             extra: Additional fields to include
+            scan_text: Content that is scanned for the trial's canary strings
+                       but never written (see :meth:`set_canaries`)
         """
         total_tokens = tokens_used
         if total_tokens is None and (tokens_prompt or tokens_completion):
@@ -253,11 +341,16 @@ class ExperimentLogger:
 
         if extra:
             entry.update(extra)
+        if entry.get("model"):
+            entry["model"] = model_display_name(entry["model"])
+        hits = self._canary_hits(extra, scan_text)
+        if hits:
+            entry["canary_hits"] = hits
 
         # Remove None values for cleaner logs
         entry = {k: v for k, v in entry.items() if v is not None}
 
-        line = json.dumps(entry, default=str)
+        line = _relative(json.dumps(entry, default=str))
         self._file_handle.write(line + "\n")
 
     # ------------------------------------------------------------------ #
@@ -326,6 +419,7 @@ class ExperimentLogger:
         (tool, operation, parameters) instead of tool name alone.
         """
         payload_hash = None
+        raw = None
         if payload:
             raw = json.dumps(payload, default=str) if not isinstance(payload, str) else payload
             payload_hash = hashlib.sha256(raw.encode()).hexdigest()[:8]
@@ -342,6 +436,7 @@ class ExperimentLogger:
             payload_hash=payload_hash,
             interception_step=interception_step,
             extra=extra,
+            scan_text=raw,
         )
 
     def log_memory_read(
@@ -352,8 +447,12 @@ class ExperimentLogger:
         mechanism: Optional[str] = None,
         latency_ms: Optional[float] = None,
         num_results: Optional[int] = None,
+        extra: Optional[dict] = None,
     ):
         """Log an agent -> memory store read."""
+        fields = dict(extra or {})
+        if num_results is not None:
+            fields["num_results"] = num_results
         self.log(
             source=agent,
             destination=store,
@@ -361,7 +460,7 @@ class ExperimentLogger:
             auth_decision=auth_decision,
             mechanism=mechanism,
             latency_ms=latency_ms,
-            extra={"num_results": num_results} if num_results is not None else None,
+            extra=fields or None,
         )
 
     def log_memory_write(
@@ -373,14 +472,16 @@ class ExperimentLogger:
         latency_ms: Optional[float] = None,
         payload: Optional[Any] = None,
         cosine_similarity: Optional[float] = None,
+        extra: Optional[dict] = None,
     ):
         """Log an agent -> memory store write (goes through P4 write-boundary filtering)."""
         payload_hash = None
+        raw = None
         if payload:
             raw = json.dumps(payload, default=str) if not isinstance(payload, str) else payload
             payload_hash = hashlib.sha256(raw.encode()).hexdigest()[:8]
 
-        extra = {}
+        extra = dict(extra or {})
         if cosine_similarity is not None:
             extra["cosine_similarity"] = round(cosine_similarity, 4)
 
@@ -393,6 +494,7 @@ class ExperimentLogger:
             latency_ms=latency_ms,
             payload_hash=payload_hash,
             extra=extra or None,
+            scan_text=raw,
         )
 
     def log_consensus_vote(
@@ -489,8 +591,12 @@ class ExperimentLogger:
         phase_from: Optional[str] = None,
         phase_to: Optional[str] = None,
         latency_ms: Optional[float] = None,
+        content: Optional[Any] = None,
     ):
-        """Log a Host-mediated phase handoff (Monitor -> Analyze -> Admin -> Report)."""
+        """Log a Host-mediated phase handoff (Monitor -> Analyze -> Admin -> Report).
+
+        ``content`` (the handoff payload) is scanned for canaries only.
+        """
         extra = {}
         if phase_from:
             extra["phase_from"] = phase_from
@@ -503,6 +609,7 @@ class ExperimentLogger:
             action="agent_handoff",
             latency_ms=latency_ms,
             extra=extra or None,
+            scan_text=content,
         )
 
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Interactive vLLM Server Launcher
+# DEFER — Interactive vLLM Server Launcher
 # Usage: ./start_servers.sh
 #
 # MEMORY REALITY (actual BF16 weight sizes):
@@ -35,9 +35,18 @@ if [ -t 1 ] && [ "${TERM:-dumb}" != "dumb" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODELS_DIR="$SCRIPT_DIR/models"
+MODELS_DIR="${MODELS_DIR:-$SCRIPT_DIR/models}"
 LOG_DIR="$SCRIPT_DIR/logs/vllm"
 mkdir -p "$LOG_DIR"
+
+# Non-interactive named profiles (revision v2, docs/REVISION_TASKS.md G2):
+#   ./start_servers.sh --profile q235 | mid | glm      (start + wait)
+#   ./start_servers.sh --status | --stop
+case "${1:-}" in
+    --profile) exec "$SCRIPT_DIR/scripts/vllm_profiles.sh" start "${2:?profile name}" ;;
+    --status)  exec "$SCRIPT_DIR/scripts/vllm_profiles.sh" status ;;
+    --stop)    exec "$SCRIPT_DIR/scripts/vllm_profiles.sh" stop ;;
+esac
 
 # ---- Auto-detect NVLink topology ----
 detect_nvlink_pairs() {
@@ -189,7 +198,7 @@ GROUP_F_IDX=(2 3 5)    # Claude API primary — V1(2)+V2(3)+V3(4,5) [V5 swaps wi
 #   - Qwen3-32B on 8002 = V1 validator AND primary for benchmark Group G
 #   - Mistral on   8003 = V5 validator AND primary for benchmark Group H
 #   - GPT-OSS-120B 8006 = primary for benchmark Group J
-#   - Llama-3.1-8B is hosted externally (10.116.35.188:8008) for Group I
+#   - Llama-3.1-8B is served from the RTX 5090 node (REMOTE_5090_URL in .env) for Group I
 GROUP_G_IDX=(2 4 6)    # Qwen3-32B(2) + V5 Mistral(3) + GPT-OSS-120B(0,1,4,5)
 
 # ---- Selection menu ----
@@ -198,7 +207,7 @@ cursor=0
 draw_group_menu() {
     clear
     echo ""
-    echo "  AgenticCyOps — Select Server Group"
+    echo "  DEFER — Select Server Group"
     echo "  ────────────────────────────────────────────────────────────────"
     echo ""
     echo "  7 model families: Qwen, GLM, DeepSeek, Meta, Mistral, Anthropic, OpenAI"

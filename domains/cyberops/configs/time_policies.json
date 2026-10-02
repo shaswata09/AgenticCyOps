@@ -10,7 +10,7 @@
         },
         "add_rule": {
             "allowed_start": 0,
-            "allowed_end": 23,
+            "allowed_end": 24,
             "description": "Firewall additions allowed 24/7"
         }
     },
@@ -24,7 +24,7 @@
     "T8_iam_pam": {
         "revoke": {
             "allowed_start": 0,
-            "allowed_end": 23,
+            "allowed_end": 24,
             "description": "Credential revocation allowed 24/7 for emergencies"
         }
     }

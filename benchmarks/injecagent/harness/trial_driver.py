@@ -2,7 +2,7 @@
 
 For each upstream test case, constructs a proposal representing the
 adversarial tool call (one per attacker tool) and drives it through the
-AgenticCyOps P1-P5 defense pipeline for a chosen domain + config.
+DEFER P1-P5 defense pipeline for a chosen domain + config.
 
 This is a *deterministic* driver (no live LLM calls).  It tests
 middleware correctness: given an attacker's intent + poisoned evidence,
@@ -68,7 +68,7 @@ def load_cases(attack_family: str = "dh", variant: str = "base") -> list[dict]:
 
 
 # --------------------------------------------------------------------- #
-#  Per-domain defense pipeline (Flat / ACL / AgenticCyOps)
+#  Per-domain defense pipeline (Flat / ACL / DEFER)
 # --------------------------------------------------------------------- #
 
 
@@ -211,7 +211,7 @@ class DefensePipeline:
             return {"allowed": True, "mechanism": "acl_no_deny",
                     "stage": None, "reason": "ACL does not know IA_* tools"}
 
-        # AgenticCyOps full stack --------------------------------------
+        # DEFER full stack --------------------------------------
 
         # P1-L1: component identity
         ok, reason = self.auth.verify_component(attacker_tool_ia, "tools")

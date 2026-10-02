@@ -30,6 +30,7 @@ import numpy as np
 import seaborn as sns
 
 from config import BASE_DIR
+from analysis.runlogs import config_files
 
 sns.set_theme(style="whitegrid", font_scale=1.0, palette="muted")
 plt.rcParams.update({
@@ -41,7 +42,7 @@ plt.rcParams.update({
 })
 
 CONFIGS = ["flat", "acl_hardened", "agenticcyops"]
-CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened", "agenticcyops": "AgenticCyOps"}
+CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened", "agenticcyops": "DEFER"}
 CONFIG_COLORS = {"flat": "#e74c3c", "acl_hardened": "#f39c12", "agenticcyops": "#2ecc71"}
 PHASES = ["monitor", "analyze", "admin", "report"]
 
@@ -52,7 +53,7 @@ ACCENT = "#2980b9"
 def load_logs(domain: str, config: str) -> list[dict]:
     log_dir = BASE_DIR / "logs" / f"{domain}_baseline"
     events = []
-    for f in sorted(log_dir.glob(f"{config}*.jsonl")):
+    for f in sorted(config_files(log_dir, config)):
         with open(f) as fh:
             for line in fh:
                 line = line.strip()
@@ -103,7 +104,7 @@ def page_title(pdf, domain: str):
     fig, ax = plt.subplots(figsize=(11, 8.5))
     ax.axis("off")
 
-    ax.text(0.5, 0.72, "AgenticCyOps", transform=ax.transAxes,
+    ax.text(0.5, 0.72, "DEFER", transform=ax.transAxes,
             ha="center", fontsize=36, fontweight="bold", color=HEADER_COLOR)
     ax.text(0.5, 0.62, "Baseline Verification Report", transform=ax.transAxes,
             ha="center", fontsize=22, color="#7f8c8d")
@@ -118,7 +119,7 @@ def page_title(pdf, domain: str):
             color=ACCENT, linewidth=2)
 
     # Config summary
-    configs_text = "Configurations tested: Flat MAS  |  ACL-Hardened  |  AgenticCyOps"
+    configs_text = "Configurations tested: Flat MAS  |  ACL-Hardened  |  DEFER"
     ax.text(0.5, 0.28, configs_text, transform=ax.transAxes,
             ha="center", fontsize=11, color="#7f8c8d")
 
@@ -170,7 +171,7 @@ def page_experiment_config(pdf, domain: str):
         ["Write filtering (P4)", "None", "None", "Cosine sim > 0.5"],
         ["Escalation", "Never", "Never", "On bulk/rejection"],
     ]
-    config_headers = ["Behavior", "Flat MAS", "ACL-Hardened", "AgenticCyOps"]
+    config_headers = ["Behavior", "Flat MAS", "ACL-Hardened", "DEFER"]
 
     table2 = ax.table(
         cellText=config_data, colLabels=config_headers,
@@ -182,7 +183,7 @@ def page_experiment_config(pdf, domain: str):
     for j in range(len(config_headers)):
         table2[0, j].set_facecolor(HEADER_COLOR)
         table2[0, j].set_text_props(color="white", fontweight="bold")
-    # Color AgenticCyOps column
+    # Color DEFER column
     for i in range(1, len(config_data) + 1):
         table2[i, 3].set_facecolor("#eafaf1")
         table2[i, 1].set_facecolor("#fdedec")
@@ -204,7 +205,7 @@ def page_metrics_table(pdf, rows: list[dict], domain: str):
     ax.set_title(f"Baseline Metrics — {domain.title()}", fontsize=18,
                  fontweight="bold", color=HEADER_COLOR, pad=30)
 
-    headers = ["Metric", "Flat MAS", "ACL-Hardened", "AgenticCyOps"]
+    headers = ["Metric", "Flat MAS", "ACL-Hardened", "DEFER"]
     metric_rows = [
         ("Total Events", "events"),
         ("Tool Calls Attempted", "tool_calls"),
@@ -252,7 +253,7 @@ def page_metrics_table(pdf, rows: list[dict], domain: str):
         aco_tokens = next((r["tokens"] for r in rows if r["config"] == "agenticcyops"), 0)
         if flat_tokens > 0:
             reduction = round((1 - aco_tokens / flat_tokens) * 100)
-            ax.text(0.5, 0.08, f"AgenticCyOps uses {reduction}% fewer tokens than Flat MAS",
+            ax.text(0.5, 0.08, f"DEFER uses {reduction}% fewer tokens than Flat MAS",
                     transform=ax.transAxes, ha="center", fontsize=12,
                     color="#27ae60", fontweight="bold",
                     bbox=dict(boxstyle="round,pad=0.4", facecolor="#eafaf1", edgecolor="#27ae60"))
@@ -289,7 +290,7 @@ def page_summary(pdf, rows: list[dict], domain: str):
 
         if flat and aco:
             token_red = round((1 - aco["tokens"] / flat["tokens"]) * 100) if flat["tokens"] else 0
-            findings.append(f"Token reduction: AgenticCyOps uses {token_red}% fewer tokens than Flat MAS")
+            findings.append(f"Token reduction: DEFER uses {token_red}% fewer tokens than Flat MAS")
 
         if aco:
             findings.append(f"Consensus active: {aco['consensus']} validator votes recorded")

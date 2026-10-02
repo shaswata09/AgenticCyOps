@@ -28,6 +28,7 @@ import numpy as np
 import seaborn as sns
 
 from config import BASE_DIR
+from analysis.runlogs import config_files
 
 # ---------------------------------------------------------------------------
 # Style constants — consistent with generate_report.py / baseline_dashboard.py
@@ -44,7 +45,7 @@ plt.rcParams.update({
 })
 
 CONFIGS = ["flat", "acl_hardened", "agenticcyops"]
-CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened", "agenticcyops": "AgenticCyOps"}
+CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened", "agenticcyops": "DEFER"}
 CONFIG_COLORS = {"flat": "#e74c3c", "acl_hardened": "#f39c12", "agenticcyops": "#2ecc71"}
 PHASES = ["monitor", "analyze", "admin", "report"]
 DOMAINS = ["cyberops", "healthcare", "finance", "legal"]
@@ -105,7 +106,7 @@ def load_logs(domain: str, config: str, group: str = "F") -> list[dict]:
     for log_dir in candidates:
         if not log_dir.is_dir():
             continue
-        for f in sorted(log_dir.glob(f"{config}*.jsonl")):
+        for f in sorted(config_files(log_dir, config)):
             with open(f) as fh:
                 for line in fh:
                     line = line.strip()
@@ -565,7 +566,7 @@ def chart_fp_rates(row: dict, output_dir: Path):
 
     ax.set_xlabel("Defensive Principle", fontsize=12)
     ax.set_ylabel("False Positive Rate (%)", fontsize=12)
-    ax.set_title(f"Benign FP Rates — AgenticCyOps / {domain.title()}", fontsize=14, fontweight="bold")
+    ax.set_title(f"Benign FP Rates — DEFER / {domain.title()}", fontsize=14, fontweight="bold")
     ax.legend(loc="upper right")
     ax.set_ylim(0, max(max(rates) * 1.3, 15))
 
@@ -802,7 +803,7 @@ def cross_domain_analysis(group: str, output_dir: Path):
 
     # Comparison chart
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle("Cross-Domain AgenticCyOps Comparison", fontsize=16, fontweight="bold",
+    fig.suptitle("Cross-Domain DEFER Comparison", fontsize=16, fontweight="bold",
                  color=HEADER_COLOR, y=0.98)
 
     domain_names = [r["domain"].title() for r in rows]
