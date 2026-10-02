@@ -8,13 +8,24 @@
                 "action": {
                     "type": "string",
                     "required": true,
-                    "allowed": ["revoke", "reset_password", "suspend", "unlock"],
-                    "description": "IAM/PAM action to perform"
+                    "allowed": [
+                        "revoke",
+                        "reset"
+                    ],
+                    "description": "IAM/PAM action to perform (v3.2: the tool's own values; 'escalate' stays excluded)"
                 },
                 "target_user": {
                     "type": "string",
                     "required": true,
-                    "blocked": ["*", "all", "everyone", "all_users", "root", "SYSTEM", "Administrator"],
+                    "blocked": [
+                        "*",
+                        "all",
+                        "everyone",
+                        "all_users",
+                        "root",
+                        "SYSTEM",
+                        "Administrator"
+                    ],
                     "description": "Target user account for the action"
                 },
                 "max_targets": {
@@ -35,19 +46,34 @@
                 "action": {
                     "type": "string",
                     "required": true,
-                    "allowed": ["block_ip", "unblock_ip", "add_rule", "delete_rule"],
+                    "allowed": [
+                        "block_ip",
+                        "unblock_ip",
+                        "add_rule",
+                        "delete_rule"
+                    ],
                     "description": "Firewall action to perform"
                 },
                 "target": {
                     "type": "string",
                     "required": true,
-                    "blocked": ["0.0.0.0/0", "*", "::/0", "0.0.0.0", "any"],
+                    "blocked": [
+                        "0.0.0.0/0",
+                        "*",
+                        "::/0",
+                        "0.0.0.0",
+                        "any"
+                    ],
                     "description": "Target IP address or CIDR block"
                 },
                 "direction": {
                     "type": "string",
                     "required": true,
-                    "allowed": ["inbound", "outbound", "both"],
+                    "allowed": [
+                        "inbound",
+                        "outbound",
+                        "both"
+                    ],
                     "description": "Traffic direction for the rule"
                 },
                 "max_rules": {
@@ -58,7 +84,12 @@
                 "protocol": {
                     "type": "string",
                     "required": false,
-                    "allowed": ["tcp", "udp", "icmp", "any"],
+                    "allowed": [
+                        "tcp",
+                        "udp",
+                        "icmp",
+                        "any"
+                    ],
                     "description": "Network protocol for the rule"
                 }
             }
@@ -68,13 +99,20 @@
                 "action": {
                     "type": "string",
                     "required": true,
-                    "allowed": ["get", "set", "rollback"],
-                    "description": "Configuration management action"
+                    "allowed": [
+                        "push",
+                        "rollback"
+                    ],
+                    "description": "Configuration management action (v3.2: the tool's own values)"
                 },
                 "scope": {
                     "type": "string",
                     "required": true,
-                    "blocked": ["*", "all", "global"],
+                    "blocked": [
+                        "*",
+                        "all",
+                        "global"
+                    ],
                     "description": "Scope of configuration change"
                 },
                 "config_key": {
@@ -84,7 +122,9 @@
                 },
                 "config_value": {
                     "type": "string",
-                    "required_when": {"action": "set"},
+                    "required_when": {
+                        "action": "set"
+                    },
                     "description": "Value to set for the configuration key"
                 }
             }
@@ -94,7 +134,12 @@
                 "action": {
                     "type": "string",
                     "required": true,
-                    "allowed": ["scan", "quarantine", "whitelist", "remove_quarantine"],
+                    "allowed": [
+                        "scan",
+                        "quarantine",
+                        "whitelist",
+                        "remove_quarantine"
+                    ],
                     "description": "Endpoint protection action"
                 },
                 "target_host": {
@@ -104,7 +149,13 @@
                 },
                 "file_hash": {
                     "type": "string",
-                    "required_when": {"action": ["quarantine", "whitelist", "remove_quarantine"]},
+                    "required_when": {
+                        "action": [
+                            "quarantine",
+                            "whitelist",
+                            "remove_quarantine"
+                        ]
+                    },
                     "description": "SHA-256 hash of the target file"
                 }
             }
@@ -114,7 +165,11 @@
                 "action": {
                     "type": "string",
                     "required": true,
-                    "allowed": ["isolate_host", "patch", "restart_service"],
+                    "allowed": [
+                        "isolate_host",
+                        "patch",
+                        "restart_service"
+                    ],
                     "description": "Ansible automation action"
                 },
                 "target_hosts": {
@@ -129,12 +184,16 @@
                 },
                 "service_name": {
                     "type": "string",
-                    "required_when": {"action": "restart_service"},
+                    "required_when": {
+                        "action": "restart_service"
+                    },
                     "description": "Name of the service to restart"
                 },
                 "patch_id": {
                     "type": "string",
-                    "required_when": {"action": "patch"},
+                    "required_when": {
+                        "action": "patch"
+                    },
                     "description": "Identifier of the patch to apply"
                 }
             }

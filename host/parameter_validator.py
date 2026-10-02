@@ -12,21 +12,16 @@ from typing import Optional
 import numpy as np
 
 from config import BASE_DIR
+from host.tool_semantics import SCOPE_ARGS, TARGET_FIELDS, action_of
 from logging_utils import ExperimentLogger
 
 
 class ParameterValidator:
     """Validates tool call parameters against safety rules."""
 
-    # Map tool_id -> argument key that holds the primary target
-    TARGET_FIELDS = {
-        "T8_iam_pam": "target_user",
-        "T9_firewall": "target",
-        "T12_ansible": "target_hosts",
-        "H8_prescription_writer": "patient_id",
-        "F8_account_freeze": "account_id",
-        "L8_court_filing": "case_id",
-    }
+    # v3.2: the shared map (host.tool_semantics), taken from the tool schemas;
+    # before, six admin tools had no entry and L8 pointed at a field it lacks
+    TARGET_FIELDS = TARGET_FIELDS
 
     # Actions considered destructive for high-criticality gating
     _DESTRUCTIVE_ACTIONS = frozenset({
@@ -141,8 +136,15 @@ class ParameterValidator:
     # ------------------------------------------------------------------
 
     def _check_wildcards(self, arguments: dict) -> tuple[bool, str, dict]:
-        """Scan all string values (recursively for lists) for wildcard tokens."""
+        """Scan the scoping arguments (recursively for lists) for wildcard tokens.
+
+        v3.2: only arguments that name what a call touches (host.tool_semantics.
+        SCOPE_ARGS); before, every value was scanned, so legitimate enum values
+        such as a lab-test selector "all" or a graph relationship "all" were
+        denied as wildcards."""
         for key, val in arguments.items():
+            if key not in SCOPE_ARGS:
+                continue
             match = self._scan_for_wildcard(val)
             if match is not None:
                 return False, "P2_wildcard_parameter", {"param": key, "value": match}
@@ -193,7 +195,12 @@ class ParameterValidator:
     # ------------------------------------------------------------------
 
     def _check_criticality(self, tool_id: str, arguments: dict) -> tuple[bool, str, dict]:
-        """Deny if target is critical; deny high-criticality only for destructive actions."""
+        """Deny if target is critical; deny high-criticality only for destructive actions.
+
+        v3.2: state-changing tools only (host.tool_semantics.TARGET_FIELDS);
+        before, read-only telemetry queries about a critical asset were denied."""
+        if tool_id not in TARGET_FIELDS:
+            return True, "", {}
         target = self._extract_target(tool_id, arguments)
         if target is None:
             return True, "", {}
@@ -219,7 +226,7 @@ class ParameterValidator:
                 }
 
             if criticality == "high":
-                action = arguments.get("action", "").lower()
+                action = action_of(tool_id, arguments)   # v3.2: implied actions too
                 if action in self._DESTRUCTIVE_ACTIONS:
                     return False, "P2_high_criticality_destructive", {
                         "target": t_str,

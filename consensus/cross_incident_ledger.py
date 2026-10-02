@@ -11,21 +11,15 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from host.tool_semantics import TARGET_FIELDS, action_of
 from logging_utils import ExperimentLogger
 
 
 class CrossIncidentLedger:
     """Detects cross-incident accumulation of destructive actions."""
 
-    # Map tool_id -> argument key that holds the primary target
-    TARGET_FIELDS = {
-        "T8_iam_pam": "target_user",
-        "T9_firewall": "target",
-        "T12_ansible": "target_hosts",
-        "H8_prescription_writer": "patient_id",
-        "F8_account_freeze": "account_id",
-        "L8_court_filing": "case_id",
-    }
+    # v3.2: the shared map (host.tool_semantics)
+    TARGET_FIELDS = TARGET_FIELDS
 
     DESTRUCTIVE_ACTIONS = frozenset({
         "revoke", "delete_rule", "quarantine", "isolate_host",
@@ -61,7 +55,8 @@ class CrossIncidentLedger:
         recent = [e for e in self._ledger if now - e["timestamp"] <= self._window]
 
         tool_id = proposal.get("tool_id", "")
-        action = proposal.get("arguments", {}).get("action", "")
+        # v3.2: the hoisted or implied action (F8 "freeze", L8 "file" were empty)
+        action = action_of(proposal.get("tool_id", ""), proposal.get("arguments") or {}, proposal)
         target = self._extract_target(proposal)
         incident_id = context.get("incident_id", "")
 
@@ -150,7 +145,7 @@ class CrossIncidentLedger:
         self._ledger.append({
             "incident_id": context.get("incident_id", ""),
             "tool_id": proposal.get("tool_id", ""),
-            "action": proposal.get("arguments", {}).get("action", ""),
+            "action": action_of(proposal.get("tool_id", ""), proposal.get("arguments") or {}, proposal),
             "target": self._extract_target(proposal),
             "timestamp": datetime.now(timezone.utc),
         })
