@@ -23,23 +23,27 @@ rm -rf "$OUT"/logs_legacy_v1 "$OUT"/results_legacy_v1 "$OUT"/paper/main.tex \
        "$OUT"/REVIEW_READY_TASKS.md "$OUT"/docs/REVISION_TASKS.md
 find "$OUT" -name "*.ipynb" -path "*existing_defense_eval*" -delete 2>/dev/null || true
 
-# the public repository names its authors (citation block, CITATION.cff, its URL);
-# the review copy drops them
-rm -f "$OUT"/CITATION.cff
-python3 - "$OUT" <<'PY'
+# the public repository names its authors (citation block, CITATION.cff, its URL,
+# read from the git remote); the review copy drops them, and this script
+rm -f "$OUT"/CITATION.cff "$OUT"/scripts/make_anonymous_mirror.sh
+repo_url="$(git remote get-url origin 2>/dev/null | sed -E 's#^git@([^:]+):#https://\1/#; s#\.git$##' || true)"
+python3 - "$OUT" "$repo_url" <<'PY'
 import pathlib, re, sys
-out = pathlib.Path(sys.argv[1])
+out, url = pathlib.Path(sys.argv[1]), sys.argv[2]
 readme = out / "README.md"
 s = readme.read_text()
 s = re.sub(r"\n## Citation\n.*?(?=\n## )", "\n", s, flags=re.S)
 s = s.replace("- [Citation](#citation)\n", "")
+s = re.sub(r",?\s*see \[Citation\]\(#citation\)", "", s)
+if url:
+    s = re.sub(r"\s*Code: <" + re.escape(url) + r">\.", "", s)
 readme.write_text(s)
-for f in out.rglob("*"):
-    if f.is_file() and f.suffix in {".md", ".py", ".sh", ".txt", ".yaml", ".html", ".tex", ".cff"}:
-        t = f.read_text(errors="ignore")
-        u = t.replace("https://github.com/shaswata09/DEFER", "(repository link withheld for review)")
-        if u != t:
-            f.write_text(u)
+if url:
+    for f in out.rglob("*"):
+        if f.is_file() and f.suffix in {".md", ".py", ".sh", ".txt", ".yaml", ".html", ".tex", ".cff"}:
+            t = f.read_text(errors="ignore")
+            if url in t:
+                f.write_text(t.replace(url, "(repository link withheld for review)"))
 PY
 
 # identity of whoever builds the mirror, read from git config, never written here
@@ -51,8 +55,11 @@ for w in $name; do [ ${#w} -ge 4 ] && user_pat="${user_pat:+$user_pat|}\\b$w\\b"
 [ -n "$email" ] && user_pat="${user_pat:+$user_pat|}${email%%@*}"
 # (the scenarios use synthetic 10.0.x.x addresses throughout, so real network
 # prefixes are passed in ANON_EXTRA_PATTERNS rather than matched generically)
-pats="/home/[a-z][a-z0-9_-]+/|/storage/data|/Users/[A-Za-z]|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|shaswata09|github\.com/[A-Za-z0-9_-]+/DEFER"
+pats="/home/[a-z][a-z0-9_-]+/|/storage/data|/Users/[A-Za-z]|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}"
 [ -n "$user_pat" ] && pats="$pats|$user_pat"
+# the repository owner, from the remote URL
+owner="$(echo "$repo_url" | sed -E 's#^https?://[^/]+/([^/]+)/.*#\1#')"
+[ -n "$owner" ] && [ "$owner" != "$repo_url" ] && pats="$pats|\\b$owner\\b"
 [ -n "${ANON_EXTRA_PATTERNS:-}" ] && pats="$pats|$ANON_EXTRA_PATTERNS"
 
 # synthetic scenario paths in payloads and logs (e.g. /home/auser/...) are not
