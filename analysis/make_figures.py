@@ -1313,7 +1313,7 @@ def fig_state_carryover(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     ax.set_ylabel("Denials per incident")
     ax.set_ylim(0, top * 1.12)
     fs.style_axes(ax)
-    ax.legend(loc="lower right", handlelength=1.0, borderpad=0.2, fontsize=6)
+    ax.legend(loc="upper right", handlelength=1.0, borderpad=0.2, fontsize=6)
 
     path = fs.save(fig, "state_carryover", outdir, fs.WIDTH_1COL)
     meta = {

@@ -142,7 +142,7 @@ def figure(out: dict, v31: bool = False) -> Path:
     ax.set_xticks(range(len(cfgs)))
     ax.set_xticklabels([labels[c] for c in cfgs])
     ax.set_ylabel("Attack success (%)")
-    ax.legend(frameon=False, fontsize=7, ncol=3, loc="upper right")
+    ax.legend(frameon=False, fontsize=7, ncol=3, loc="upper center", bbox_to_anchor=(0.5, -0.12))
     fs.style_axes(ax)
     name = "primaries_boundary_v31" if v31 else "primaries_boundary"
     path = BASE_DIR / "docs" / "figures" / f"{name}.png"

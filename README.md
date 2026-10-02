@@ -93,29 +93,31 @@ escalated, with benign task completion as run (hollow diamonds).*
 
 ### Across primary models
 
-The boundary was measured live with two more primary models at `defense-freeze-v2.9`,
-before the audit fixes (CyberOps, 75 variants × 3 trials plus the 20 benign scenarios
-× 3, per configuration; the Qwen3-235B column is its v2.2 run, for comparison), with every panel decision re-judged under Local4. A model never
-judges its own proposals, so gpt-oss-120b's panel is the other three judges, two of three.
+The boundary was also run live at `defense-freeze-v3.1` with two more primary models
+(CyberOps, 75 variants × 3 trials plus the 20 benign scenarios × 3, per configuration),
+with every panel decision re-judged under Local4. A model never judges its own
+proposals, so gpt-oss-120b's panel is the other three judges, two of three.
 
-![The boundary across three primary models](docs/figures/primaries_boundary.png)
+![The boundary across three primary models](docs/figures/primaries_boundary_v31.png)
 
 | Configuration | Qwen3-235B | gpt-oss-120b | Llama-3.1-8B |
 |---|---|---|---|
-| FLAT | 36.4 [26.2, 46.7] | 21.8 [13.3, 31.1] | 33.3 [23.6, 43.6] |
-| ACL | 24.0 [15.1, 33.3] | 17.8 [9.8, 27.1] | 32.0 [22.2, 42.2] |
-| JUDGEONLY | 33.8 [24.0, 44.0] | 22.7 [13.8, 32.0] | 27.6 [18.2, 37.3] |
+| FLAT | 32.0 [22.7, 41.8] | 21.3 [12.4, 31.1] | 34.7 [24.4, 45.3] |
+| ACL | 24.9 [15.6, 35.1] | 18.7 [10.7, 28.0] | 33.8 [23.6, 44.0] |
+| JUDGEONLY | 34.7 [24.4, 45.3] | 21.3 [12.9, 30.7] | 27.6 [18.2, 36.9] |
 | NOJUDGE | 1.3 [0.0, 4.0] | 1.3 [0.0, 4.0] | 1.3 [0.0, 4.0] |
-| **FULL (DEFER)** | **7.1 [2.2, 13.3]** | **6.7 [1.3, 12.0]** | **6.2 [1.3, 12.0]** |
-| legitimate proposals denied, FULL | 11.2% | 0.0%\* | 12.4% |
-| legitimate proposals escalated, NOJUDGE | 51.7% | 33.3% | 65.5% |
+| **FULL (DEFER)** | **2.2 [0.0, 5.8]** | **6.2 [1.3, 12.0]** | **8.4 [3.1, 14.7]** |
+| tool proposals judged, FULL | 26.4% | 9.1% | 45.0% |
+| legitimate proposals denied, FULL | 9.9% | 0.0%\* | 14.6% |
+| legitimate proposals escalated, NOJUDGE | 54.3% | 33.3% | 67.1% |
 
-*Attack success in % with 95% intervals. For three models from three families, 8B to
-235B, the judges alone barely beat no checks, rules first then judges reach 6 to 7%,
-and never judging reaches 1.3% only by escalating a third to two thirds of legitimate
-work. \*gpt-oss-120b makes one consequential call per benign incident and the panel
-approved all 60; its cost appears as 9 memory writes blocked by P4. Numbers:
-[`results/primaries_v29.md`](results/primaries_v29.md).*
+*Attack success in % with 95% intervals, v3.1. For three models from three families, 8B
+to 235B, the judges alone barely beat no checks in CyberOps, rules first then judges
+reach 2 to 8%, and never judging reaches 1.3% only by escalating a third to two thirds of
+legitimate work. \*gpt-oss-120b makes one consequential call per benign incident and the
+panel approved all 60. Numbers: [`results/primaries_v31.md`](results/primaries_v31.md);
+the same runs before the audit fixes (v2.9) are in
+[`results/primaries_v29.md`](results/primaries_v29.md) (FULL 6.7% and 6.2%).*
 
 ### Who stops the attack
 
@@ -141,8 +143,8 @@ compromised agent's handoff or rationale (T2).*
 <tr>
 <td><em>Per variant (v3.1), FULL rescues 26 variants that JUDGEONLY loses and gives up
 none; both fail on three.</em></td>
-<td><em>Leave-one-out (earlier runs, v2.2) on the 68 variants shared by every arm:
-removing P3, P2, or P4 lets attacks through that the others do not catch.</em></td>
+<td><em>Leave-one-out at v3.1 (CyberOps, all 75 variants): removing any principle raises
+attack success above FULL's 2.2%: P1 4.9%, P2 6.7%, P3 16.9%, P4 7.6%, P5 6.7%.</em></td>
 </tr>
 </table>
 
@@ -182,9 +184,11 @@ development domain loses at least one tool call.*
 exposure). FULL reduces every channel an attack gets through: task input 26.1% to 2.5%,
 memory 14.3% to 0.0%, rationale 84.4% to 1.0%; the largest residual is the handoff
 channel (14.4% against 45.6% for FLAT).</em></td>
-<td><em>Persistent state (as run with Div4): legitimate incidents deny each other through
-replay and ledger state that never expires. An identity-keyed, one-incident expiry
-halves the denials (paper, Table III).</em></td>
+<td><em>Persistent state (v3.1, as run with the two local judges): benign completion falls
+from 97% to 5% in both passes. Legitimate incidents deny each other through replay
+and ledger state: denials peak over the first incidents and fall back toward the
+isolated level later in the sequence, but completion does not recover. In the earlier
+runs an identity-keyed, one-incident expiry halved the denials (paper, Table III).</em></td>
 </tr>
 </table>
 
@@ -556,8 +560,8 @@ docs/              review response, figures for this README
   tool into a proposal; the AP-11 maintenance-window assets outside CyberOps never appear
   as tool arguments; AP-5 succeeds on any six T8 calls; the P4 drift check applies from
   a store's first write; P5's read sanitizer can be bypassed with zero-width or homoglyph
-  characters. The ablation, the other primaries, state carry-over, ASB and TAMAS were
-  not re-run at v3.1. In the v3.0 panel input, `UNTRUSTED_KEYS` misses several
+  characters. ASB and TAMAS were not re-run at v3.1 (the ablation, the other primaries
+  and state carry-over were). In the v3.0 panel input, `UNTRUSTED_KEYS` misses several
   attacker-writable fields (`analyst_notes`, `rationale`, `justification`, ...), part of
   the v3.0 result above.
 - **Implementation lessons.** [`docs/engineering_challenges.md`](docs/engineering_challenges.md)

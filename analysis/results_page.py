@@ -40,7 +40,13 @@ def _table(head: list[str], rows: list[list], cls: str = "") -> str:
 
 def build() -> str:
     v31, ex, rt = _load("replay_v31.json"), _load("v31_extras.json"), _load("replay_tables.json")
-    prim, tam = _load("primaries_v29.json"), _load("tamas.json")
+    prim = _load("primaries_v31.json") or _load("primaries_v29.json")
+    prim_tag = "v3.1" if (RES / "primaries_v31.json").exists() else "v2.9"
+    tam = _load("tamas.json")
+    figs_n = {}
+    fj = BASE_DIR / "paper" / "figs" / "figures.json"
+    if fj.exists():
+        figs_n = {x["name"]: x.get("n", {}) for x in json.loads(fj.read_text())}
 
     # the boundary per domain (a selector switches domains)
     panes = []
@@ -68,8 +74,11 @@ def build() -> str:
                for k, r in ex.get("between_runs", {}).items()]
     jt = [[m] + [r.get(d) for d in D4] for m, r in ex.get("judge_approval_of_legitimate_proposals", {}).items()]
 
-    abl = rt.get("ablation", {})
-    abl_rows = [[k, v.get("asr"), v.get("benign_denied", "")] for k, v in abl.items() if isinstance(v, dict)]
+    # the ablation as the figure plots it (v3.1 arms when present)
+    an = figs_n.get("ablation", {})
+    abl_rows = [[k, v, an.get("benign_any_denial_pct", {}).get(k, "")]
+                for k, v in an.get("asr_pct", {}).items()]
+    abl_head = f"Leave-one-out (CyberOps, {an.get('shared_variants', '?')} variants)"
     prim_rows = [[name, *(row.get(c, {}).get("asr") for c in CFG)] for name, row in prim.items()]
     tam_rows = [[a, tam.get("flat", {}).get(a, {}).get("asr_as_run"), tam.get("full", {}).get(a, {}).get("asr_as_run"),
                  tam.get("full", {}).get(a, {}).get("asr_local4", "as run")]
@@ -82,11 +91,11 @@ def build() -> str:
             ("paired_variants", "Paired outcome per variant, JudgeOnly vs DEFER (v3.1)"),
             ("transfer", "Across domains (v3.1) and primaries (earlier runs)"),
             ("channels", "By injection channel (v3.1)"), ("cost", "Where the cost goes (v3.1)"),
-            ("ablation", "Leave-one-out ablation (earlier runs)"),
+            ("ablation", "Leave-one-out ablation (v3.1)"),
             ("validator_behavior", "Judge agreement and quorum (earlier runs)"),
             ("panel_composition", "Panel composition and lineage (earlier runs)"),
-            ("state_carryover", "Persistent state (earlier runs)"),
-            ("primaries_boundary", "Three primaries (earlier runs)"), ("tamas", "TAMAS"),
+            ("state_carryover", "Persistent state (v3.1)"),
+            ("primaries_boundary_v31", "Three primaries (v3.1)"), ("tamas", "TAMAS"),
             ("panel_context_v3", "Judges with more context (v3.0)")]
     gallery = "".join(f'<figure><img loading="lazy" src="../figures/{f}.png" alt="{html.escape(c)}">'
                       f'<figcaption>{html.escape(c)}</figcaption></figure>'
@@ -112,7 +121,7 @@ figcaption{{color:var(--muted);font-size:13px;margin-top:6px}}
 </style></head><body><main>
 <h1>DEFER: results</h1>
 <p class="lead">Deterministic-first enforcement with residual judgment. Reported configuration: <code>defense-freeze-v3.1</code>, Qwen3-235B primary, four open-weight judges (Local4), three trials per variant; intervals are 95% cluster-bootstrap intervals over variants. Built from the committed result files by <code>python -m analysis.results_page</code>.</p>
-<nav><a href="#boundary">Boundary</a><a href="#robust">Robustness</a><a href="#earlier">Other analyses</a><a href="#figures">Figures</a></nav>
+<nav><a href="#boundary">Boundary</a><a href="#robust">Robustness</a><a href="#earlier">Ablation and primaries</a><a href="#figures">Figures</a></nav>
 
 <h2 id="boundary">The judgment boundary (v3.1)</h2>
 <div class="tabs">{buttons}</div>
@@ -129,12 +138,11 @@ figcaption{{color:var(--muted);font-size:13px;margin-top:6px}}
 <p class="note">Each judge's approval of legitimate proposals it judged (%).</p>
 <div class="wrap">{_table(["Judge", *[NAMES[d] for d in D4]], jt)}</div>
 
-<h2 id="earlier">Analyses from the earlier runs</h2>
-<p class="note">These need arms not re-run at v3.1; they are re-scored with the audited oracle.</p>
-<div class="wrap">{_table(["Leave-one-out (CyberOps, 68 variants)", "Attack success %", "Legitimate denied %"], abl_rows)}</div>
-<p class="note">Other primaries (CyberOps, v2.9), attack success %.</p>
+<h2 id="earlier">Ablation, other primaries, TAMAS</h2>
+<div class="wrap">{_table([abl_head, "Attack success %", "Benign incidents with a denial %"], abl_rows)}</div>
+<p class="note">Other primaries (CyberOps, {prim_tag}), attack success %.</p>
 <div class="wrap">{_table(["Primary", *CFG], prim_rows)}</div>
-<p class="note">TAMAS (Qwen3-235B, CrewAI), attack success %.</p>
+<p class="note">TAMAS (Qwen3-235B, CrewAI; earlier runs, not re-run at v3.1), attack success %.</p>
 <div class="wrap">{_table(["Attack type", "Flat", "DEFER as run", "DEFER, Local4"], tam_rows)}</div>
 
 <h2 id="figures">Figures</h2>

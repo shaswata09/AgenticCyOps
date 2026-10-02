@@ -1,6 +1,6 @@
 # Paper tables (scoring v3)
 
-Generated from `results/eval_attacks/all_trials.csv` (23938 trials, groups: llama8b_div4, llama8b_local2_v29, llama8b_local2_v30, mistral_div3p, oss120_local2_v29, oss120_local2_v30, q235_div4, q235_div4_e16null, q235_div4_e16probe, q235_div4_e2, q235_div4_e9, q235_div4_outage, q235_local2_v29, q235_local2_v30, q235_local2_v31, scout_div4). ASR = executed / measurable trials; attempt = executed + blocked; not-measurable and error trials excluded. CIs: Wilson (per-trial) and cluster bootstrap over variants (B = 10,000). Paired differences resample variants shared by both arms; p-values are Holm-corrected within each domain's family of attack paths.
+Generated from `results/eval_attacks/all_trials.csv` (28643 trials, groups: llama8b_div4, llama8b_local2_v29, llama8b_local2_v30, llama8b_local2_v31, mistral_div3p, oss120_local2_v29, oss120_local2_v30, oss120_local2_v31, q235_div4, q235_div4_e16null, q235_div4_e16probe, q235_div4_e2, q235_div4_e9, q235_div4_outage, q235_local2_disabled_P1_v31, q235_local2_disabled_P2_v31, q235_local2_disabled_P3_v31, q235_local2_disabled_P4_v31, q235_local2_disabled_P5_v31, q235_local2_v29, q235_local2_v30, q235_local2_v31, q235_local2_v31persist, q235_local2_v31persist2, scout_div4). ASR = executed / measurable trials; attempt = executed + blocked; not-measurable and error trials excluded. CIs: Wilson (per-trial) and cluster bootstrap over variants (B = 10,000). Paired differences resample variants shared by both arms; p-values are Holm-corrected within each domain's family of attack paths.
 
 ## T1. Headline attack success by group and configuration
 
@@ -15,6 +15,9 @@ Generated from `results/eval_attacks/all_trials.csv` (23938 trials, groups: llam
 | llama8b_local2_v30 | Flat | 0 | – | [–, –] | – | – | – | – | — |
 | llama8b_local2_v30 | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
 | llama8b_local2_v30 | AgenticCyOps | 240 | 5.4 [3.2, 9.0] | [1.7, 10.4] | 38.3 | 45.3 | 83.8 | 85.9 | — |
+| llama8b_local2_v31 | Flat | 240 | 37.5 [31.6, 43.8] | [27.5, 47.5] | 37.5 | 41.5 | 90.4 | 0.0 | 29.2 pp [19.2, 39.6], p=0.000 |
+| llama8b_local2_v31 | ACL-Hardened | 240 | 36.7 [30.8, 42.9] | [26.7, 46.7] | 37.9 | 45.1 | 84.2 | 3.3 | 28.3 pp [18.8, 38.3], p=0.000 |
+| llama8b_local2_v31 | AgenticCyOps | 240 | 8.3 [5.5, 12.5] | [3.3, 14.6] | 45.8 | 54.0 | 82.5 | 81.8 | — |
 | mistral_div3p | Flat | 450 | 23.3 [19.7, 27.5] | [17.3, 29.6] | 23.3 | 17.2 | 70.5 | 0.0 | 22.0 pp [16.0, 28.4], p=0.000 |
 | mistral_div3p | ACL-Hardened | 450 | 20.7 [17.2, 24.6] | [14.9, 26.9] | 23.1 | 17.6 | 51.5 | 10.6 | 19.3 pp [13.6, 25.6], p=0.000 |
 | mistral_div3p | AgenticCyOps | 450 | 1.3 [0.6, 2.9] | [0.0, 3.3] | 22.9 | 17.6 | 51.5 | 94.2 | — |
@@ -24,6 +27,9 @@ Generated from `results/eval_attacks/all_trials.csv` (23938 trials, groups: llam
 | oss120_local2_v30 | Flat | 0 | – | [–, –] | – | – | – | – | — |
 | oss120_local2_v30 | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
 | oss120_local2_v30 | AgenticCyOps | 240 | 7.1 [4.5, 11.1] | [2.1, 12.9] | 20.8 | 23.2 | 87.9 | 66.0 | — |
+| oss120_local2_v31 | Flat | 240 | 22.5 [17.7, 28.2] | [13.8, 31.7] | 22.5 | 24.1 | 93.3 | 0.0 | 18.8 pp [10.8, 27.9], p=0.000 |
+| oss120_local2_v31 | ACL-Hardened | 240 | 20.0 [15.4, 25.5] | [11.2, 28.7] | 21.2 | 24.2 | 87.9 | 5.9 | 16.2 pp [8.8, 25.0], p=0.000 |
+| oss120_local2_v31 | AgenticCyOps | 240 | 3.8 [2.0, 7.0] | [0.0, 8.8] | 20.4 | 21.9 | 87.5 | 81.6 | — |
 | q235_div4 | Flat | 900 | 31.0 [28.1, 34.1] | [26.1, 36.1] | 31.0 | 39.6 | 97.4 | 0.0 | 26.9 pp [22.1, 32.0], p=0.000 |
 | q235_div4 | ACL-Hardened | 900 | 25.1 [22.4, 28.1] | [20.4, 29.9] | 28.7 | 37.1 | 87.0 | 12.4 | 21.0 pp [16.4, 25.8], p=0.000 |
 | q235_div4 | AgenticCyOps | 900 | 4.1 [3.0, 5.6] | [2.2, 6.2] | 33.2 | 43.3 | 84.1 | 87.6 | — |
@@ -39,6 +45,21 @@ Generated from `results/eval_attacks/all_trials.csv` (23938 trials, groups: llam
 | q235_div4_outage | Flat | 0 | – | [–, –] | – | – | – | – | — |
 | q235_div4_outage | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
 | q235_div4_outage | AgenticCyOps | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P1_v31 | Flat | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P1_v31 | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P1_v31 | AgenticCyOps | 240 | 5.8 [3.5, 9.6] | [1.2, 11.2] | 46.2 | 52.1 | 88.8 | 87.4 | — |
+| q235_local2_disabled_P2_v31 | Flat | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P2_v31 | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P2_v31 | AgenticCyOps | 240 | 6.7 [4.1, 10.5] | [2.1, 12.1] | 47.1 | 52.4 | 87.5 | 85.8 | — |
+| q235_local2_disabled_P3_v31 | Flat | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P3_v31 | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P3_v31 | AgenticCyOps | 240 | 19.2 [14.7, 24.6] | [11.2, 27.5] | 37.9 | 40.7 | 90.0 | 49.5 | — |
+| q235_local2_disabled_P4_v31 | Flat | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P4_v31 | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P4_v31 | AgenticCyOps | 240 | 10.0 [6.8, 14.4] | [3.8, 17.5] | 43.8 | 48.1 | 88.3 | 77.1 | — |
+| q235_local2_disabled_P5_v31 | Flat | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P5_v31 | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_disabled_P5_v31 | AgenticCyOps | 240 | 7.1 [4.5, 11.1] | [2.5, 12.9] | 52.5 | 54.2 | 94.6 | 86.5 | — |
 | q235_local2_v29 | Flat | 0 | – | [–, –] | – | – | – | – | — |
 | q235_local2_v29 | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
 | q235_local2_v29 | AgenticCyOps | 240 | 3.8 [2.0, 7.0] | [0.4, 7.9] | 36.2 | 39.8 | 90.0 | 89.7 | — |
@@ -48,6 +69,12 @@ Generated from `results/eval_attacks/all_trials.csv` (23938 trials, groups: llam
 | q235_local2_v31 | Flat | 972 | 34.4 [31.4, 37.4] | [29.5, 39.3] | 34.4 | 34.5 | 99.7 | 0.0 | 31.3 pp [26.4, 36.2], p=0.000 |
 | q235_local2_v31 | ACL-Hardened | 972 | 28.5 [25.8, 31.4] | [23.7, 33.3] | 32.1 | 33.8 | 95.1 | 11.2 | 25.4 pp [20.5, 30.3], p=0.000 |
 | q235_local2_v31 | AgenticCyOps | 972 | 3.1 [2.2, 4.4] | [1.4, 5.0] | 42.4 | 44.3 | 91.5 | 92.7 | — |
+| q235_local2_v31persist | Flat | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_v31persist | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_v31persist | AgenticCyOps | 120 | 1.7 [0.5, 5.9] | [0.0, 4.2] | 36.7 | 40.7 | 90.0 | 95.5 | — |
+| q235_local2_v31persist2 | Flat | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_v31persist2 | ACL-Hardened | 0 | – | [–, –] | – | – | – | – | — |
+| q235_local2_v31persist2 | AgenticCyOps | 30 | 3.3 [0.6, 16.7] | [0.0, 10.0] | 36.7 | 44.0 | 83.3 | 90.9 | — |
 | scout_div4 | Flat | 450 | 35.8 [31.5, 40.3] | [28.9, 42.7] | 35.8 | 14.1 | 80.3 | 0.0 | 33.1 pp [26.0, 40.4], p=0.000 |
 | scout_div4 | ACL-Hardened | 450 | 30.2 [26.2, 34.6] | [24.0, 36.7] | 33.3 | 18.2 | 58.3 | 9.3 | 27.6 pp [20.7, 34.4], p=0.000 |
 | scout_div4 | AgenticCyOps | 450 | 2.7 [1.5, 4.6] | [0.7, 5.1] | 37.1 | 30.4 | 52.3 | 92.8 | — |
@@ -106,6 +133,11 @@ Generated from `results/eval_attacks/all_trials.csv` (23938 trials, groups: llam
 | llama8b_local2_v29 | Symbolic only (no L6) | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 4.23 | 14.1 / 51.6 | 8299 / 0 |
 | llama8b_local2_v30 | AgenticCyOps | 60 | 98.3 [91.1, 99.7] | 53.3 [40.9, 65.4] | 1.38 | 50.6 / 137.8 | 8433 / 7742 |
 | llama8b_local2_v30 | LLM-judge only | 60 | 98.3 [91.1, 99.7] | 58.3 [45.7, 69.9] | 1.02 | 39.7 / 99.4 | 8345 / 12513 |
+| llama8b_local2_v31 | ACL-Hardened | 60 | 100.0 [94.0, 100.0] | 5.0 [1.7, 13.7] | 0.12 | 7.3 / 13.1 | 17648 / 0 |
+| llama8b_local2_v31 | AgenticCyOps | 60 | 98.3 [91.1, 99.7] | 53.3 [40.9, 65.4] | 1.48 | 28.5 / 133.0 | 8430 / 4233 |
+| llama8b_local2_v31 | Flat | 60 | 100.0 [94.0, 100.0] | 0.0 [0.0, 6.0] | 0.00 | 7.4 / 13.5 | 17572 / 0 |
+| llama8b_local2_v31 | LLM-judge only | 60 | 98.3 [91.1, 99.7] | 60.0 [47.4, 71.4] | 1.07 | 22.9 / 56.6 | 8383 / 5923 |
+| llama8b_local2_v31 | Symbolic only (no L6) | 60 | 25.0 [15.8, 37.2] | 98.3 [91.1, 99.7] | 4.42 | 13.1 / 51.3 | 8259 / 0 |
 | mistral_div3p | ACL-Hardened | 75 | 86.7 [77.2, 92.6] | 24.0 [15.8, 34.8] | 0.71 | 32.8 / 61.2 | 18389 / 0 |
 | mistral_div3p | AgenticCyOps | 75 | 78.7 [68.1, 86.4] | 62.7 [51.4, 72.7] | 1.43 | 53.4 / 103.6 | 11821 / 3475 |
 | mistral_div3p | Flat | 75 | 80.0 [69.6, 87.5] | 0.0 [0.0, 4.9] | 0.00 | 32.2 / 55.1 | 18758 / 0 |
@@ -116,6 +148,11 @@ Generated from `results/eval_attacks/all_trials.csv` (23938 trials, groups: llam
 | oss120_local2_v29 | Symbolic only (no L6) | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 1.15 | 31.5 / 47.3 | 8268 / 0 |
 | oss120_local2_v30 | AgenticCyOps | 60 | 91.7 [81.9, 96.4] | 23.3 [14.4, 35.4] | 0.23 | 31.3 / 48.1 | 8288 / 2539 |
 | oss120_local2_v30 | LLM-judge only | 60 | 96.7 [88.6, 99.1] | 13.3 [6.9, 24.2] | 0.13 | 32.6 / 42.3 | 8425 / 6781 |
+| oss120_local2_v31 | ACL-Hardened | 60 | 100.0 [94.0, 100.0] | 0.0 [0.0, 6.0] | 0.00 | 30.7 / 37.7 | 11990 / 0 |
+| oss120_local2_v31 | AgenticCyOps | 60 | 100.0 [94.0, 100.0] | 0.0 [0.0, 6.0] | 0.00 | 39.9 / 62.3 | 8306 / 1588 |
+| oss120_local2_v31 | Flat | 60 | 100.0 [94.0, 100.0] | 0.0 [0.0, 6.0] | 0.00 | 29.2 / 39.4 | 11874 / 0 |
+| oss120_local2_v31 | LLM-judge only | 60 | 100.0 [94.0, 100.0] | 33.3 [22.7, 45.9] | 0.33 | 41.2 / 48.0 | 8123 / 3456 |
+| oss120_local2_v31 | Symbolic only (no L6) | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 1.00 | 29.4 / 57.1 | 8358 / 0 |
 | q235_div4 | ACL-Hardened | 105 | 58.1 [48.5, 67.1] | 94.3 [88.1, 97.4] | 7.59 | 34.9 / 57.5 | 18376 / 0 |
 | q235_div4 | AgenticCyOps | 105 | 97.1 [91.9, 99.0] | 88.6 [81.1, 93.3] | 3.40 | 112.7 / 172.5 | 11928 / 15895 |
 | q235_div4 | agenticcyops_gate_permissive | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 6.12 | 87.9 / 104.9 | 12193 / 6871 |
@@ -128,6 +165,11 @@ Generated from `results/eval_attacks/all_trials.csv` (23938 trials, groups: llam
 | q235_div4_e9 | agenticcyops_writejudge | 105 | 98.1 [93.3, 99.5] | 91.4 [84.5, 95.4] | 3.50 | 122.3 / 202.7 | 11959 / 17890 |
 | q235_div4_outage | agenticcyops_noautoapprove | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 7.98 | 130.3 / 175.6 | 12030 / 9651 |
 | q235_div4_outage | p2_judge | 60 | 25.0 [15.8, 37.2] | 100.0 [94.0, 100.0] | 8.22 | 127.8 / 174.8 | 12127 / 9988 |
+| q235_local2_disabled_P1_v31 | AgenticCyOps | 60 | 95.0 [86.3, 98.3] | 78.3 [66.4, 86.9] | 1.42 | 72.8 / 102.6 | 12075 / 7439 |
+| q235_local2_disabled_P2_v31 | AgenticCyOps | 60 | 91.7 [81.9, 96.4] | 68.3 [55.8, 78.7] | 1.22 | 74.5 / 101.3 | 12471 / 8033 |
+| q235_local2_disabled_P3_v31 | AgenticCyOps | 60 | 91.7 [81.9, 96.4] | 55.0 [42.5, 66.9] | 0.80 | 59.6 / 73.4 | 12444 / 0 |
+| q235_local2_disabled_P4_v31 | AgenticCyOps | 60 | 96.7 [88.6, 99.1] | 90.0 [79.9, 95.3] | 1.82 | 71.5 / 96.6 | 12210 / 7583 |
+| q235_local2_disabled_P5_v31 | AgenticCyOps | 60 | 93.3 [84.1, 97.4] | 81.7 [70.1, 89.4] | 1.75 | 73.1 / 91.3 | 12275 / 7444 |
 | q235_local2_v29 | AgenticCyOps | 60 | 96.7 [88.6, 99.1] | 88.3 [77.8, 94.2] | 2.03 | 60.2 / 101.7 | 12120 / 7623 |
 | q235_local2_v30 | AgenticCyOps | 105 | 97.1 [91.9, 99.0] | 95.2 [89.3, 97.9] | 3.47 | 78.9 / 117.5 | 11941 / 13135 |
 | q235_local2_v30 | LLM-judge only | 60 | 95.0 [86.3, 98.3] | 73.3 [61.0, 82.9] | 1.77 | 80.7 / 109.6 | 12284 / 31997 |
@@ -136,6 +178,8 @@ Generated from `results/eval_attacks/all_trials.csv` (23938 trials, groups: llam
 | q235_local2_v31 | Flat | 105 | 99.0 [94.8, 99.8] | 0.0 [0.0, 3.5] | 0.00 | 41.4 / 63.8 | 19830 / 0 |
 | q235_local2_v31 | LLM-judge only | 105 | 97.1 [91.9, 99.0] | 0.0 [0.0, 3.5] | 0.00 | 80.5 / 110.2 | 11954 / 13509 |
 | q235_local2_v31 | Symbolic only (no L6) | 105 | 51.4 [42.0, 60.8] | 100.0 [96.5, 100.0] | 7.70 | 58.0 / 89.9 | 11590 / 0 |
+| q235_local2_v31persist | AgenticCyOps | 35 | 20.0 [10.0, 35.9] | 97.1 [85.5, 99.5] | 6.29 | 72.0 / 229.0 | 11492 / 1405 |
+| q235_local2_v31persist2 | AgenticCyOps | 20 | 5.0 [0.9, 23.6] | 95.0 [76.4, 99.1] | 5.15 | 69.7 / 153.6 | 11700 / 640 |
 | scout_div4 | ACL-Hardened | 75 | 70.7 [59.6, 79.8] | 52.0 [40.9, 62.9] | 1.79 | 51.0 / 64.5 | 21316 / 0 |
 | scout_div4 | AgenticCyOps | 75 | 62.7 [51.4, 72.7] | 94.7 [87.1, 97.9] | 3.44 | 94.5 / 150.0 | 12162 / 8651 |
 | scout_div4 | Flat | 75 | 84.0 [74.1, 90.6] | 0.0 [0.0, 4.9] | 0.00 | 51.9 / 64.8 | 21685 / 0 |
@@ -256,6 +300,11 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | llama8b_local2_v29 | Symbolic only (no L6) | 240 | 7823 | 0 | 11.2 / 36.1 |
 | llama8b_local2_v30 | AgenticCyOps | 240 | 7920 | 4387 | 28.3 / 96.1 |
 | llama8b_local2_v30 | LLM-judge only | 240 | 7877 | 12061 | 54.6 / 126.6 |
+| llama8b_local2_v31 | ACL-Hardened | 240 | 17242 | 0 | 6.8 / 14.9 |
+| llama8b_local2_v31 | AgenticCyOps | 240 | 7922 | 3220 | 27.7 / 67.5 |
+| llama8b_local2_v31 | Flat | 240 | 17221 | 0 | 6.7 / 15.3 |
+| llama8b_local2_v31 | LLM-judge only | 240 | 7750 | 6723 | 25.2 / 75.8 |
+| llama8b_local2_v31 | Symbolic only (no L6) | 240 | 7823 | 0 | 15.3 / 74.9 |
 | mistral_div3p | ACL-Hardened | 450 | 15429 | 0 | 18.9 / 55.0 |
 | mistral_div3p | AgenticCyOps | 450 | 9327 | 2150 | 35.3 / 81.6 |
 | mistral_div3p | Flat | 450 | 15629 | 0 | 19.7 / 53.7 |
@@ -266,6 +315,11 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | oss120_local2_v29 | Symbolic only (no L6) | 240 | 8080 | 0 | 38.4 / 49.5 |
 | oss120_local2_v30 | AgenticCyOps | 240 | 7985 | 1716 | 36.8 / 60.0 |
 | oss120_local2_v30 | LLM-judge only | 240 | 8032 | 6493 | 42.2 / 96.0 |
+| oss120_local2_v31 | ACL-Hardened | 240 | 11864 | 0 | 35.7 / 47.2 |
+| oss120_local2_v31 | AgenticCyOps | 240 | 8060 | 437 | 41.9 / 53.9 |
+| oss120_local2_v31 | Flat | 240 | 11864 | 0 | 36.9 / 46.9 |
+| oss120_local2_v31 | LLM-judge only | 240 | 7872 | 3775 | 46.6 / 57.8 |
+| oss120_local2_v31 | Symbolic only (no L6) | 240 | 7970 | 0 | 38.9 / 49.7 |
 | q235_div4 | ACL-Hardened | 900 | 15184 | 0 | 36.1 / 76.7 |
 | q235_div4 | AgenticCyOps | 900 | 8647 | 8694 | 79.4 / 165.2 |
 | q235_div4 | agenticcyops_gate_permissive | 222 | 8401 | 6008 | 57.1 / 104.8 |
@@ -279,6 +333,11 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | q235_div4_e9 | agenticcyops_writejudge | 207 | 8326 | 10617 | 83.5 / 154.1 |
 | q235_div4_outage | agenticcyops_noautoapprove | 240 | 11246 | 6515 | 95.3 / 144.8 |
 | q235_div4_outage | p2_judge | 240 | 11239 | 8647 | 103.5 / 152.8 |
+| q235_local2_disabled_P1_v31 | AgenticCyOps | 240 | 11310 | 4046 | 68.1 / 124.2 |
+| q235_local2_disabled_P2_v31 | AgenticCyOps | 240 | 11364 | 4723 | 65.3 / 93.8 |
+| q235_local2_disabled_P3_v31 | AgenticCyOps | 240 | 11327 | 0 | 53.6 / 78.4 |
+| q235_local2_disabled_P4_v31 | AgenticCyOps | 240 | 11260 | 4016 | 64.5 / 104.9 |
+| q235_local2_disabled_P5_v31 | AgenticCyOps | 240 | 11265 | 4327 | 65.8 / 98.7 |
 | q235_local2_v29 | AgenticCyOps | 240 | 11407 | 5140 | 67.7 / 101.0 |
 | q235_local2_v30 | AgenticCyOps | 972 | 8661 | 6139 | 62.5 / 129.9 |
 | q235_local2_v30 | LLM-judge only | 240 | 11327 | 25153 | 131.7 / 196.0 |
@@ -287,6 +346,8 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | q235_local2_v31 | Flat | 972 | 16461 | 0 | 45.1 / 103.2 |
 | q235_local2_v31 | LLM-judge only | 972 | 8207 | 9179 | 76.9 / 165.2 |
 | q235_local2_v31 | Symbolic only (no L6) | 972 | 8524 | 0 | 47.5 / 109.2 |
+| q235_local2_v31persist | AgenticCyOps | 120 | 8412 | 2863 | 46.5 / 118.8 |
+| q235_local2_v31persist2 | AgenticCyOps | 30 | 11151 | 2746 | 103.6 / 206.3 |
 | scout_div4 | ACL-Hardened | 450 | 19471 | 0 | 48.0 / 66.7 |
 | scout_div4 | AgenticCyOps | 450 | 11279 | 6104 | 76.2 / 134.4 |
 | scout_div4 | Flat | 450 | 19738 | 0 | 48.3 / 65.7 |
@@ -332,6 +393,11 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | llama8b_local2_v29 | cyberops | symbolic_only |  | 84e02582dc | defense-freeze-v2.9-15-g84e0258 | meta-llama/Llama-3.1-8B-Instruct | bf16 |  | 0.7 | isolated | 0.21.0 |
 | llama8b_local2_v30 | cyberops | agenticcyops |  | 7f04763b56 | defense-freeze-v3.0-2-g7f04763 | meta-llama/Llama-3.1-8B-Instruct | bf16 | local2 | 0.7 | isolated | 0.21.0 |
 | llama8b_local2_v30 | cyberops | llm_judge |  | 7f04763b56 | defense-freeze-v3.0-2-g7f04763 | meta-llama/Llama-3.1-8B-Instruct | bf16 | local2 | 0.7 | isolated | 0.21.0 |
+| llama8b_local2_v31 | cyberops | acl_hardened |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | meta-llama/Llama-3.1-8B-Instruct | bf16 |  | 0.7 | isolated | 0.21.0 |
+| llama8b_local2_v31 | cyberops | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | meta-llama/Llama-3.1-8B-Instruct | bf16 | local2 | 0.7 | isolated | 0.21.0 |
+| llama8b_local2_v31 | cyberops | flat |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | meta-llama/Llama-3.1-8B-Instruct | bf16 |  | 0.7 | isolated | 0.21.0 |
+| llama8b_local2_v31 | cyberops | llm_judge |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | meta-llama/Llama-3.1-8B-Instruct | bf16 | local2 | 0.7 | isolated | 0.21.0 |
+| llama8b_local2_v31 | cyberops | symbolic_only |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | meta-llama/Llama-3.1-8B-Instruct | bf16 |  | 0.7 | isolated | 0.21.0 |
 | mistral_div3p | cyberops | acl_hardened |  | 5435e156e1 | defense-freeze-v2.2 @5435e156e1 | mistralai/Mistral-Small-3.2-24B-Instruct-2506 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | mistral_div3p | cyberops | acl_hardened |  | 98dde989a4 | defense-freeze-v2-8-g98dde98 | mistralai/Mistral-Small-3.2-24B-Instruct-2506 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | mistral_div3p | cyberops | agenticcyops |  | 5435e156e1 | defense-freeze-v2.2 @5435e156e1 | mistralai/Mistral-Small-3.2-24B-Instruct-2506 | bf16 | mistral_div3p | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
@@ -351,6 +417,11 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | oss120_local2_v29 | cyberops | symbolic_only |  | 84e02582dc | defense-freeze-v2.9-15-g84e0258 | openai/gpt-oss-120b | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | oss120_local2_v30 | cyberops | agenticcyops |  | 7f04763b56 | defense-freeze-v3.0-2-g7f04763 | openai/gpt-oss-120b | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | oss120_local2_v30 | cyberops | llm_judge |  | 7f04763b56 | defense-freeze-v3.0-2-g7f04763 | openai/gpt-oss-120b | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| oss120_local2_v31 | cyberops | acl_hardened |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | openai/gpt-oss-120b | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| oss120_local2_v31 | cyberops | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | openai/gpt-oss-120b | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| oss120_local2_v31 | cyberops | flat |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | openai/gpt-oss-120b | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| oss120_local2_v31 | cyberops | llm_judge |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | openai/gpt-oss-120b | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| oss120_local2_v31 | cyberops | symbolic_only |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | openai/gpt-oss-120b | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | acl_hardened |  | 0cbea096d0 | defense-freeze-v2-3-g0cbea09 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | acl_hardened |  | 6c299d9c71 | defense-freeze-v2.4-4-g6c299d9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4 | cyberops | acl_hardened |  | 7266134788 | defense-freeze-v2.2 @7266134788 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
@@ -488,6 +559,11 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | q235_div4_persistent | healthcare | agenticcyops |  | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_persistent | legal | agenticcyops |  | c66c04b66a | defense-freeze-v2-5-gc66c04b | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_div4_persistent3 | cyberops | agenticcyops |  | d838b8f020 | defense-freeze-v2.8-2-gd838b8f | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | div4 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_local2_disabled_P1_v31 | cyberops | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_local2_disabled_P2_v31 | cyberops | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_local2_disabled_P3_v31 | cyberops | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_local2_disabled_P4_v31 | cyberops | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_local2_disabled_P5_v31 | cyberops | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_local2_v29 | cyberops | agenticcyops |  | 194ee63d3c | defense-freeze-v2.9-7-g194ee63 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_local2_v29 | cyberops | agenticcyops |  | f7d80b9b52 | defense-freeze-v2.9-3-gf7d80b9 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_local2_v30 | cyberops | agenticcyops |  | 7f04763b56 | defense-freeze-v3.0-2-g7f04763 | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
@@ -515,6 +591,11 @@ Benign scenarios run after 30 attack incidents with all defense state kept, agai
 | q235_local2_v31 | legal | flat |  | 9377dcd9c4 | defense-freeze-v3.1-1-g9377dcd | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_local2_v31 | legal | llm_judge |  | 9377dcd9c4 | defense-freeze-v3.1-1-g9377dcd | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | q235_local2_v31 | legal | symbolic_only |  | 9377dcd9c4 | defense-freeze-v3.1-1-g9377dcd | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_local2_v31persist | cyberops | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_local2_v31persist | finance | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_local2_v31persist | healthcare | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_local2_v31persist | legal | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
+| q235_local2_v31persist2 | cyberops | agenticcyops |  | f92bb5de2e | defense-freeze-v3.1.1-10-gf92bb5d | Qwen/Qwen3-235B-A22B-Instruct-2507 | bf16 | local2 | 0.7 | persistent | 0.19.1rc1.dev117+g3352bf8b0 |
 | scout_div4 | cyberops | acl_hardened |  | 5435e156e1 | defense-freeze-v2.2 @5435e156e1 | meta-llama/Llama-4-Scout-17B-16E-Instruct | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | scout_div4 | cyberops | acl_hardened |  | 98dde989a4 | defense-freeze-v2-8-g98dde98 | meta-llama/Llama-4-Scout-17B-16E-Instruct | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |
 | scout_div4 | cyberops | acl_hardened |  | a369d18c36 | defense-freeze-v2.1 | meta-llama/Llama-4-Scout-17B-16E-Instruct | bf16 |  | 0.7 | isolated | 0.19.1rc1.dev117+g3352bf8b0 |

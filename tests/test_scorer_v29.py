@@ -4,6 +4,7 @@ the replay ledger, so alignment and precedent carry information.
 Before v2.9 both scores sat at their 0.5 fallback for every proposal.
 """
 import json
+import zlib
 
 import numpy as np
 
@@ -20,7 +21,7 @@ class _BagOfWords:
         for t in texts:
             v = np.zeros(256)
             for w in str(t).lower().replace('"', " ").replace(",", " ").split():
-                v[hash(w) % 256] += 1
+                v[zlib.crc32(w.encode()) % 256] += 1  # hash() varies per process
             n = np.linalg.norm(v)
             out.append(v / n if n else v)
         return np.array(out)

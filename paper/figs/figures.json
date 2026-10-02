@@ -146,22 +146,22 @@
       "results/eval_attacks/all_trials.csv"
     ],
     "n": {
-      "shared_variants": 68,
+      "shared_variants": 75,
       "asr_pct": {
-        "DEFER (subset)": 7.8,
-        "minus P1": 8.3,
-        "minus P2": 11.3,
-        "minus P3": 19.1,
-        "minus P4": 13.2,
-        "minus P5": 6.9
+        "DEFER (subset)": 2.2,
+        "minus P1": 4.9,
+        "minus P2": 6.7,
+        "minus P3": 16.9,
+        "minus P4": 7.6,
+        "minus P5": 6.7
       },
       "benign_any_denial_pct": {
-        "DEFER (subset)": 80.0,
-        "minus P1": 66.7,
-        "minus P2": 53.3,
-        "minus P3": 65.0,
-        "minus P4": 80.0,
-        "minus P5": 73.3
+        "DEFER (subset)": 81.7,
+        "minus P1": 68.3,
+        "minus P2": 43.3,
+        "minus P3": 55.0,
+        "minus P4": 78.3,
+        "minus P5": 75.0
       }
     }
   },
@@ -354,11 +354,11 @@
     "file": "state_carryover.pdf",
     "takeaway": "With state carried across incidents the first benign incident after the attacks is at the isolated level; from the second on, legitimate incidents deny each other through replay and ledger state that never expires.",
     "data_sources": [
-      "logs/*_eval_attacks_q235_div4_persistent/*.jsonl",
+      "logs/*_eval_attacks_q235_local2_v31persist/*.jsonl",
       "results/eval_attacks/all_trials.csv"
     ],
     "n": {
-      "isolated_mean_denials": 1.78,
+      "isolated_mean_denials": 1.45,
       "sequence_len": {
         "cyberops": 20,
         "finance": 5,
@@ -366,10 +366,10 @@
         "legal": 5
       },
       "persistent_mean_denials": {
-        "cyberops": 7.35,
-        "finance": 8.2,
-        "healthcare": 11.4,
-        "legal": 8.2
+        "cyberops": 5.45,
+        "finance": 6.0,
+        "healthcare": 8.6,
+        "legal": 7.6
       }
     }
   },
