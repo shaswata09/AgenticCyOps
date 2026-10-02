@@ -1,7 +1,8 @@
 # DEFER: Deterministic-First Enforcement with Residual judgment
 
 Artifact for the paper **"Where Rules End and Judges Begin: Measuring the Judgment
-Boundary in Multi-Agent System Defenses"** (under double-blind review).
+Boundary in Multi-Agent Systems Security"** (under review; arXiv preprint forthcoming,
+see [Citation](#citation)). Code: <https://github.com/shaswata09/DEFER>.
 
 LLM multi-agent systems (MAS) invoke tools, share memory, and delegate, and each of
 those interactions can carry attacker-controlled content. Pipelines that combine
@@ -43,6 +44,7 @@ pipeline, and headline numbers from our suite.*
 - [Repository layout](#repository-layout)
 - [Provenance and known limitations](#provenance-and-known-limitations)
 - [Ethics and intended use](#ethics-and-intended-use)
+- [Citation](#citation)
 - [License](#license)
 
 ---
@@ -409,8 +411,8 @@ the v3.0 inputs.
 ### Level 3: full runs
 
 The decision code on this branch is the reported configuration, `defense-freeze-v3.1`
-(the freeze guard checks `defense-freeze-v3.1.1`, which differs only in the scoring
-oracle). The earlier runs used `defense-freeze-v2.2` with the Div4 panel, which needs
+(the freeze guard checks `defense-freeze-v3.1.3`, which differs from it only in the scoring
+oracle, repo-relative log paths, and the project's name in docstrings). The earlier runs used `defense-freeze-v2.2` with the Div4 panel, which needs
 API validators; to re-run one of them, work from its tag in a separate worktree
 (`git worktree add ../defer-v2.9 defense-freeze-v2.9`, then
 `FREEZE_TAG=defense-freeze-v2.9 bash scripts/check_freeze.sh`).
@@ -607,8 +609,10 @@ docs/              review response, figures for this README
   the v3.0 result above.
 - **Implementation lessons.** [`docs/engineering_challenges.md`](docs/engineering_challenges.md)
   records the engineering problems of the build and the lessons of the code audit.
-- **Log names.** Configuration names beginning with `agenticcyops` in the logs denote
-  FULL; the project's earlier name survives in log fields and some module docstrings.
+- **Log names.** The project was renamed DEFER after the runs. Configuration names
+  beginning with `agenticcyops` denote FULL; they are kept as recorded in every log, run
+  header, results table, and config file name, and in the `AGENTICCYOPS_HMAC_KEY`
+  environment variable, so that the logs and the code stay in step.
 
 ---
 
@@ -619,6 +623,23 @@ attack payloads are prompt-injection strings, poisoned records, and forged tool
 responses that target this stub environment and carry canary values. They contain no
 working exploit against a real product. The artifact is intended for evaluating
 defenses of LLM agent systems.
+
+## Citation
+
+If you use DEFER, the testbed, or the results, please cite the paper. The arXiv
+identifier will be added when the preprint is posted.
+
+```bibtex
+@misc{mitra2026defer,
+  title        = {Where Rules End and Judges Begin: Measuring the Judgment Boundary
+                  in Multi-Agent Systems Security},
+  author       = {Mitra, Shaswata and Patel, Raj and Mittal, Sudip and
+                  Rahman, Md Rayhanur and Rahimi, Shahram},
+  year         = {2026},
+  note         = {arXiv preprint (forthcoming)},
+  howpublished = {\url{https://github.com/shaswata09/DEFER}}
+}
+```
 
 ## License
 

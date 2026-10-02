@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps revision-v2 — experiment driver for the 5x H200 server.
+# DEFER revision-v2 — experiment driver for the 5x H200 server.
 #
 # Runs the MINIMUM set of experiments the revision needs and reuses every
 # v1 result that survives the harness fixes (ASB primary outputs through

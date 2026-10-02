@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Autonomous Baseline Runner
+# DEFER — Autonomous Baseline Runner
 #
 # Sequentially starts servers for each model group (A-F),
 # runs baseline for all 4 domains, then shuts down servers
@@ -232,7 +232,7 @@ RESULTS_SUMMARY=()
 
 echo ""
 echo "============================================================"
-echo "  AgenticCyOps — Autonomous Baseline Runner"
+echo "  DEFER — Autonomous Baseline Runner"
 echo "============================================================"
 echo ""
 echo "  Groups: ${SELECTED_GROUPS[*]}"

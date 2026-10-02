@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use DEFER, please cite the paper below. The arXiv identifier will be added when the preprint is posted."
+title: "DEFER: Deterministic-First Enforcement with Residual judgment"
+repository-code: "https://github.com/shaswata09/DEFER"
+license: MIT
+authors:
+  - family-names: Mitra
+    given-names: Shaswata
+  - family-names: Patel
+    given-names: Raj
+  - family-names: Mittal
+    given-names: Sudip
+  - family-names: Rahman
+    given-names: Md Rayhanur
+  - family-names: Rahimi
+    given-names: Shahram
+preferred-citation:
+  type: article
+  title: "Where Rules End and Judges Begin: Measuring the Judgment Boundary in Multi-Agent Systems Security"
+  authors:
+    - family-names: Mitra
+      given-names: Shaswata
+    - family-names: Patel
+      given-names: Raj
+    - family-names: Mittal
+      given-names: Sudip
+    - family-names: Rahman
+      given-names: Md Rayhanur
+    - family-names: Rahimi
+      given-names: Shahram
+  year: 2026
+  notes: "arXiv preprint (forthcoming)"

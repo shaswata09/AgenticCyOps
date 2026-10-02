@@ -6,13 +6,13 @@ Reads ``results/eval_attacks/all_trials.csv`` and ``stats.csv`` (plus the ASB
 with:
 
   T1  headline per group x config: ASR [Wilson 95% CI], attempt rate,
-      block rate given attempt, paired difference vs AgenticCyOps
+      block rate given attempt, paired difference vs DEFER
   T2  per attack path x config for the main group (all domains pooled and
       CyberOps alone), Holm-corrected paired p-values
   T3  benign utility (E1): task completion, any-denial rate, denials per
       incident, latency, tokens
   T4  ablations (E3): ASR and benign denial rate per ablation config
-  T5  what blocked the attacks: blocked_by distribution under AgenticCyOps
+  T5  what blocked the attacks: blocked_by distribution under DEFER
   T6  ASB paired panel replay (E6) when the replay outputs exist
   T7  cost: tokens and latency per config
   T8  run provenance (runs.csv)
@@ -35,7 +35,7 @@ from config import BASE_DIR, RESULTS_DIR
 from analysis.runlogs import run_logs
 from analysis import tiers
 
-CONFIG_LABEL = {"flat": "Flat", "acl_hardened": "ACL-Hardened", "agenticcyops": "AgenticCyOps",
+CONFIG_LABEL = {"flat": "Flat", "acl_hardened": "ACL-Hardened", "agenticcyops": "DEFER",
                 "llm_judge": "LLM-judge only", "symbolic_only": "Symbolic only (no L6)"}
 AP_LABEL = {"ap1": "AP-1 Tool redirection", "ap2": "AP-2 Memory poisoning", "ap3": "AP-3 Confused deputy",
             "ap4": "AP-4 Cross-phase leak", "ap5": "AP-5 Irreversible action", "ap6": "AP-6 Replay",
@@ -116,7 +116,7 @@ def t1_headline(stats: list[dict]) -> str:
                          _f(r.get(f"{cfg}_exposure_rate")),
                          _f(r.get(f"{cfg}_block_given_attempt")), diff])
     return _md(["Group", "Config", "N", "ASR % [Wilson 95%]", "Cluster bootstrap 95%", "Attempt %",
-                "Attempt given exp. %", "Exposed %", "Block given attempt %", "Δ vs AgenticCyOps"], rows)
+                "Attempt given exp. %", "Exposed %", "Block given attempt %", "Δ vs DEFER"], rows)
 
 
 def t2_per_ap(stats: list[dict], group: str, domain: str) -> str:
@@ -343,7 +343,7 @@ def t9b_p5(trials: list[dict], results_dir: Path, group: str) -> str:
            and ((t["group"] == group and not t.get("suffix"))
                 or (t["group"] == group and t.get("suffix") == "_disabled_P5"))]
     arms = [("Flat", "flat", ""), ("ACL-Hardened", "acl_hardened", ""),
-            ("Full (AgenticCyOps)", "agenticcyops", ""), ("Full minus P5", "agenticcyops", "_disabled_P5")]
+            ("Full (DEFER)", "agenticcyops", ""), ("Full minus P5", "agenticcyops", "_disabled_P5")]
     rows = []
     for label, cfg, suf in arms:
         ts = [t for t in sel if t["config"] == cfg and (t.get("suffix") or "") == suf]
@@ -369,7 +369,7 @@ def t9b_p5(trials: list[dict], results_dir: Path, group: str) -> str:
     cost = _p5_benign_cost(results_dir, group)
     if cost:
         crows = [[dom, n, den, red] for dom, (n, den, red) in sorted(cost.items())]
-        out += ["", "P5 benign cost (AgenticCyOps benign incidents):", "",
+        out += ["", "P5 benign cost (DEFER benign incidents):", "",
                 _md(["Domain", "Benign incidents", "Incidents w/ a P5 read denial",
                      "Incidents w/ a P5 redaction"], crows)]
     return "\n".join(out)
@@ -420,12 +420,12 @@ def build(results_dir: Path, main_group: str) -> str:
              "", f"## T2a. Per attack path, {main_group}, all domains", "", t2_per_ap(stats, main_group, "all"),
              "", f"## T2b. Per attack path, {main_group}, CyberOps", "", t2_per_ap(stats, main_group, "cyberops"),
              "", "## T3. Benign utility (E1)", "", t3_benign(trials),
-             "", f"## T3b. Persistent-state sequence (E1b), AgenticCyOps, {main_group}", "",
+             "", f"## T3b. Persistent-state sequence (E1b), DEFER, {main_group}", "",
              "Benign scenarios run after 30 attack incidents with all defense state kept, "
              "against the same scenarios under per-trial isolation (first trial of E1).", "",
              t3b_persistent(trials, main_group),
              "", f"## T4. Ablations (E3), {main_group}", "", t4_ablations(trials, main_group),
-             "", f"## T5. Which layer blocked the attacks (AgenticCyOps, {main_group})", "", t5_blocked_by(trials, main_group),
+             "", f"## T5. Which layer blocked the attacks (DEFER, {main_group})", "", t5_blocked_by(trials, main_group),
              "", "## T6. ASB paired panel replay (E6)", "", t6_asb(results_dir),
              "", "## T7. Cost", "", t7_cost(trials),
              "", "## T8. Run provenance", "", t8_runs(runs),
@@ -443,7 +443,7 @@ def build(results_dir: Path, main_group: str) -> str:
              "does not mix tool denials with memory-op denials the way a per-trial "
              "`collateral_denials` count does.", "",
              t11_benign_denials(main_group), "",
-             f"## T12. Benign denials by principle and check ({main_group}, AgenticCyOps)", "",
+             f"## T12. Benign denials by principle and check ({main_group}, DEFER)", "",
              "E14: every benign denial attributed to the check that made it, with the tools "
              "or stores it denied most. The LLM panel is separated from the deterministic "
              "P3 layers; the gate event that merely surfaces a panel rejection is not "

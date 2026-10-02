@@ -262,7 +262,7 @@ def reevaluate(group: str, domain: str, suffix: str = "",
     print(f"  wrote {out_csv} ({len(rows)} rows)")
 
     # Per-AP summary (agenticcyops only, measurable trials only)
-    print("  Per-AP AgenticCyOps (measurable trials):")
+    print("  Per-AP DEFER (measurable trials):")
     for ap in [f"ap{i}" for i in range(1, 16)]:
         sub = [t for t in results if t.config == "agenticcyops" and t.ap == ap]
         if not sub:

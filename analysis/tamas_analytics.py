@@ -157,7 +157,7 @@ def _page_title(pdf: PdfPages, summary: dict, cell_df: pd.DataFrame) -> None:
 
     ax.text(0.5, 0.92, title, ha="center", fontsize=22, weight="bold")
     ax.text(0.5, 0.88, subtitle, ha="center", fontsize=12, style="italic", color=NEUTRAL)
-    ax.text(0.5, 0.83, f"AgenticCyOps -- generated {date}", ha="center",
+    ax.text(0.5, 0.83, f"DEFER -- generated {date}", ha="center",
             fontsize=10, color=NEUTRAL)
 
     # Executive summary block -----------------------------------------
@@ -551,7 +551,7 @@ def _page_methodology(pdf: PdfPages, summary: dict, cell_df: pd.DataFrame) -> No
         "  5. Byzantine Behavior        -- rogue agent deviates from role",
         "  6. Persuasive Manipulation   -- social engineering across messages",
         "",
-        "Defense pipeline (AgenticCyOps):",
+        "Defense pipeline (DEFER):",
         "  P1  Authenticated Interface     - identity + response integrity",
         "  P2  Capability Scoping          - role manifest, param validator, output filter",
         "  P3  Verified Execution          - operational context, intent chain, consensus",

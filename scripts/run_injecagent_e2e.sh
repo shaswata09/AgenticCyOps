@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — InjecAgent End-to-End (live-LLM) benchmark
+# DEFER — InjecAgent End-to-End (live-LLM) benchmark
 #
 # Runs the 50-case representative InjecAgent subset through the
 # live primary LLM of the chosen group and parses the model's
@@ -76,7 +76,7 @@ wait_for_health() {
 # ---- CLI / interactive parsing ----
 if [ -z "$1" ]; then
     echo ""
-    echo "  AgenticCyOps — InjecAgent End-to-End (live-LLM) Benchmark"
+    echo "  DEFER — InjecAgent End-to-End (live-LLM) Benchmark"
     echo "  ────────────────────────────────────────────────────────"
     echo ""
     echo "  Groups:"

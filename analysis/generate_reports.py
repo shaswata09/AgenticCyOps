@@ -321,7 +321,7 @@ def _charts(result_dir: Path, attack: list[dict], label: str, configs: list[str]
     fig.savefig(result_dir / "interception_heatmap.png", dpi=150)
     plt.close(fig)
 
-    # blocking mechanisms under the AgenticCyOps stack
+    # blocking mechanisms under the DEFER stack
     stack = [r for r in attack if r["config"] in ("agenticcyops", "symbolic_only", "llm_judge")]
     mechs = Counter((r.get("blocked_by") or "unknown") for r in stack if r["outcome"] == "blocked")
     if mechs:
@@ -383,7 +383,7 @@ def per_run_report(result_dir: Path, runs: list[dict]) -> Path | None:
         # title
         fig, ax = plt.subplots(figsize=LANDSCAPE)
         ax.axis("off")
-        ax.text(0.5, 0.78, "AgenticCyOps", transform=ax.transAxes, ha="center", fontsize=34,
+        ax.text(0.5, 0.78, "DEFER", transform=ax.transAxes, ha="center", fontsize=34,
                 fontweight="bold", color=HEADER)
         ax.text(0.5, 0.69, "Attack-path evaluation report" if attack else "Benign utility report",
                 transform=ax.transAxes, ha="center", fontsize=20, color=GREY)
@@ -619,7 +619,7 @@ def fig_blocked_by(section):
         ax.text(v + 0.5, i, f"{v:.0f}", va="center", fontsize=8)
     ax.invert_yaxis()
     ax.set_xlabel("Blocked attack trials")
-    ax.set_title("T5. Which layer blocked the attacks (AgenticCyOps)", fontsize=13, fontweight="bold")
+    ax.set_title("T5. Which layer blocked the attacks (DEFER)", fontsize=13, fontweight="bold")
     fig.tight_layout()
     return fig
 
@@ -732,7 +732,7 @@ def consolidated_report(results_dir: Path, main_group: str) -> Path:
         # cover
         fig, ax = plt.subplots(figsize=LANDSCAPE)
         ax.axis("off")
-        ax.text(0.5, 0.80, "AgenticCyOps", transform=ax.transAxes, ha="center", fontsize=36,
+        ax.text(0.5, 0.80, "DEFER", transform=ax.transAxes, ha="center", fontsize=36,
                 fontweight="bold", color=HEADER)
         ax.text(0.5, 0.71, "Revision results report", transform=ax.transAxes, ha="center",
                 fontsize=22, color=GREY)
@@ -766,7 +766,7 @@ def consolidated_report(results_dir: Path, main_group: str) -> Path:
         if "T1" in sections:
             _table_pages(pdf, "T1. " + sections["T1"][1], sections["T1"][2], sections["T1"][3],
                          note="ASR = executed / measurable; attempt = executed + blocked; Δ = paired "
-                              "difference vs AgenticCyOps with cluster-bootstrap CI over variants.")
+                              "difference vs DEFER with cluster-bootstrap CI over variants.")
 
         # T2
         f = fig_ap_heatmap(stats, main_group, "all", f"T2a. ASR per attack path, {main_group}, all domains pooled")

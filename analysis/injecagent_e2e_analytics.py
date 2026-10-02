@@ -36,7 +36,7 @@ plt.rcParams.update({
 CONFIG_COLOR = {"flat": "#e74c3c", "acl_hardened": "#f39c12",
                 "agenticcyops": "#2ecc71"}
 CONFIG_LABEL = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened",
-                "agenticcyops": "AgenticCyOps (P1-P5)"}
+                "agenticcyops": "DEFER (P1-P5)"}
 CONFIG_ORDER = ["flat", "acl_hardened", "agenticcyops"]
 DOMAIN_ORDER = ["cyberops", "healthcare", "finance", "legal"]
 GROUP_ORDER = ["A", "B", "C", "D", "E", "F"]
@@ -249,7 +249,7 @@ def page_per_group_bars(pdf, live):
 
 
 def page_principle_attribution(pdf, live):
-    """Stacked bar: which P-layer blocked live-LLM attacks (AgenticCyOps)."""
+    """Stacked bar: which P-layer blocked live-LLM attacks (DEFER)."""
     df = live[(live.config == "agenticcyops") &
                (live.defense_evaluated) & (live.defense_blocked)]
     if df.empty:
@@ -276,7 +276,7 @@ def page_principle_attribution(pdf, live):
                 color=[palette[p] for p in counts.columns],
                 edgecolor="white", width=0.7)
     ax.set_title("Which defense layer blocked live-LLM attacks per group "
-                 "(AgenticCyOps)", fontsize=13, fontweight="bold")
+                 "(DEFER)", fontsize=13, fontweight="bold")
     ax.set_xlabel(""); ax.set_ylabel("Blocked trials")
     ax.tick_params(axis="x", labelrotation=0)
     ax.legend(title="Principle", loc="upper right")
@@ -339,7 +339,7 @@ def _attach_toolkit(live: pd.DataFrame, lookup: dict[str, str]) -> pd.DataFrame:
 
 
 def page_per_toolkit(pdf, live, lookup):
-    """Defended ASR per InjecAgent user-toolkit (AgenticCyOps, static live)."""
+    """Defended ASR per InjecAgent user-toolkit (DEFER, static live)."""
     if not lookup:
         return
     df = _attach_toolkit(live, lookup)
@@ -371,7 +371,7 @@ def page_per_toolkit(pdf, live, lookup):
              color="#bdc3c7", edgecolor="black", label="LLM compliance ASR")
     ax.barh(y + 0.4, agg["def_asr"].values, height=0.4,
              color=CONFIG_COLOR["agenticcyops"], edgecolor="black",
-             label="Defended ASR (AgenticCyOps)")
+             label="Defended ASR (DEFER)")
     ax.set_yticks(y + 0.2); ax.set_yticklabels(agg.index, fontsize=9)
     ax.invert_yaxis()
     ax.set_xlabel("ASR (%)"); ax.set_xlim(0, 110)
@@ -381,7 +381,7 @@ def page_per_toolkit(pdf, live, lookup):
         ax.text(r.def_asr + 1, i + 0.4, f"{r.def_asr:.1f}",
                  fontsize=7, va="center")
     ax.set_title("Per-toolkit ASR: LLM compliance vs defended "
-                  "(AgenticCyOps, all groups pooled)",
+                  "(DEFER, all groups pooled)",
                   fontsize=12, fontweight="bold")
     ax.legend(loc="lower right")
     plt.tight_layout()

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Agent Security Bench (ASB) End-to-End benchmark
+# DEFER — Agent Security Bench (ASB) End-to-End benchmark
 #
 # Three-step pipeline driven by a single command:
 #   1.  Convert upstream YAML+JSONL into per-attack-family JSON
@@ -94,7 +94,7 @@ wait_for_health() {
 # ---- CLI / interactive ----
 if [ -z "$1" ]; then
     echo ""
-    echo "  AgenticCyOps — ASB End-to-End Benchmark"
+    echo "  DEFER — ASB End-to-End Benchmark"
     echo "  ────────────────────────────────────────"
     echo ""
     echo "  Groups:"

@@ -804,7 +804,7 @@ def print_summary(results: list[TrialResult], domain: str):
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="AgenticCyOps Attack Harness")
+    parser = argparse.ArgumentParser(description="DEFER Attack Harness")
     parser.add_argument("--domain", required=True, choices=["cyberops", "healthcare", "finance", "legal"])
     parser.add_argument("--ap", help="Specific attack path (ap1-ap6)")
     parser.add_argument("--eval", help="Evaluation suite (A=all CyberOps APs, F=domain-specific)")

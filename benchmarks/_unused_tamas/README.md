@@ -11,7 +11,7 @@ LLM systems against adversarial manipulation.
   interaction surface (prompts, tool outputs, shared memory, role
   boundaries).
 
-This directory integrates TAMAS into the AgenticCyOps evaluation
+This directory integrates TAMAS into the DEFER evaluation
 pipeline so we can validate the P1-P5 defense stack against a benchmark
 we did not design ourselves.
 
@@ -19,7 +19,7 @@ we did not design ourselves.
 
 - Simulated run: 19 attack cells plus 5 benign cells, 5 trials per cell, 2 modes.
   Re-run on 2026-09-19 with **independent trials** (a fresh middleware per trial).
-- Live-log mapping: 15 AgenticCyOps APs mapped to the 6 TAMAS categories, computed
+- Live-log mapping: 15 DEFER APs mapped to the 6 TAMAS categories, computed
   from groups A, C, D, E across all four domains under attack-path scoring v2.
 - Artifacts: simulated run at `results/tamas/`; live-log mapping at
   `results/tamas/group_<G>/` and `results/tamas/group_A_C_D_E/`. The May 2026
@@ -27,7 +27,7 @@ we did not design ourselves.
 
 ## Purpose
 
-The AgenticCyOps internal evaluations exercise the defense stack against
+The DEFER internal evaluations exercise the defense stack against
 red-team campaigns that were co-designed with the defenses. TAMAS
 provides an **external, independent, domain-agnostic** yardstick:
 
@@ -135,7 +135,7 @@ python -m benchmarks.tamas.compare
 # 5) Generate the paper-ready findings PDF
 python -m analysis.tamas_analytics
 
-# 6) (Optional) Compute the real TAMAS score from live-LLM AgenticCyOps logs
+# 6) (Optional) Compute the real TAMAS score from live-LLM DEFER logs
 python -m analysis.tamas_from_logs --groups A,C,D,E --domain all
 ```
 
@@ -183,7 +183,7 @@ what produced the artifacts on disk, which held 5 trials per cell.
 
 ## Results (live-log mapping)
 
-`analysis/tamas_from_logs.py` maps the 15 AgenticCyOps APs onto the 6 TAMAS
+`analysis/tamas_from_logs.py` maps the 15 DEFER APs onto the 6 TAMAS
 categories and computes ASR/TSR/ERS from the multi-agent evaluation logs. Figures
 below pool groups A, C, D, E over the four domains under attack-path scoring v2
 (see `docs/scoring_v2.md`); attack paths that are not measurable from the logs are
@@ -193,13 +193,13 @@ excluded from the category means.
 |----------------------|--------:|--------:|-----------:|-----------:|
 | Flat MAS             | 34.97%  | 100.00% | **65.03%** | 65.03%     |
 | ACL-Hardened         | 28.60%  | 100.00% | **71.40%** | 51.02%     |
-| AgenticCyOps (P1-P5) |  1.05%  | 100.00% | **98.95%** | 85.42%     |
+| DEFER (P1-P5) |  1.05%  | 100.00% | **98.95%** | 85.42%     |
 
 ERS_strict penalises false-block tool retries on the benign baseline as lost utility.
 
 Per-TAMAS-category ASR:
 
-| Category          | Flat MAS | ACL-Hardened | AgenticCyOps |
+| Category          | Flat MAS | ACL-Hardened | DEFER |
 |-------------------|---------:|-------------:|-------------:|
 | Tool Misuse       | 15.32%   |  8.40%       | 0.85%        |
 | Data Exfiltration |  0.00%   |  0.00%       | 0.00%        |
@@ -208,7 +208,7 @@ Per-TAMAS-category ASR:
 | Byzantine         | 27.60%   | 17.02%       | 1.08%        |
 | Persuasive        | 19.09%   | 14.42%       | 1.00%        |
 
-Read these with two caveats. The AgenticCyOps ASR is a lower bound: a third of its
+Read these with two caveats. The DEFER ASR is a lower bound: a third of its
 interceptions come from P3 layers that keep state across incidents while the harness
 replays each payload 25 times per process (scoring_v2_summary.md, section 6b). The
 Data Exfiltration row has no headroom: the only mapped path with measurable trials

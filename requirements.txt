@@ -1,5 +1,5 @@
 # ============================================================
-# AgenticCyOps Experiment — Complete Dependencies
+# DEFER Experiment — Complete Dependencies
 # ============================================================
 #
 # INSTALL (H200 GPUs with CUDA 12.4+):

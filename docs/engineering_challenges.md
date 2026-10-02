@@ -1,7 +1,7 @@
 # Engineering Challenges
 
 Non-obvious engineering problems that consumed significant time during
-the AgenticCyOps build-out. Organized by subsystem.
+the DEFER build-out. Organized by subsystem.
 
 ---
 
@@ -246,7 +246,7 @@ module is still covered by a mock-based smoke test (22/22 passing).
 ### 5.3 AP → TAMAS category mapping
 
 Not a code challenge but worth noting: TAMAS has 6 attack categories;
-AgenticCyOps has 15 APs covering 35 attack vectors. Mapping is
+DEFER has 15 APs covering 35 attack vectors. Mapping is
 many-to-few and uneven — `byzantine_behavior` ends up as the largest
 bucket (APs 6, 7, 10, 12, 15 map to it). Reported in
 `analysis/tamas_from_logs.py` as a caveat and in a dedicated coverage
@@ -271,7 +271,7 @@ labelled with a fabricated `P2_capability_scoping` mechanism.
 **Resolution:** scoring v2 (`docs/scoring_v2.md`). Outcomes are succeeded, blocked,
 agent_refused, not_measurable or error; interceptions must be attributable to the
 attack through a tool or phase anchor. Pooled ASR for large primaries moved from
-53.8 / 52.6 / 8.1% to 28.7 / 21.8 / 0.9% for Flat / ACL / AgenticCyOps.
+53.8 / 52.6 / 8.1% to 28.7 / 21.8 / 0.9% for Flat / ACL / DEFER.
 
 ### 6.2 Dead-endpoint runs were scored as results
 
@@ -286,7 +286,7 @@ with 5% or more error trials in a config is invalid and excluded from pooled fig
 
 P3-L4, L4b and L5 keep state across incidents, which is the intended production
 behaviour. The harness replays each payload 25 times inside one process, so those
-layers also see the replays. 35% of AgenticCyOps blocks come from them, and ASR is
+layers also see the replays. 35% of DEFER blocks come from them, and ASR is
 9.1% on the first incident of a run against 0.3 to 0.7% later. The same mechanism
 inflated the simulated TAMAS result: one middleware instance was shared across all
 cells and trials of a scenario.

@@ -134,7 +134,7 @@ def test_parse_logs_roundtrip_and_tables(tmp_path):
         cols = sorted({k for r in all_runs for k in r})
         w = csv.DictWriter(f, fieldnames=cols); w.writeheader(); w.writerows(all_runs)
     md = build(res, "g1")
-    assert "## T1." in md and "AgenticCyOps" in md and "Flat" in md
+    assert "## T1." in md and "DEFER" in md and "Flat" in md
     assert "T3. Benign utility" in md and "T4. Ablations" in md and "-P3" in md
     assert "P2_manifest_enforcement" in md
     assert "defense-freeze-v2" in md

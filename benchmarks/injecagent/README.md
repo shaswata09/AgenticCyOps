@@ -2,7 +2,7 @@
 
 **Independent third-party attack benchmark for validating the P1-P5 defense
 stack.**  Complements the TAMAS benchmark (Eval D) and the in-house
-AgenticCyOps attack paths (Eval A).
+DEFER attack paths (Eval A).
 
 Source: UIUC Kang Lab's
 [AdaptiveAttackAgent](https://github.com/uiuc-kang-lab/AdaptiveAttackAgent)
@@ -125,7 +125,7 @@ python -m analysis.injecagent_e2e_analytics
 
 ## Paper framing
 
-- Report as **"InjecAgent-static ASR on AgenticCyOps"** — middleware
+- Report as **"InjecAgent-static ASR on DEFER"** — middleware
   effectiveness against a published IPI benchmark.
 - The static-symbolic Tier-1 number measures middleware coverage if the
   LLM complies; the live-LLM Tier-2 number measures real agent ASR.

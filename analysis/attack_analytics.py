@@ -49,7 +49,7 @@ plt.rcParams.update({
 CONFIGS = ["flat", "acl_hardened", "llm_judge", "agenticcyops"]
 CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened",
                  "llm_judge": "LLM Judge (P1+consensus)",
-                 "agenticcyops": "AgenticCyOps"}
+                 "agenticcyops": "DEFER"}
 CONFIG_COLORS = {"flat": "#e74c3c", "acl_hardened": "#f39c12",
                  "llm_judge": "#9b59b6",
                  "agenticcyops": "#2ecc71"}
@@ -403,7 +403,7 @@ def _page_title(pdf, domain: str, group_str: str, total_trials: int):
     fig, ax = plt.subplots(figsize=(11, 8.5))
     ax.axis("off")
 
-    ax.text(0.5, 0.72, "AgenticCyOps", transform=ax.transAxes,
+    ax.text(0.5, 0.72, "DEFER", transform=ax.transAxes,
             ha="center", fontsize=36, fontweight="bold", color=HEADER_COLOR)
     ax.text(0.5, 0.62, "Attack Path Evaluation Report", transform=ax.transAxes,
             ha="center", fontsize=22, color="#7f8c8d")
@@ -619,7 +619,7 @@ def _page_variant_analysis(pdf, rows: list[dict], domain: str):
 
     fig, ax = plt.subplots(figsize=(11, 8.5))
     ax.axis("off")
-    ax.set_title(f"Per-Variant ASR (AgenticCyOps) — {domain.title()}", fontsize=18,
+    ax.set_title(f"Per-Variant ASR (DEFER) — {domain.title()}", fontsize=18,
                  fontweight="bold", color=HEADER_COLOR, pad=30)
 
     headers = ["AP"] + [f"v{v}" for v in all_variants] + ["Avg ASR"]
@@ -734,7 +734,7 @@ def _page_mechanism_breakdown(pdf, stats: dict[tuple[str, str], dict], domain: s
     ax.set_yticklabels(labels, fontsize=9)
     ax.invert_yaxis()
     ax.set_xlabel("Number of Interceptions", fontsize=12)
-    ax.set_title(f"Blocking Mechanism Breakdown (AgenticCyOps) — {domain.title()}",
+    ax.set_title(f"Blocking Mechanism Breakdown (DEFER) — {domain.title()}",
                  fontsize=14, fontweight="bold")
 
     # Value labels
@@ -790,7 +790,7 @@ def _page_cross_group(pdf, group_data: dict[str, list[dict]], domain: str):
             ax.text(j, i, f"{val:.0f}%", ha="center", va="center",
                     fontsize=9, fontweight="bold", color=color)
 
-    ax.set_title(f"Cross-Group ASR Comparison (AgenticCyOps) — {domain.title()}",
+    ax.set_title(f"Cross-Group ASR Comparison (DEFER) — {domain.title()}",
                  fontsize=14, fontweight="bold")
     cbar = fig.colorbar(im, ax=ax, shrink=0.8)
     cbar.set_label("Attack Success Rate (%)", fontsize=10)
@@ -832,7 +832,7 @@ def _page_key_findings(pdf, stats: dict[tuple[str, str], dict],
                      if AP_SHORT[ap] not in no_headroom_aps}
     fully_blocked = sum(1 for v in with_headroom.values() if v == 0)
     findings.append(f"{fully_blocked} of {len(with_headroom)} APs with headroom "
-                    f"(Flat ASR > 0) fully blocked (0% ASR) under AgenticCyOps")
+                    f"(Flat ASR > 0) fully blocked (0% ASR) under DEFER")
     if no_headroom_aps:
         findings.append("No headroom (0% ASR even under Flat, so blocking is not "
                         f"evidence of defense): {', '.join(no_headroom_aps)}")
@@ -903,7 +903,7 @@ def _page_key_findings(pdf, stats: dict[tuple[str, str], dict],
             fl = cgrp.loc["flat"]
             tok_delta = (ac["tokens"] - fl["tokens"]) / fl["tokens"] * 100
             findings.append(
-                f"Token savings: AgenticCyOps consumes {abs(tok_delta):.1f}% "
+                f"Token savings: DEFER consumes {abs(tok_delta):.1f}% "
                 f"{'fewer' if tok_delta < 0 else 'more'} tokens per trial than "
                 f"Flat ({ac['tokens']:,.0f} vs {fl['tokens']:,.0f})")
             # Prefer LLM-call latency as the authoritative comparison: it's
@@ -917,7 +917,7 @@ def _page_key_findings(pdf, stats: dict[tuple[str, str], dict],
             deny_rate = ac["tool_denies"] / ac["tool_calls"] * 100 if ac["tool_calls"] else 0
             findings.append(
                 f"Defense-in-depth signal: {deny_rate:.1f}% of tool calls denied "
-                f"under AgenticCyOps ({ac['tool_denies']:.1f}/{ac['tool_calls']:.1f} per trial)")
+                f"under DEFER ({ac['tool_denies']:.1f}/{ac['tool_calls']:.1f} per trial)")
         if has("agenticcyops"):
             ac = cgrp.loc["agenticcyops"]
             # Memory ops are exercised only on AP-13/AP-14 (2 APs out of 15).
@@ -933,7 +933,7 @@ def _page_key_findings(pdf, stats: dict[tuple[str, str], dict],
                 "(memory pipeline actively guarded)")
             findings.append(
                 f"Audit density: ~{ac['events']:,.0f} structured events logged "
-                "per trial under AgenticCyOps (vs ~"
+                "per trial under DEFER (vs ~"
                 f"{cgrp.loc['flat', 'events']:,.0f} on Flat) - P1-P5 leave a full trail")
 
     # Render findings
@@ -1013,7 +1013,7 @@ def _page_cost_performance(pdf, cost_rows: list[dict], domain: str):
         ac = grp.loc["agenticcyops", "tokens"]
         delta_pct = (ac - flat_tok) / flat_tok * 100
         ax1.text(0.02, 0.97,
-                 f"AgenticCyOps vs Flat: {delta_pct:+.1f}%",
+                 f"DEFER vs Flat: {delta_pct:+.1f}%",
                  transform=ax1.transAxes, fontsize=9, va="top",
                  bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
                            edgecolor="gray", alpha=0.8))
@@ -1092,7 +1092,7 @@ def _page_cost_performance(pdf, cost_rows: list[dict], domain: str):
         a_row = grp.loc["agenticcyops"]
         def _delta(key, fmt="{:+.1f}%"):
             return fmt.format((a_row[key] - f_row[key]) / f_row[key] * 100)
-        rows.append(["-- AgenticCyOps vs Flat --", "",
+        rows.append(["-- DEFER vs Flat --", "",
                      _delta("tokens"), _delta("prompt"),
                      _delta("completion"), _delta("e2e_ms"),
                      _delta("llm_ms"), _delta("tool_ms")])
@@ -1288,7 +1288,7 @@ def generate_report(domain: str, groups: list[str], output_dir: Path):
     print(f"  PDF saved: {pdf_path} ({page_count} pages)")
 
     # --- Summary printout ---
-    print(f"\n  --- ASR Summary (AgenticCyOps, Group {primary_group}) ---")
+    print(f"\n  --- ASR Summary (DEFER, Group {primary_group}) ---")
     for ap in ALL_APS:
         s = stats.get((ap, "agenticcyops"))
         if s:

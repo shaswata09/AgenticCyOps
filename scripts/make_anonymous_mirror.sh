@@ -23,6 +23,25 @@ rm -rf "$OUT"/logs_legacy_v1 "$OUT"/results_legacy_v1 "$OUT"/paper/main.tex \
        "$OUT"/REVIEW_READY_TASKS.md "$OUT"/docs/REVISION_TASKS.md
 find "$OUT" -name "*.ipynb" -path "*existing_defense_eval*" -delete 2>/dev/null || true
 
+# the public repository names its authors (citation block, CITATION.cff, its URL);
+# the review copy drops them
+rm -f "$OUT"/CITATION.cff
+python3 - "$OUT" <<'PY'
+import pathlib, re, sys
+out = pathlib.Path(sys.argv[1])
+readme = out / "README.md"
+s = readme.read_text()
+s = re.sub(r"\n## Citation\n.*?(?=\n## )", "\n", s, flags=re.S)
+s = s.replace("- [Citation](#citation)\n", "")
+readme.write_text(s)
+for f in out.rglob("*"):
+    if f.is_file() and f.suffix in {".md", ".py", ".sh", ".txt", ".yaml", ".html", ".tex", ".cff"}:
+        t = f.read_text(errors="ignore")
+        u = t.replace("https://github.com/shaswata09/DEFER", "(repository link withheld for review)")
+        if u != t:
+            f.write_text(u)
+PY
+
 # identity of whoever builds the mirror, read from git config, never written here
 name="$(git config user.name || true)"; email="$(git config user.email || true)"
 user_pat=""
@@ -32,7 +51,7 @@ for w in $name; do [ ${#w} -ge 4 ] && user_pat="${user_pat:+$user_pat|}\\b$w\\b"
 [ -n "$email" ] && user_pat="${user_pat:+$user_pat|}${email%%@*}"
 # (the scenarios use synthetic 10.0.x.x addresses throughout, so real network
 # prefixes are passed in ANON_EXTRA_PATTERNS rather than matched generically)
-pats="/home/[a-z][a-z0-9_-]+/|/storage/data|/Users/[A-Za-z]|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}"
+pats="/home/[a-z][a-z0-9_-]+/|/storage/data|/Users/[A-Za-z]|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|shaswata09|github\.com/[A-Za-z0-9_-]+/DEFER"
 [ -n "$user_pat" ] && pats="$pats|$user_pat"
 [ -n "${ANON_EXTRA_PATTERNS:-}" ] && pats="$pats|$ANON_EXTRA_PATTERNS"
 

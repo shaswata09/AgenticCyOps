@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Unified Experiment Runner
+# DEFER — Unified Experiment Runner
 #
 # Single script for all evaluations: baseline, Eval A, Eval F.
 # Select group, domain(s), APs, configs, trials interactively or via CLI.
@@ -199,7 +199,7 @@ ALLOCATED_PORTS=()
 # ---- Interactive or CLI ----
 if [ -z "$1" ]; then
     echo ""
-    echo "  AgenticCyOps — Experiment Runner"
+    echo "  DEFER — Experiment Runner"
     echo "  ──────────────────────────────────────────────"
     echo ""
 
@@ -316,7 +316,7 @@ CONSENSUS_CFG="${GP_CONSENSUS[$GROUP]}"
 
 echo ""
 echo "============================================================"
-echo "  AgenticCyOps Experiment — Group ${GROUP}"
+echo "  DEFER Experiment — Group ${GROUP}"
 echo "  ${GP_DESC[$GROUP]}"
 echo "  Domains: ${SELECTED_DOMAINS[*]}"
 echo "  APs: ${AP_MODE} ${SELECTED_APS[*]}"
@@ -501,7 +501,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 sns.set_theme(style='whitegrid', font_scale=1.0, palette='muted')
 CONFIGS = ['flat', 'acl_hardened', 'agenticcyops']
-CONFIG_LABELS = {'flat': 'Flat MAS', 'acl_hardened': 'ACL-Hardened', 'agenticcyops': 'AgenticCyOps'}
+CONFIG_LABELS = {'flat': 'Flat MAS', 'acl_hardened': 'ACL-Hardened', 'agenticcyops': 'DEFER'}
 CONFIG_COLORS = {'flat': '#e74c3c', 'acl_hardened': '#f39c12', 'agenticcyops': '#2ecc71'}
 HEADER_COLOR = '#2c3e50'
 
@@ -642,7 +642,7 @@ if aco_trials:
 with PdfPages(str(result_dir / 'attack_report.pdf')) as pdf:
     # Title
     fig, ax = plt.subplots(figsize=(11, 8.5)); ax.axis('off')
-    ax.text(0.5, 0.72, 'AgenticCyOps', transform=ax.transAxes,
+    ax.text(0.5, 0.72, 'DEFER', transform=ax.transAxes,
             ha='center', fontsize=36, fontweight='bold', color=HEADER_COLOR)
     ax.text(0.5, 0.62, 'Attack Path Evaluation Report', transform=ax.transAxes,
             ha='center', fontsize=22, color='#7f8c8d')

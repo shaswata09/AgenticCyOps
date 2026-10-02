@@ -75,7 +75,7 @@ def _hoist(proposal: dict) -> dict:
     return proposal
 
 class SOARHost:
-    """Central orchestrator for the AgenticCyOps testbed."""
+    """Central orchestrator for the DEFER testbed."""
 
     # config label -> flags on the agenticcyops stack (see __init__)
     _STACK_VARIANTS = {

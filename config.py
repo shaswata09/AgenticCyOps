@@ -1,5 +1,5 @@
 """
-AgenticCyOps — Project Configuration
+DEFER — Project Configuration
 
 Single source of truth for base paths and environment-specific endpoints.
 Nothing in the code base hard-codes a host path, an internal address or a

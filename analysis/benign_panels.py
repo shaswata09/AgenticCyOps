@@ -151,7 +151,7 @@ def _fmt_rej(cell) -> str:
 def render(panels, rates, security) -> str:
     L = ["# Benign panel rejection vs security let-through (q235_div4)",
          "",
-         "Security = ASB injected actions let through under AgenticCyOps (lower is safer).",
+         "Security = ASB injected actions let through under DEFER (lower is safer).",
          "Benign rejection = share of benign proposals the panel rejects (lower is less",
          "disruptive). `single`/`div3`/`div4`/`div3x` recompose exactly from the recorded",
          "div4 votes; `lin3` needs V2/V7, which never voted on a benign proposal (n/a).",

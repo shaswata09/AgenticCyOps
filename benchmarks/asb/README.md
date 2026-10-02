@@ -1,7 +1,7 @@
 # Agent Security Bench (ASB) Benchmark Integration
 
-**Fourth third-party adversarial benchmark for the AgenticCyOps
-P1-P5 stack.**  Joins TAMAS (Eval D), AgenticCyOps in-house attack
+**Fourth third-party adversarial benchmark for the DEFER
+P1-P5 stack.**  Joins TAMAS (Eval D), DEFER in-house attack
 paths (Eval A), and InjecAgent (Eval G) as an independent
 adversarial evaluation.
 
@@ -118,14 +118,14 @@ Identical to InjecAgent's pattern:
 
 ## Paper framing
 
-- Report as **"ASB-static ASR on AgenticCyOps (general domain)"**
+- Report as **"ASB-static ASR on DEFER (general domain)"**
   with the explicit disclaimer that domain-tuned layers
   (P3-L0.5, P5 sensitive patterns) aren't exercised.
 - The upstream paper's headline 84.30% ASR is the *attacker
   ceiling* against vanilla agents — report it as comparison context,
   not as a like-for-like number against our middleware.
 - We do not reproduce ASB's 11 in-paper defenses; our value-add is
-  measuring the AgenticCyOps middleware specifically.
+  measuring the DEFER middleware specifically.
 - PoT backdoor framing: "we measure post-deployment runtime defense
   against backdoor-triggered actions; we do not detect the
   training-time compromise itself."

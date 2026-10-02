@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Interactive vLLM Server Launcher
+# DEFER — Interactive vLLM Server Launcher
 # Usage: ./start_servers.sh
 #
 # MEMORY REALITY (actual BF16 weight sizes):
@@ -207,7 +207,7 @@ cursor=0
 draw_group_menu() {
     clear
     echo ""
-    echo "  AgenticCyOps — Select Server Group"
+    echo "  DEFER — Select Server Group"
     echo "  ────────────────────────────────────────────────────────────────"
     echo ""
     echo "  7 model families: Qwen, GLM, DeepSeek, Meta, Mistral, Anthropic, OpenAI"

@@ -40,7 +40,7 @@ plt.rcParams.update({
 })
 
 CONFIG_LABEL = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened",
-                "agenticcyops": "AgenticCyOps (P1-P5)"}
+                "agenticcyops": "DEFER (P1-P5)"}
 CONFIG_COLOR = {"flat": "#e74c3c", "acl_hardened": "#f39c12",
                 "agenticcyops": "#2ecc71"}
 CONFIG_ORDER = ["flat", "acl_hardened", "agenticcyops"]
@@ -204,7 +204,7 @@ def _draw_mechanism_bars(pdf, df):
     colors = ["#27ae60" if not r.startswith(("not blocked", "succeeded", "blocked_unknown")) else "#7f8c8d" for r in mt.mechanism]
     ax.barh(mt.mechanism[::-1], mt["count"][::-1], color=colors[::-1])
     ax.set_xlabel("count")
-    ax.set_title("AgenticCyOps mechanism distribution (top 12)")
+    ax.set_title("DEFER mechanism distribution (top 12)")
     for i, (m, n) in enumerate(zip(mt.mechanism[::-1], mt["count"][::-1])):
         ax.text(n + max(mt["count"])*0.01, i, str(n), va="center", fontsize=9)
     pdf.savefig(fig, bbox_inches="tight"); plt.close(fig)

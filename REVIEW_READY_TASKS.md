@@ -140,7 +140,7 @@ paper/figs/          generated figures
 - Build the release from a fresh orphan branch `review-snapshot` containing a single commit of the release tree, so no history, commit messages, or `Co-Authored-By` lines are exposed.
 - Scrub from every file (code, configs, logs, notebooks, PDFs, figure metadata): author and institution names, usernames, emails, hostnames, IPs, absolute paths (`/storage/...`, home directories), GPU server names, API keys, org IDs, and W&B or dashboard URLs. Run a scanner (`gitleaks` for secrets plus a grep list you build from `git log --format='%an %ae'` and `hostname`) and report zero hits.
 - PDF metadata: strip `Author`/`Creator` fields from every generated PDF (`exiftool -all= ` or qpdf).
-- Rename the package and repo from `AgenticCyOps` to `defer` everywhere a reviewer can see it (the paper's system is DEFER); keep a one-line note in PROVENANCE.md that configuration names `agenticcyops*` in logs denote FULL.
+- Rename the package and repo from `DEFER` to `defer` everywhere a reviewer can see it (the paper's system is DEFER); keep a one-line note in PROVENANCE.md that configuration names `agenticcyops*` in logs denote FULL.
 - Mirror to anonymous.4open.science and to an anonymous Hugging Face dataset (logs, payloads, benign scenarios, cache); report both URLs so the paper's `\codelink` and `\datalink` can be filled.
 
 ### D3. Dataset card and licenses

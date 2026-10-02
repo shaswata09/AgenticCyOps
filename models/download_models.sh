@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Model Download Script
+# DEFER — Model Download Script
 # ============================================================
 # Run from the directory where you want models stored.
 # Creates: ./Qwen/Qwen3-235B-A22B-Instruct-2507/
@@ -30,7 +30,7 @@ BASE_DIR="$(pwd)"
 
 echo ""
 echo "============================================"
-echo " AgenticCyOps Model Download"
+echo " DEFER Model Download"
 echo " Target directory: $BASE_DIR"
 echo " Estimated total size: ~550 GB"
 echo "============================================"

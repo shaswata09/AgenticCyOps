@@ -38,7 +38,7 @@ plt.rcParams.update({
 CONFIG_COLOR = {"flat": "#e74c3c", "acl_hardened": "#f39c12",
                 "agenticcyops": "#2ecc71"}
 CONFIG_LABEL = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened",
-                "agenticcyops": "AgenticCyOps (P1-P5)"}
+                "agenticcyops": "DEFER (P1-P5)"}
 CONFIG_ORDER = ["flat", "acl_hardened", "agenticcyops"]
 DOMAIN_ORDER = ["cyberops", "healthcare", "finance", "legal"]
 DOMAIN_LABEL = {d: d.title() for d in DOMAIN_ORDER}
@@ -97,7 +97,7 @@ def page_title(pdf: PdfPages, det: pd.DataFrame, summ: pd.DataFrame) -> None:
     acy = det[det.config == "agenticcyops"]
     d_agg = acy.groupby("domain")["allowed"].agg(["sum", "count"]).reset_index()
     d_agg["asr"] = 100 * d_agg["sum"] / d_agg["count"]
-    ax.text(0.06, 0.45, "Defended ASR per domain  (AgenticCyOps only)",
+    ax.text(0.06, 0.45, "Defended ASR per domain  (DEFER only)",
             fontsize=14, fontweight="bold", color=ACCENT)
     rows = []
     for _, r in d_agg.iterrows():
@@ -147,7 +147,7 @@ def page_aggregate_bars(pdf: PdfPages, det: pd.DataFrame) -> None:
                   edgecolor="black", width=0.6)
     ax.set_ylim(0, max(agg2["asr"].max() * 1.4, 10))
     ax.set_ylabel("Defended ASR (%)")
-    ax.set_title("AgenticCyOps by attack family × variant")
+    ax.set_title("DEFER by attack family × variant")
     for b, v in zip(bars, agg2["asr"]):
         ax.text(b.get_x() + b.get_width() / 2, v + 0.3,
                 f"{v:.1f}%", ha="center", fontweight="bold", fontsize=9)
@@ -169,7 +169,7 @@ def page_heatmap(pdf: PdfPages, det: pd.DataFrame) -> None:
         pivot, annot=True, fmt=".1f", cmap="RdYlGn_r", vmin=0, vmax=50,
         linewidths=0.4, linecolor="white", ax=ax,
         cbar_kws={"label": "ASR (%) — lower is better"})
-    ax.set_title("Residual ASR — AgenticCyOps across 4 domains",
+    ax.set_title("Residual ASR — DEFER across 4 domains",
                  fontsize=13, fontweight="bold")
     ax.set_xlabel(""); ax.set_ylabel("attack family × variant")
     plt.tight_layout()
@@ -205,7 +205,7 @@ def page_principle_attribution(pdf: PdfPages, det: pd.DataFrame) -> None:
                 color=[palette[p] for p in counts.columns],
                 edgecolor="white", width=0.7)
     ax.set_title("Which defense layer blocked each attack family "
-                 "(AgenticCyOps, all 4 domains)",
+                 "(DEFER, all 4 domains)",
                  fontsize=13, fontweight="bold")
     ax.set_xlabel(""); ax.set_ylabel("Blocked attack-tool evaluations")
     ax.tick_params(axis="x", labelrotation=0)
@@ -304,7 +304,7 @@ def page_methodology(pdf: PdfPages, det: pd.DataFrame) -> None:
         "    than parameter-rule / sensitive-pattern checks.",
         "  * No comparison with upstream paper numbers is claimed -- they",
         "    evaluated Llama-3.1-8B / Vicuna-7B single-agent ReAct; we",
-        "    evaluate the AgenticCyOps middleware only (no live LLM).",
+        "    evaluate the DEFER middleware only (no live LLM).",
     ]
     ax.text(0.06, 0.88, "\n".join(body), fontsize=9,
             family="monospace", va="top")

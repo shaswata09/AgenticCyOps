@@ -18,7 +18,7 @@ What this gives you (free, ~30s) versus what requires a re-run:
 
 The upper-bound is sufficient for many paper claims:
 
-  > "Removing P3 from AgenticCyOps would increase ASR by AT MOST X pp."
+  > "Removing P3 from DEFER would increase ASR by AT MOST X pp."
 
 This is publishable without an additional sweep.
 
@@ -95,7 +95,7 @@ def _summary_for_csv(df: pd.DataFrame, group: str, domain: str) -> pd.DataFrame:
         "successes": current_succ,
         "asr_pct": current_asr,
         "delta_pct": 0.0,
-        "note": "current full-stack AgenticCyOps ASR",
+        "note": "current full-stack DEFER ASR",
     })
     for p in PRINCIPLES:
         caught = int(counts.get(p, 0))
@@ -136,7 +136,7 @@ def _md_section(df: pd.DataFrame, group: str, domain: str) -> str:
     base = df[df.kind == "baseline"].iloc[0]
     out = [f"### Group {group} / {domain}", "",
             f"- Trials evaluated: **{int(base.trials):,}**",
-            f"- Current AgenticCyOps ASR: **{base.asr_pct:.2f}%** ({int(base.successes)}/{int(base.trials)})",
+            f"- Current DEFER ASR: **{base.asr_pct:.2f}%** ({int(base.successes)}/{int(base.trials)})",
             "",
             "**Upper-bound −Pn ASR (worst case if Pn disabled):**",
             "",

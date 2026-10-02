@@ -8,7 +8,7 @@ injecting one attack at the scripted step.
 The middleware is called *directly* (not through AutoGen) so the trial
 harness works in any Python environment without requiring a live LLM or
 the legacy pyautogen 0.2 package.  This mirrors the design of the
-AgenticCyOps host integration tests in ``attacks/harness.py``.
+DEFER host integration tests in ``attacks/harness.py``.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — named vLLM profiles for the 5x H200 server (G2)
+# DEFER — named vLLM profiles for the 5x H200 server (G2)
 #
 #   ./scripts/vllm_profiles.sh start q235     # Qwen3-235B TP=4 + V1 + V5
 #   ./scripts/vllm_profiles.sh start mid      # Scout TP=2, V1, V5, V2 + V7

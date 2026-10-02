@@ -2,7 +2,7 @@
 P1-P5 Framework-Agnostic Middleware for the TAMAS benchmark.
 
 Wraps arbitrary agent tool calls and memory operations with the full
-AgenticCyOps defense pipeline.  Unlike :class:`SOARHost` which assumes a
+DEFER defense pipeline.  Unlike :class:`SOARHost` which assumes a
 fixed 4-phase pipeline (monitor / analyze / admin / report), this
 middleware treats each agent ROLE as an independent actor and evaluates
 defenses on a per-call basis.

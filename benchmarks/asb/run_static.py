@@ -1,7 +1,7 @@
 """Static (deterministic, no live LLM) ASB benchmark runner.
 
 Mirror of ``benchmarks/injecagent/run_static.py`` but for ASB cases.
-Drives every (case, attacker tool) through the AgenticCyOps P1-P5
+Drives every (case, attacker tool) through the DEFER P1-P5
 defense pipeline under the **general** neutral domain (see
 ``domains/general/configs/``).  Records per-trial allow/deny + the
 mechanism that fired, then writes:

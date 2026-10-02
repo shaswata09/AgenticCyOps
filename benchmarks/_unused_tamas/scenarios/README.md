@@ -3,7 +3,7 @@
 This directory contains role manifests for the 5 TAMAS benchmark scenarios
 (arxiv:2506.02635). Each manifest is a JSON configuration that binds the
 agents in a scenario to their allowed tools, memory-store permissions, and
-consensus requirements. The manifests are consumed by the AgenticCyOps
+consensus requirements. The manifests are consumed by the DEFER
 defense harness to enforce least-privilege execution, detect unauthorized
 tool use, and flag suspicious escalation patterns across all 6 TAMAS attack
 types (prompt injection, memory poisoning, tool misuse, role confusion,
@@ -74,7 +74,7 @@ and collusion in moderation/appeal loops.
 
 ## Defense Hooks
 
-The AgenticCyOps defense harness uses these manifests to enforce:
+The DEFER defense harness uses these manifests to enforce:
 
 1. **Tool allowlists** - any call to a tool outside `allowed_tools`
    raises an authorization violation.

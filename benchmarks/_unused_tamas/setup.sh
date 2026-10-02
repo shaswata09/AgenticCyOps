@@ -3,7 +3,7 @@
 # TAMAS Benchmark Setup Script
 # -----------------------------------------------------------------------------
 # Purpose:  Bootstrap the TAMAS (Targeting Agentic Multi-Agent Systems)
-#           benchmark environment for AgenticCyOps.
+#           benchmark environment for DEFER.
 #
 # Reference: arxiv 2506.02635
 #
@@ -162,7 +162,7 @@ reproduced:
 5. Data exfiltration via agent relay
 6. Goal hijacking through long-horizon memory poisoning
 
-## How AgenticCyOps uses this
+## How DEFER uses this
 
 The `P12345Middleware` wraps every AutoGen agent with the P1-P5 defense
 stack (manifest enforcement, authenticated interface, consensus,

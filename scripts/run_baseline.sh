@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Full Baseline Verification
+# DEFER — Full Baseline Verification
 #
 # 1. Choose model group (A-G)
 # 2. Verify required servers are running
@@ -131,7 +131,7 @@ compute_tool_base() {
 # ---- Interactive or CLI ----
 if [ -z "$1" ]; then
     echo ""
-    echo "  AgenticCyOps — Baseline Verification"
+    echo "  DEFER — Baseline Verification"
     echo "  ──────────────────────────────────────────────"
     echo ""
     echo "  Step 1: Select Model Group"
@@ -232,7 +232,7 @@ trap cleanup EXIT INT TERM
 
 echo ""
 echo "============================================================"
-echo "  AgenticCyOps — Baseline Verification"
+echo "  DEFER — Baseline Verification"
 echo "  ${GROUP_NAMES[$GROUP]}"
 echo "  ${GROUP_DESC[$GROUP]}"
 echo "  Domains: ${DOMAINS[*]}"

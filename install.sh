@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Full Environment Setup
+# DEFER — Full Environment Setup
 # Run: conda activate agenticcyops && ./install.sh
 # ============================================================
 

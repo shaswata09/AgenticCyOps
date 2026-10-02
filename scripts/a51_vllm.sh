@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — vLLM on the RTX 5090 node ("A51"), serving only.
+# DEFER — vLLM on the RTX 5090 node ("A51"), serving only.
 #
 # The harness, tool stubs, MMA gateway and ChromaDB all run on the H200
 # server; this node exposes one OpenAI-compatible endpoint on the LAN,

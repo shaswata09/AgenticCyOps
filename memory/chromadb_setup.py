@@ -111,7 +111,7 @@ def setup_collections(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Initialize ChromaDB collections for an AgenticCyOps domain.",
+        description="Initialize ChromaDB collections for a DEFER domain.",
     )
     parser.add_argument(
         "--domain",

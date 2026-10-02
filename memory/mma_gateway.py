@@ -1,7 +1,7 @@
 """
 Memory Management Agent (MMA) Gateway -- FastAPI server.
 
-Mediates ALL memory access in the AgenticCyOps configuration.
+Mediates ALL memory access in the DEFER configuration.
 Enforces P4 (write-boundary filtering) and P5 (phase-partitioned access control).
 
 Endpoints:
@@ -132,7 +132,7 @@ def create_app(
 
     app = FastAPI(
         title="MMA Gateway",
-        description="Memory Management Agent -- mediates all memory access in AgenticCyOps.",
+        description="Memory Management Agent -- mediates all memory access in DEFER.",
         version="0.1.0",
     )
 
@@ -491,7 +491,7 @@ def create_app(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="MMA Gateway -- FastAPI server for AgenticCyOps memory access.",
+        description="MMA Gateway -- FastAPI server for DEFER memory access.",
     )
     parser.add_argument(
         "--domain",

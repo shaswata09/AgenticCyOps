@@ -4,7 +4,7 @@ Role-based manifest enforcer for the TAMAS benchmark.
 The TAMAS benchmark models multi-agent systems in which each agent plays
 a *role* (e.g. ``DiagnosisAgent``, ``PrescriptionAgent``) rather than
 occupying one of the fixed NIST-IR phases used by the main
-AgenticCyOps SOAR pipeline.  The existing :class:`host.manifest_enforcer.ManifestEnforcer`
+DEFER SOAR pipeline.  The existing :class:`host.manifest_enforcer.ManifestEnforcer`
 loads phase manifests from ``domains/{domain}/configs/{phase}_manifest.json``;
 for TAMAS we want the same enforcement semantics but against role
 manifests that are supplied at runtime (e.g. from a scenario JSON file).

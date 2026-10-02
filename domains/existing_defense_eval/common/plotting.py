@@ -6,7 +6,7 @@ comparison is one-glance:
   1. Bypass rate per AP (with 95% CI), coloured IPI vs Structural
   2. Mean bypass by attack category (IPI vs Structural)
   3. Per-variant heatmap (AP rows x variant columns)
-  4. Optional comparison vs a baseline / vs AgenticCyOps
+  4. Optional comparison vs a baseline / vs DEFER
 """
 
 import numpy as np

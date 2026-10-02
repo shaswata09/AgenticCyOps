@@ -9,7 +9,7 @@ Outputs into the same directory as ``results.csv``::
 
     asr_by_ap.png            grouped bars, one bar per config per AP
     interception_heatmap.png AP x config interception rate
-    mechanism_breakdown.png  blocking mechanisms under AgenticCyOps
+    mechanism_breakdown.png  blocking mechanisms under DEFER
     attack_report.pdf        title + R1 table + the three charts + summary
 
 Trials whose outcome is ``not_measurable`` are excluded from every rate and
@@ -42,7 +42,7 @@ sns.set_theme(style="whitegrid", font_scale=1.0, palette="muted")
 
 CONFIGS = ["flat", "acl_hardened", "agenticcyops"]
 CONFIG_LABELS = {"flat": "Flat MAS", "acl_hardened": "ACL-Hardened",
-                 "agenticcyops": "AgenticCyOps"}
+                 "agenticcyops": "DEFER"}
 CONFIG_COLORS = {"flat": "#e74c3c", "acl_hardened": "#f39c12",
                  "agenticcyops": "#2ecc71"}
 HEADER_COLOR = "#2c3e50"
@@ -191,7 +191,7 @@ def regenerate(group: str, domain: str, suffix: str = "") -> None:
     # ---- PDF ------------------------------------------------------------
     with PdfPages(str(result_dir / "attack_report.pdf")) as pdf:
         fig, ax = plt.subplots(figsize=(11, 8.5)); ax.axis("off")
-        ax.text(0.5, 0.72, "AgenticCyOps", transform=ax.transAxes, ha="center",
+        ax.text(0.5, 0.72, "DEFER", transform=ax.transAxes, ha="center",
                 fontsize=36, fontweight="bold", color=HEADER_COLOR)
         ax.text(0.5, 0.62, "Attack Path Evaluation Report", transform=ax.transAxes,
                 ha="center", fontsize=22, color="#7f8c8d")

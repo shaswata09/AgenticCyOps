@@ -1,4 +1,4 @@
-# AgenticCyOps — harness fixes and experiment re-run plan
+# DEFER — harness fixes and experiment re-run plan
 
 Save this file at the repo root as `REVISION_TASKS.md` and work through it phase by phase.
 Hardware: 5x NVIDIA H200 141 GB on the main server (previously 6-8), plus a separate PC with one RTX 5090 (32 GB) that can serve vLLM over the network. API access: Anthropic + OpenAI.

@@ -5,7 +5,7 @@ HTTP-level enforcement that wraps tool calls. In acl_hardened mode,
 the agent sees ALL tools (like flat) but out-of-scope calls get
 HTTP 403 at this layer — mimicking network-level ACLs.
 
-This is distinct from AgenticCyOps which enforces at the application
+This is distinct from DEFER which enforces at the application
 layer (ManifestEnforcer) BEFORE the LLM even sees the tools.
 """
 

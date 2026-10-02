@@ -1,5 +1,5 @@
 """
-Structured JSON Logger for AgenticCyOps Experiments
+Structured JSON Logger for DEFER Experiments
 
 Middleware for instrumenting all inter-component calls:
   agent -> tool, agent -> memory, agent <-> agent, consensus validation,

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AgenticCyOps — Ablation studies wrapper
+# DEFER — Ablation studies wrapper
 #
 # Two modes:
 #   postonly   -- read existing logs/results.csv, derive UPPER-BOUND
@@ -106,7 +106,7 @@ wait_for_health() {
 # ---- CLI / interactive ----
 if [ -z "$1" ]; then
     echo ""
-    echo "  AgenticCyOps -- Ablation Studies"
+    echo "  DEFER -- Ablation Studies"
     echo "  ─────────────────────────────────"
     echo ""
     echo "  Modes:"

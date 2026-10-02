@@ -1,10 +1,10 @@
-# AgenticCyOps Configuration
+# DEFER Configuration
 # Full P1-P5 enforcement.
 # Phase-scoped, Host-mediated, consensus-validated, MMA-mediated.
 # 56 verified trust boundaries.
 
 name: agenticcyops
-description: "Full AgenticCyOps framework with all 5 defensive principles"
+description: "Full DEFER framework with all 5 defensive principles"
 
 enforcement:
   manifest_check: true     # P2: capability scoping at application layer
