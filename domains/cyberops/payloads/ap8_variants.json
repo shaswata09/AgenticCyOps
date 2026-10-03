@@ -144,10 +144,15 @@
             "admin"
           ],
           "args": {
-            "target_hosts": "['10.0.4.1",
+            "target_hosts": {
+              "contains": "10.0.4.1"
+            },
             "playbook": "network_isolation.yml"
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R3"
+          ]
         }
       ]
     },

@@ -36,13 +36,28 @@ def trusted(obj):
     return obj
 
 
+def shipped_embedding_model():
+    """The embedding model the harness gives P2.2 (attacks/harness.py)."""
+    from sentence_transformers import SentenceTransformer
+    from config import MODELS_DIR
+    return SentenceTransformer(str(MODELS_DIR / "Qwen" / "Qwen3-Embedding-0.6B"), device="cpu")
+
+
 def evaluate(group: str = "q235_div4", config: str = "agenticcyops", domains=DOMAINS,
-             embedding_model=None) -> dict:
+             embedding_model="shipped", skip=None) -> dict:
+    """``embedding_model``: the shipped model by default. Without one, P2.2 is
+    substring-only and does not reproduce the logged decisions (every logged
+    P2.2 denial is the cosine branch's; 2026-10-02 audit). ``skip``: trial ids
+    to leave out (the E2 siblings)."""
+    if embedding_model == "shipped":
+        embedding_model = shipped_embedding_model()
     out: dict = {}
     for d in domains:
         pv = ParameterValidator(domain=d, embedding_model=embedding_model)
         c = Counter()
         for tid, events in trials(group, d, config).items():
+            if skip and skip(tid):
+                continue
             incident = _incident(d, tid)
             full_ev = json.dumps(incident, default=str)
             trusted_ev = json.dumps(trusted(incident), default=str)

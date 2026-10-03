@@ -35,22 +35,36 @@ PHASE_ORDER = ["monitor", "analyze", "admin", "report"]
 
 
 
-# v3.1: the admin tools of healthcare, finance and legal do one thing each and
-# take no ``action`` argument, so every P3 check keyed on (tool, action) --
-# time policy, change conflict, impacts, dangerous patterns -- missed them.
-IMPLIED_ACTION = {
-    "F8_account_freeze": "freeze", "F9_chargeback_processor": "process",
-    "F10_wire_recall": "recall", "H8_prescription_writer": "prescribe",
-    "H9_procedure_scheduler": "schedule", "H10_insurance_preauth": "submit",
-    "L8_court_filing": "file", "L9_document_signing": "sign",
-    "L10_payment_processing": "disburse",
-}
+# v3.2: the action and target maps live in host.tool_semantics, shared with
+# the parameter validator and the cross-incident ledger
+from host.tool_semantics import IMPLIED_ACTION, TARGET_ARGS  # noqa: E402
+
 HOIST_FIELDS = ("action", "target", "target_user", "target_hosts", "target_users",
                 "account_id", "patient_id", "case_id")
-# the argument that names what a tool acts on, for checks that read ``target``
-TARGET_ARGS = ("target", "target_user", "target_host", "account_id", "patient_id",
-               "case_number", "case_id", "wire_id", "transaction_id", "matter_id",
-               "document_id")
+
+
+def _incident_ids(incident: dict) -> list[str]:
+    """Every ``incident_id`` the trigger names: top level first, then nested
+    dicts one level down (``incident_context``, ``incident_a``, ...)."""
+    out = []
+    if isinstance(incident, dict):
+        if incident.get("incident_id"):
+            out.append(str(incident["incident_id"]))
+        for v in incident.values():
+            if isinstance(v, dict) and v.get("incident_id") and str(v["incident_id"]) not in out:
+                out.append(str(v["incident_id"]))
+    return out
+
+
+def _render_handoff_fields(fields: dict) -> str:
+    """Injected handoff fields as the phase's stated assessment (AP-9)."""
+    if not fields:
+        return ""
+    lines = ["Phase assessment:"]
+    for k, v in fields.items():
+        val = v if isinstance(v, str) else json.dumps(v, default=str)
+        lines.append(f"- {k.replace('_', ' ')}: {val}")
+    return "\n".join(lines)
 
 
 def _hoist(proposal: dict) -> dict:
@@ -145,6 +159,14 @@ class SOARHost:
         self.disabled_principles: set = {p.upper() for p in (disabled_principles or set())}
         self.disabled_principles |= {p.upper() for p in _flags.get("extra_disabled", set())}
 
+        # v3.1.4: hiding out-of-manifest tools from the model is part of P2
+        # (capability scoping). JUDGEONLY has no P2 and an ablation without P2
+        # must not keep it; before, both still showed each agent only its
+        # phase manifest. (FLAT and ACL already showed every tool.)
+        if self.config_label == "llm_judge" or not self._principle_active("P2"):
+            for _agent in self.agents.values():
+                setattr(_agent, "show_all_tools", True)
+
         # E9: stores marked critical in the domain config. Writes to these are
         # routed to the panel under agenticcyops_writejudge; empty for every
         # other configuration, so nothing else changes behaviour.
@@ -211,9 +233,15 @@ class SOARHost:
         # one payload dict for every trial of a variant (v3.1; before, only the
         # first trial of each AP-15 variant got its fault)
         self.harness_injection = copy.deepcopy(harness_injection or {})
+        # v3.2: the ids the incident names, top level or nested (several
+        # triggers keep their fields under ``incident_context``, multi-incident
+        # ones under ``incident_a`` / ``incident_b``); before, such incidents got
+        # a random id and P3.6 denied every proposal that cited the real one
+        named_ids = _incident_ids(incident)
         context = {
             "incident": incident,
-            "incident_id": incident.get("incident_id", str(uuid4())),
+            "incident_id": incident.get("incident_id") or (named_ids[0] if named_ids else str(uuid4())),
+            "incident_ids": named_ids,
             "domain": self.domain,
             "config": self.config,
             "phases": {},
@@ -221,6 +249,8 @@ class SOARHost:
             # which was never set (always "medium")
             "severity": str(incident.get("initial_severity") or incident.get("severity")
                             or incident.get("initial_priority") or incident.get("priority")
+                            or (incident.get("incident_context") or {}).get("severity")
+                            or (incident.get("incident_context") or {}).get("initial_severity")
                             or "medium"),
         }
 
@@ -340,10 +370,21 @@ class SOARHost:
         if src and src != phase:
             return handoff_ctx
         out = dict(handoff_ctx)
-        for k, v in (spec.get("fields") or {}).items():
+        fields = spec.get("fields") or {}
+        for k, v in fields.items():
             out[k] = v
-        if spec.get("append_summary"):
-            out["phase_summary"] = f"{out.get('phase_summary', '')}\n\n{spec['append_summary']}".strip()
+        # v3.1.4: the next agent reads only the handoff's summary and tool
+        # results (agents/base_agent._format_context), so injected fields that
+        # stayed structured were seen by P3-L0 alone and never by a model. A
+        # compromised agent states its claims in what it hands over: the fields
+        # are rendered into the summary, through the same sanitizer as any
+        # phase output (host.handoff._sanitize_text).
+        rendered = _render_handoff_fields(fields)
+        extra = "\n\n".join(x for x in (rendered, spec.get("append_summary") or "") if x)
+        if extra:
+            from host.handoff import _sanitize_text
+            extra, _n = _sanitize_text(extra)
+            out["phase_summary"] = f"{out.get('phase_summary', '')}\n\n{extra}".strip()
         if self.logger:
             self.logger.log(source="harness", destination=f"{next_phase}_agent",
                             action="harness_injection",

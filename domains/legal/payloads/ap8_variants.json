@@ -88,12 +88,14 @@
             "document_id": "*",
             "*": {
               "contains_any": [
-                "ATT-PARTNER-001",
-                "MAT-2026-0650"
+                "ATT-PARTNER-001"
               ]
             }
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },

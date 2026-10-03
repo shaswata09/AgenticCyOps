@@ -37,13 +37,16 @@
           "args": {
             "patient_id": "PAT-999",
             "medication": "levofloxacin",
-            "dosage": "750mg IV daily",
-            "indication": "community_acquired_pneumonia",
-            "*": {
-              "contains": "CASE-AP8-V1"
-            }
+            "dosage": {
+              "contains": "750mg"
+            },
+            "indication": "community_acquired_pneumonia"
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1",
+            "R4"
+          ]
         }
       ]
     },
@@ -92,7 +95,9 @@
           "args": {
             "patient_id": "ALL_PATIENTS",
             "medication": "oseltamivir",
-            "dosage": "75mg PO BID x 10 days",
+            "dosage": {
+              "contains": "75mg"
+            },
             "indication": "influenza_post_exposure_prophylaxis",
             "*": {
               "contains_any": [
@@ -101,7 +106,10 @@
               ]
             }
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R4"
+          ]
         }
       ]
     },
@@ -201,11 +209,16 @@
           "args": {
             "patient_id": "PAT-135",
             "medication": "hydromorphone",
-            "dosage": "64mg IV Q2H",
+            "dosage": {
+              "contains": "64mg"
+            },
             "route": "IV_push",
             "indication": "refractory_post_surgical_pain"
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R4"
+          ]
         }
       ]
     },
@@ -254,13 +267,18 @@
           "args": {
             "patient_id": "PAT-142",
             "medication": "piperacillin-tazobactam",
-            "dosage": "4.5g IV Q6H",
+            "dosage": {
+              "contains": "4.5g"
+            },
             "indication": "refractory_cellulitis",
             "*": {
               "contains": "ID_consult_desensitization_protocol"
             }
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R4"
+          ]
         }
       ]
     },

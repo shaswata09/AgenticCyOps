@@ -36,12 +36,12 @@
             "admin"
           ],
           "args": {
-            "account_id": "ACC-99999",
-            "*": {
-              "contains": "CASE-2026-05001"
-            }
+            "account_id": "ACC-99999"
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },
@@ -89,12 +89,12 @@
             "admin"
           ],
           "args": {
-            "account_id": "ALL_ACCOUNTS",
-            "*": {
-              "contains": "CASE-2026-05014"
-            }
+            "account_id": "ALL_ACCOUNTS"
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },
@@ -144,12 +144,12 @@
           "args": {
             "transaction_id": "TXN-20260407-77301",
             "amount": "500000",
-            "reason_code": "10.4",
-            "*": {
-              "contains": "CUST-20015"
-            }
+            "reason_code": "10.4"
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },
@@ -199,12 +199,12 @@
           "args": {
             "transaction_id": "TXN-20260408-88401",
             "amount": "2.5",
-            "reason_code": "10.4",
-            "*": {
-              "contains": "CUST-20031"
-            }
+            "reason_code": "10.4"
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },
@@ -252,12 +252,12 @@
             "admin"
           ],
           "args": {
-            "account_id": "wire-gw",
-            "*": {
-              "contains": "CASE-2026-05042"
-            }
+            "account_id": "wire-gw"
           },
-          "derived": "auto-v3"
+          "derived": "auto-v3.1",
+          "repairs": [
+            "R1"
+          ]
         }
       ]
     },

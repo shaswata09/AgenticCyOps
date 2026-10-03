@@ -234,14 +234,23 @@ def write_local4_trials(path=None) -> int:
     unchanged. Figures build from it. Groups with no replay arm here keep their
     as-run outcomes: the permissive-gate arm, the E9/E16 and outage runs, the
     v2.9 calibration run (local2), and the v3.0 runs (Local4 for those is in
-    results/replay_v3*.json). The v3.1 runs are re-judged from cache/replay_v31."""
+    results/replay_v3*.json). The v3.1 runs are re-judged from cache/replay_v31,
+    the reported runs (analysis.reported) from cache/replay_rep."""
     V, R = load_all_votes(), load_rounds()
-    v31 = BASE_DIR / "cache" / "replay_v31" / "rounds.jsonl"
-    if v31.exists():                  # the v3.1 runs keep their rounds apart
-        for ln in open(v31):
-            r = json.loads(ln)
-            R.setdefault(r["arm"], []).append(r)
-    arms = [("full", "q235_div4", "agenticcyops", D4, ""),
+    from analysis.reported import ABLATION, PRIMARIES, REPORTED
+    for rs in ("replay_v31", "replay_rep"):   # the v3.1 and the reported runs keep their rounds apart
+        f = BASE_DIR / "cache" / rs / "rounds.jsonl"
+        if f.exists():
+            for ln in open(f):
+                r = json.loads(ln)
+                R.setdefault(r["arm"], []).append(r)
+    _prim_arm = {"gpt-oss-120b": "rep_oss120", "Llama-3.1-8B": "rep_llama8b"}
+    arms = [("rep_full", REPORTED, "agenticcyops", D4, ""),
+            ("rep_judgeonly", REPORTED, "llm_judge", D4, ""),
+            *[(f"rep_full_minus_p{i}", ABLATION[i], "agenticcyops", ("cyberops",), "") for i in (1, 2, 4, 5)],
+            *[(f"{_prim_arm[m]}_{a}", g, cfg, ("cyberops",), "") for m, g in PRIMARIES.items()
+              for a, cfg in (("full", "agenticcyops"), ("judgeonly", "llm_judge"))],
+            ("full", "q235_div4", "agenticcyops", D4, ""),
             ("v31_full", "q235_local2_v31", "agenticcyops", D4, ""),
             ("v31_judgeonly", "q235_local2_v31", "llm_judge", D4, ""),
             *[(f"v31_full_minus_p{i}", f"q235_local2_disabled_P{i}_v31", "agenticcyops", ("cyberops",), "")

@@ -8,13 +8,20 @@
                 "action": {
                     "type": "string",
                     "required": true,
-                    "allowed": ["freeze", "unfreeze"],
+                    "allowed": [
+                        "freeze",
+                        "unfreeze"
+                    ],
                     "description": "Account freeze or unfreeze action"
                 },
                 "account_id": {
                     "type": "string",
                     "required": true,
-                    "blocked": ["*", "all", "ALL_ACCOUNTS"],
+                    "blocked": [
+                        "*",
+                        "all",
+                        "ALL_ACCOUNTS"
+                    ],
                     "description": "Target account identifier"
                 },
                 "max_accounts": {
@@ -25,8 +32,7 @@
                 "reason": {
                     "type": "string",
                     "required": true,
-                    "min_length": 10,
-                    "description": "Justification for the freeze/unfreeze action"
+                    "description": "Reason code for the freeze (v3.2: codes such as 'aml_hold' are shorter than the former 10-character minimum)"
                 },
                 "case_id": {
                     "type": "string",
@@ -52,7 +58,11 @@
                 "currency": {
                     "type": "string",
                     "required": true,
-                    "allowed": ["USD", "EUR", "GBP"],
+                    "allowed": [
+                        "USD",
+                        "EUR",
+                        "GBP"
+                    ],
                     "description": "Currency for the chargeback"
                 },
                 "reason_code": {
@@ -69,11 +79,6 @@
         },
         "F10_wire_recall": {
             "parameters": {
-                "wire_reference": {
-                    "type": "string",
-                    "required": true,
-                    "description": "Original wire transfer reference number"
-                },
                 "amount": {
                     "type": "number",
                     "required": true,
@@ -89,8 +94,7 @@
                 "reason": {
                     "type": "string",
                     "required": true,
-                    "min_length": 10,
-                    "description": "Justification for the wire recall"
+                    "description": "Reason code for the recall (v3.2: no minimum length)"
                 },
                 "originator_account": {
                     "type": "string",
@@ -101,6 +105,11 @@
                     "type": "string",
                     "required": true,
                     "description": "Beneficiary bank identifier (SWIFT/BIC)"
+                },
+                "wire_id": {
+                    "type": "string",
+                    "required": true,
+                    "description": "Wire transfer identifier (v3.2: the tool's argument name)"
                 }
             }
         }

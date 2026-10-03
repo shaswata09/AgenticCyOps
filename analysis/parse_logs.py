@@ -205,11 +205,28 @@ def write_run(domain: str, group: str, suffix: str, rows: list[dict], details: l
     return out_dir / "results.csv"
 
 
+def reported_rows(rows: list[dict]) -> list[dict]:
+    """Rows of the virtual reported group (analysis.reported): each reported
+    (domain, path, config) cell taken from the member group that ran it."""
+    from analysis.reported import COMPOSITION, REPORTED, member_for
+    out = []
+    for r in rows:
+        d = r.get("domain")
+        if r.get("suffix") or r.get("group") not in COMPOSITION.get(d, ()):
+            continue
+        if member_for(d, str(r.get("ap")), str(r.get("config"))) == r["group"]:
+            out.append({**r, "group": REPORTED})
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--group", default=None)
     ap.add_argument("--domain", default=None)
-    ap.add_argument("--rescore", action="store_true")
+    # v3.1.4: re-scoring is the default; a run's own trial_complete verdict was
+    # computed by the oracle of its day (the v3.1 JUDGEONLY runs predate the
+    # step-6 fix, every run predates the v3.1.4 effect-spec repairs)
+    ap.add_argument("--rescore", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--logs-dir", type=Path, default=LOGS_DIR)
     ap.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
     args = ap.parse_args()
@@ -232,6 +249,9 @@ def main() -> None:
         print(f"[{group}{suffix}/{domain}] {len(rows)} trials -> {path}")
         all_rows.extend({**r, "suffix": suffix} for r in rows)
         all_runs.extend(runs)
+
+    if all_rows and not (args.group or args.domain):
+        all_rows.extend(reported_rows(all_rows))
 
     if all_rows and (args.group or args.domain):
         # A filtered parse rebuilds only the selected per-run results; the

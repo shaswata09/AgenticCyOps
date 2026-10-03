@@ -56,7 +56,10 @@ class VersionedLedger:
         proposal_incident = proposal.get(
             "incident_id", proposal.get("arguments", {}).get("incident_id")
         )
-        if proposal_incident and proposal_incident != context_incident:
+        # v3.2: any id the incident itself names is legitimate (nested and
+        # multi-incident triggers), not only the one the context is keyed on
+        known = set(map(str, context.get("incident_ids") or [])) | {str(context_incident)}
+        if proposal_incident and str(proposal_incident) not in known:
             details = {
                 "proposal_incident_id": proposal_incident,
                 "context_incident_id": context_incident,

@@ -81,7 +81,16 @@ def run_logs(group: str, domain: str, config: str | None = None, suffix: str = "
 
     Looks in every directory of the domain, not only ``<domain>_eval_attacks_
     <group>``, because routing can move a file out of the directory it sits in.
+
+    The virtual group ``analysis.reported.REPORTED`` resolves to its member
+    groups' files in time order (``<config>_<date>_<time>.jsonl``), so a reader
+    that keeps the newest file per trial takes the re-run cell.
     """
+    from analysis.reported import COMPOSITION, REPORTED
+    if group == REPORTED:
+        members = [p for g in COMPOSITION.get(domain, ()) for p in
+                   run_logs(g, domain, config, suffix, logs_dir)]
+        return sorted(members, key=lambda p: (_stamp(p), str(p)))
     out = []
     for d in sorted(Path(logs_dir).glob(f"{domain}_eval_attacks_*")):
         if not d.is_dir():
@@ -94,3 +103,9 @@ def run_logs(group: str, domain: str, config: str | None = None, suffix: str = "
                 continue
             out.append(p)
     return out
+
+
+def _stamp(path: Path) -> str:
+    """``YYYYMMDD_HHMMSS`` of a log file name, for ordering runs in time."""
+    m = re.search(r"_(\d{8}_\d{6})\.jsonl$", path.name)
+    return m.group(1) if m else ""

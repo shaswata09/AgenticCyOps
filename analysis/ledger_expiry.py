@@ -55,13 +55,37 @@ def _skeleton(p: dict, identity: bool) -> str:
     return hashlib.sha256(json.dumps(sk, sort_keys=True).encode()).hexdigest()
 
 
-def sequence(group: str, domain: str, config: str = "agenticcyops") -> list[tuple[str, list]]:
-    """(trial_id, [(proposal, logged L4/L5 outcome, approved)]) in run order."""
+def sequence(group: str, domain: str, config: str = "agenticcyops") -> list[tuple]:
+    """(trial_id, log file, incident_id, [item, ...]) in run order, one item per
+    proposal that reached the stateful checks: the proposal as the host built
+    it, its logged L4/L5 outcome, and whether P3 approved it.
+
+    Faithful to the run (2026-10-02 audit): the ledgers are in-memory, so they
+    start empty in every harness process (one per log file); the context id is
+    the trigger's ``incident_id``; the proposal carries its justification and,
+    for v3.1+ runs, the host's hoisted fields. The earlier version replayed one
+    ledger across all processes with the trial id as incident id and agreed with
+    the logged outcomes on 58 of 165 proposals."""
+    from analysis.gate_offline import _incident
+    from analysis.reported import hoists_live
+    from analysis.runlogs import run_logs
+    live = hoists_live(group)
+    file_of: dict[str, str] = {}
+    for f in run_logs(group, domain, config):
+        with open(f, errors="ignore") as fh:
+            for ln in fh:
+                if '"trial_id"' in ln:
+                    try:
+                        file_of.setdefault(json.loads(ln)["trial_id"], str(f))
+                    except (json.JSONDecodeError, KeyError):
+                        pass
     ts = trials(group, domain, config)
     order = sorted(ts, key=lambda t: ts[t][0].get("timestamp", ""))
     out = []
     for tid in order:
         events = ts[tid]
+        just = {e.get("call_id"): e.get("justification", "") for e in events
+                if e.get("action") == "tool_proposed"}
         items = []
         for c in build_calls(events):
             if c.kind != "tool":
@@ -78,38 +102,51 @@ def sequence(group: str, domain: str, config: str = "agenticcyops") -> list[tupl
             verdict = {e.get("mechanism") for e in win if e.get("action") == "consensus_result"}
             logged = ("L4" if "P3_cross_incident" in verdict else
                       "L5" if "P3_replay_detection" in verdict else "pass")
-            items.append((p3_proposal(c, c.phase), logged, c.allowed))
-        out.append((tid, items))
+            p3ok = any(e.get("action") == "consensus_result"
+                       and e.get("auth_decision") in ("approved", "allow") for e in win)
+            prop = {"tool_id": c.target, "arguments": dict(c.arguments or {}),
+                    "justification": just.get(c.call_id, "")}
+            prop = {**prop, **{k: v for k, v in p3_proposal(c, c.phase, live).items()
+                               if k not in ("tool_id", "arguments")}}
+            items.append({"proposal": prop, "logged": logged, "p3ok": p3ok})
+        out.append((tid, file_of.get(tid, ""), _incident(domain, tid).get("incident_id", tid), items))
     return out
 
 
-def simulate(seq, window: int | None, identity: bool) -> dict:
+def simulate(seq, window: int | None, identity: bool, upper: bool = False) -> dict:
     """Replay the sequence through the shipped ``CrossIncidentLedger`` (P3.4)
-    and ``VersionedLedger`` (P3.6), in order. Expiry prunes the entries of
-    incidents older than ``window``; ``identity`` makes the replay check key
-    on (tool, action, target). A proposal the stateful checks release is
-    recorded as approved, as the logged run recorded its approvals (an upper
-    bound on the state a released proposal adds)."""
+    and ``VersionedLedger`` (P3.6), in order, with fresh ledgers at every
+    process boundary. Expiry prunes the entries of incidents older than
+    ``window``; ``identity`` keys the replay check on (tool, action, target).
+
+    A proposal the stateful checks release is recorded as approved when P3
+    approved it in the run (a lower bound on the state a policy leaves); with
+    ``upper`` also when the run denied it statefully, since it might then have
+    been approved (an upper bound)."""
     import asyncio
     from consensus.cross_incident_ledger import CrossIncidentLedger
     from consensus.versioned_ledger import VersionedLedger
 
-    l4, l5 = CrossIncidentLedger(), VersionedLedger()
-    if identity:
-        l5._hash_structural = lambda prop: _skeleton(prop, identity=True)
-    index: dict[str, int] = {}
     c = Counter()
-    for i, (tid, items) in enumerate(seq):
-        index[tid] = i
+    index: dict[str, int] = {}
+    l4 = l5 = None
+    current = None
+    for i, (tid, f, iid, items) in enumerate(seq):
+        if f != current or l4 is None:
+            l4, l5, current, index = CrossIncidentLedger(), VersionedLedger(), f, {}
+            if identity:
+                l5._hash_structural = lambda prop: _skeleton(prop, identity=True)
+        index[iid] = i
         if window is not None:
             l4._ledger = [e for e in l4._ledger if i - index.get(e["incident_id"], i) <= window]
             for h in [h for h, r in l5._ledger.items() if i - index.get(r["incident_id"], i) > window]:
                 del l5._ledger[h]
         kind = "benign" if "_benign_" in tid else "attack"
         c[kind + "_incidents"] += 1
-        ctx = {"incident_id": tid}
+        ctx = {"incident_id": iid}
         denied_here = 0
-        for p, logged, approved in items:
+        for it in items:
+            p, logged = it["proposal"], it["logged"]
             c[f"{kind}_consequential"] += 1
             c[f"{kind}_logged_{logged}"] += 1
             ok4, _r, _d = asyncio.run(l4.check_and_record(p, ctx))
@@ -117,10 +154,11 @@ def simulate(seq, window: int | None, identity: bool) -> dict:
             if reason is None:
                 ok5, _r, _d = l5.check_replay(p, ctx)
                 reason = None if ok5 else "L5"
+            c[f"{kind}_agree"] += (reason or "pass") == logged
             if reason:
                 c[f"{kind}_denied_{reason}"] += 1
                 denied_here += 1
-            elif approved or logged != "pass":
+            elif it["p3ok"] or (upper and logged != "pass"):
                 l5.record(p, ctx)
         c[f"{kind}_incidents_with_stateful_denial"] += denied_here > 0
     return dict(c)

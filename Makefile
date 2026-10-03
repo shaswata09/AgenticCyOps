@@ -6,7 +6,7 @@ PY ?= python
 DEFER_PANEL ?= local4
 export DEFER_PANEL
 
-.PHONY: paper-tables paper-reports parse stats tables reports asb-reports figures readme-figures replay-tables replay-v3 replay-v31 v31-mechanisms b2 primaries-tables primaries-v31 tamas-tables test freeze-check check-payloads
+.PHONY: paper-tables paper-reports parse stats tables reports asb-reports figures readme-figures replay-tables replay-v3 replay-v31 v31-mechanisms b2 primaries-tables primaries-v31 primaries-v32 reported tamas-tables test freeze-check check-payloads
 
 paper-tables: parse stats tables
 
@@ -14,7 +14,7 @@ paper-tables: parse stats tables
 paper-reports: reports asb-reports
 
 parse:
-	$(PY) -m analysis.parse_logs
+	$(PY) -m analysis.parse_logs --rescore
 
 stats:
 	$(PY) -m analysis.statistical_tests
@@ -85,6 +85,16 @@ primaries-tables:
 
 primaries-v31:
 	$(PY) -m analysis.primaries_tables --v31 > /dev/null
+
+# the reported primaries (defense-freeze-v3.2, cache/replay_rep)
+primaries-v32:
+	$(PY) -m analysis.primaries_tables --v32 > /dev/null
+
+# the reported boundary, ablation and judged fractions (cache/replay_rep)
+reported:
+	$(PY) -m analysis.replay_reported tables > /dev/null
+	$(PY) -m analysis.v31_extras > /dev/null
+	$(PY) -m analysis.results_page > /dev/null
 
 tamas-tables:
 	$(PY) -m analysis.tamas_tables > /dev/null

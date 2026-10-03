@@ -67,7 +67,7 @@ def build() -> str:
                 f'{r.get("blocked_weighted_S5")} / {r.get("blocked_weighted_S7")} / {r.get("blocked_weighted_S9")}']
                for c, r in iw.items()]
     pairs = []
-    for dom, cmp_ in ex.get("paired_v31", {}).items():
+    for dom, cmp_ in ex.get("paired", {}).items():
         for k, r in cmp_.items():
             pairs.append([NAMES.get(dom, dom), k.replace("->", " → "), r["a"], r["b"],
                           f'{r["diff"]} [{r["ci"][0]}, {r["ci"][1]}]'])

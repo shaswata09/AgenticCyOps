@@ -34,10 +34,18 @@ PANELS = {
     # the two local judges of the live v2.9 runs
     "Local2": (("L1_mistral", "L2_gemma"), 2),
 }
-# a model never validates its own proposals
-SELF = {"scout": "L4_scout", "mistral": "L1_mistral",
-        "oss120_full": "L3_gptoss", "oss120_judgeonly": "L3_gptoss",
-        "v31_oss120_full": "L3_gptoss", "v31_oss120_judgeonly": "L3_gptoss"}
+# a model never validates its own proposals: an arm whose primary is one of
+# the judges (named in the arm label) drops that judge. A rule rather than a
+# list of arm labels, so a new arm cannot be missed (2026-10-02 audit).
+_SELF_RULES = (("oss120", "L3_gptoss"), ("scout", "L4_scout"), ("mistral", "L1_mistral"))
+
+
+def self_judge(arm: str) -> str | None:
+    return next((j for key, j in _SELF_RULES if key in arm), None)
+
+
+SELF = {a: self_judge(a) for a in ("scout", "mistral", "oss120_full", "oss120_judgeonly",
+                                   "v31_oss120_full", "v31_oss120_judgeonly")}
 
 
 def load_all_votes() -> dict[str, dict[str, str]]:
@@ -53,8 +61,9 @@ def load_all_votes() -> dict[str, dict[str, str]]:
 
 def panel_for(panel: str, arm: str) -> tuple[tuple[str, ...], int]:
     members, quorum = PANELS[panel]
-    if arm in SELF and SELF[arm] in members:
-        members = tuple(m for m in members if m != SELF[arm])
+    own = self_judge(arm)
+    if own in members:
+        members = tuple(m for m in members if m != own)
         quorum = max(1, quorum - 1)
     return members, quorum
 
