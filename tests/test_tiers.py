@@ -42,7 +42,7 @@ def test_every_first_interception_in_the_logs_is_mapped(population):
 @pytest.mark.parametrize("mechanism,tier", [
     # the two the earlier mapping had wrong
     ("P3_handoff_validation", "content_dependent"),
-    ("P2_target_not_in_evidence", "content_dependent"),
+    ("P2_target_not_in_evidence", "similarity"),
     # one from each tier
     ("P4_schema_violation", "content_independent"),
     ("P2_parameter_rule_violation", "content_dependent"),

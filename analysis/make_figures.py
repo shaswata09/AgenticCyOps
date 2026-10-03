@@ -48,7 +48,9 @@ LOGS = BASE_DIR / "logs"
 DEV_GROUP = "q235_div4"
 # the reported configuration (defense-freeze-v3.1): every figure the v3.1 runs
 # can feed (all five configurations in four domains)
-REPORTED_GROUP = "q235_local2_v31"
+from analysis.reported import (ABLATION as _ABL, PERSIST as _PERSIST, PREVIOUS as _PREVIOUS,  # noqa: E402
+                               PRIMARIES as _PRIM, REPORTED, carries_siblings)
+REPORTED_GROUP = REPORTED          # the post-audit composition (analysis.reported)
 BOUNDARY_GROUP = REPORTED_GROUP
 # (domain, ap, variant) of the reported variants; the v3.1 runs also carry the
 # E2 siblings, which main() drops. Filled by main().
@@ -646,7 +648,7 @@ def fig_ablation(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
 
     # arms as (label, group, suffix): the v3.1 leave-one-out runs are groups of
     # their own (q235_local2_disabled_P<i>_v31); the earlier ones are suffixes
-    v31 = {i: f"q235_local2_disabled_P{i}_v31" for i in range(1, 6)}
+    v31 = dict(_ABL)                 # the reported leave-one-out arms (v3.2)
     have_v31 = [i for i, g in v31.items() if any(t["group"] == g for t in trials)]
     if len(have_v31) == 5:
         arms = [("DEFER", BOUNDARY_GROUP, "")] + [(f"minus P{i}", v31[i], "") for i in have_v31]
@@ -715,7 +717,7 @@ def fig_p5_reads(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
 
     # the v3.1 runs when the v3.1 minus-P5 arm exists (a group of its own),
     # the earlier runs (a suffix of DEV_GROUP) otherwise
-    p5_v31 = "q235_local2_disabled_P5_v31"
+    p5_v31 = _ABL[5]
     if any(t["group"] == p5_v31 for t in trials):
         g, gp5, sp5 = BOUNDARY_GROUP, p5_v31, ""
     else:
@@ -886,14 +888,29 @@ def _local4_benign_by_scenario(config: str, group: str = BOUNDARY_GROUP) -> dict
     """Per benign scenario (denied, proposed) under the Local4 replay."""
     from analysis.replay_panels import load_all_votes, load_rounds, outcomes
     arm = "full" if config == "agenticcyops" else "judgeonly"
-    if group == REPORTED_GROUP:           # the v3.1 rounds are kept apart
-        arm = f"v31_{arm}"
-        rounds = [json.loads(ln) for ln in open(BASE_DIR / "cache" / "replay_v31" / "rounds.jsonl")]
+    if group == REPORTED_GROUP:           # the reported rounds are kept apart
+        arm = f"rep_{arm}"
+        rounds = [json.loads(ln) for ln in open(BASE_DIR / "cache" / "replay_rep" / "rounds.jsonl")]
         rounds = [r for r in rounds if r["arm"] == arm]
     else:
         rounds = load_rounds()[arm]
     res = outcomes(arm, group, config, (DEV_DOMAIN,), "", "Local4", load_all_votes(), rounds)
     return dict(res["domains"][DEV_DOMAIN]["benign_by_scenario"])
+
+
+def _local4_panel_delta(group: str, domain: str) -> int | None:
+    """Local4 minus as-run denied benign tool calls under FULL (``None`` when
+    the group has no replay rounds)."""
+    from analysis.replay_panels import load_all_votes, outcomes
+    if group != REPORTED_GROUP:
+        return None
+    f = BASE_DIR / "cache" / "replay_rep" / "rounds.jsonl"
+    if not f.exists():
+        return None
+    rounds = [r for r in map(json.loads, open(f)) if r["arm"] == "rep_full" and r["domain"] == domain]
+    res = outcomes("rep_full", group, "agenticcyops", (domain,), "", "Local4", load_all_votes(), rounds)
+    per = res["domains"][domain].get("benign_trials", {})
+    return sum(den - as_run for den, as_run in per.values())
 
 
 def _local4_rounds() -> tuple[list[str], list[dict[str, str]]]:
@@ -903,10 +920,10 @@ def _local4_rounds() -> tuple[list[str], list[dict[str, str]]]:
     from analysis.replay_panels import PANELS, load_all_votes, load_rounds
     members = list(PANELS["Local4"][0])
     V = load_all_votes()
-    v31 = BASE_DIR / "cache" / "replay_v31" / "rounds.jsonl"
-    if REPORTED_GROUP == "q235_local2_v31" and v31.exists():
-        src = [r for r in map(json.loads, open(v31))
-               if r["arm"] == "v31_full" and r["path"] in JUDGED_PATHS]
+    rep = BASE_DIR / "cache" / "replay_rep" / "rounds.jsonl"
+    if rep.exists():                  # the reported FULL rounds, E2 siblings excluded
+        src = [r for r in map(json.loads, open(rep))
+               if r["arm"] == "rep_full" and r["path"] in JUDGED_PATHS and _original_tid(r["trial_id"])]
     else:
         src = [r for r in load_rounds()["full"] if r["path"] != "allowed_no_p3"]
     rounds = [{m: V[m].get(r["key"], "error") for m in members} for r in src]
@@ -1021,8 +1038,8 @@ def fig_validator_behavior(trials: list[dict], outdir: Path) -> tuple[Path, dict
         "name": "validator_behavior", "file": path.name,
         "takeaway": ("The four judges agree only moderately with each other, so how many of "
                      "them must approve changes what gets through by tens of points."),
-        "data_sources": (["cache/replay_v31/rounds.jsonl", "cache/validators/*.jsonl"]
-                         if (BASE_DIR / "cache" / "replay_v31" / "rounds.jsonl").exists()
+        "data_sources": (["cache/replay_rep/rounds.jsonl", "cache/validators/*.jsonl"]
+                         if (BASE_DIR / "cache" / "replay_rep" / "rounds.jsonl").exists()
                          else [f"logs/*_eval_attacks_{DEV_GROUP}/agenticcyops_*.jsonl"]),
         "n": {"rounds": len(rounds), "rounds_all_voted": len(clean), "panel": list(panel),
               "kappa": {f"{a}|{b}": round(float(M[i, j]), 2) for i, a in enumerate(panel)
@@ -1210,12 +1227,12 @@ def fig_transfer(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     # primaries: the v3.1 runs where they exist, the earlier runs otherwise
     have = {t["group"] for t in trials}
     prim = ["scout_div4", "mistral_div3p"]
-    prim += ["llama8b_local2_v31", "oss120_local2_v31"] if "llama8b_local2_v31" in have else ["llama8b_div4"]
+    prim += list(_PRIM.values()) if _PRIM["Llama-3.1-8B"] in have else ["llama8b_div4"]
     rows += [(g, "cyberops") for g in prim if g in have]
     rows = [(g, d) for g, d in rows if clean(g)]
     name = {BOUNDARY_GROUP: "Qwen3-235B", "q235_div4": "Qwen3-235B", "scout_div4": "Llama-4-Scout",
             "mistral_div3p": "Mistral-Small", "llama8b_div4": "Llama-3.1-8B",
-            "llama8b_local2_v31": "Llama-3.1-8B", "oss120_local2_v31": "gpt-oss-120b"}
+            **{g: m for m, g in _PRIM.items()}}
 
     fig, (ax, axb) = plt.subplots(
         1, 2, figsize=(fs.WIDTH_2COL, 3.15), sharey=True,
@@ -1279,9 +1296,11 @@ def fig_state_carryover(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     import matplotlib.pyplot as plt
 
     # the v3.1 persistent runs when present, the earlier ones otherwise
-    v31p = any(t["group"] == "q235_local2_v31persist" for t in trials)
-    pers_group = "q235_local2_v31persist" if v31p else f"{DEV_GROUP}_persistent"
-    iso_group = BOUNDARY_GROUP if v31p else DEV_GROUP
+    v31p = any(t["group"] == _PERSIST[0] for t in trials)
+    pers_group = _PERSIST[0] if v31p else f"{DEV_GROUP}_persistent"
+    # the isolated reference is the same code and panel as the persistent run:
+    # v3.1, as run with the two live judges (the persistent run has no replay)
+    iso_group = _PREVIOUS if v31p else DEV_GROUP
     # first timestamp per benign trial, from the persistent logs
     order: dict[tuple[str, str], str] = {}
     for d in ("cyberops", "finance", "healthcare", "legal"):
@@ -1305,7 +1324,10 @@ def fig_state_carryover(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
     for t in ben:
         by_dom[t["domain"]].append((order.get(trial_id(t), ""), float(t.get("collateral_denials") or 0)))
 
-    iso = [t for t in trials if t["group"] == iso_group and t["domain"] == DEV_DOMAIN
+    # as run, like the persistent sequence (the Local4 table re-counts the
+    # isolated runs' benign denials under another panel; 2026-10-02 audit)
+    as_run = load_trials(BASE_DIR / "results" / "eval_attacks" / "all_trials.csv")
+    iso = [t for t in as_run if t["group"] == iso_group and t["domain"] == DEV_DOMAIN
            and t["ap"] == "benign" and t["outcome"] == "benign"
            and not t.get("suffix") and t["config"] == "agenticcyops"]
     iso_mean = float(np.mean([float(t.get("collateral_denials") or 0) for t in iso])) if iso else float("nan")
@@ -1447,6 +1469,16 @@ def fig_cost(trials: list[dict], outdir: Path) -> tuple[Path, dict]:
 
     domains = ("cyberops", "finance", "healthcare", "legal")
     cost = benign_cost_from_logs(BOUNDARY_GROUP, domains, ("agenticcyops",))
+    if LOCAL4:
+        # the panel bucket on the panel the paper reports: the replay changes
+        # only panel decisions, so Local4's benign tool denials minus the live
+        # ones is the change in panel denials (2026-10-02 audit; before, the
+        # bucket counted the live two-judge panel)
+        for d in domains:
+            delta = _local4_panel_delta(BOUNDARY_GROUP, d)
+            if delta is not None:
+                bucket = cost[(d, "agenticcyops")]["deny"]
+                bucket["P3_llm"] = max(0, bucket["P3_llm"] + delta)
     lat_cfgs = [("Flat", "flat"), ("NoJudge", "symbolic_only"),
                 ("DEFER", "agenticcyops"), ("JudgeOnly", "llm_judge")]
     latc = benign_cost_from_logs(BOUNDARY_GROUP, (DEV_DOMAIN,), [c for _l, c in lat_cfgs])
@@ -1680,7 +1712,7 @@ def main() -> None:
                     if t["group"] == DEV_GROUP and t["ap"] != "benign" and not t.get("suffix")
                     and t["config"] == "agenticcyops")
     # every v3.1 run (boundary, ablation arms, other primaries) carries them
-    trials = [t for t in trials if not t["group"].endswith("_v31") or t["ap"] == "benign"
+    trials = [t for t in trials if not carries_siblings(t["group"]) or t["ap"] == "benign"
               or (t["domain"], t["ap"], str(t["variant"])) in ORIGINAL]
 
     wanted = args.only or list(FIGURES)

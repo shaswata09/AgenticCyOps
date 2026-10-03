@@ -73,7 +73,11 @@ def cluster_bootstrap(trials: list[dict], indicator: Callable[[dict], bool],
     """(point, low, high): percentile bootstrap over clusters (variants)."""
     if not trials:
         return float("nan"), float("nan"), float("nan")
-    groups = list(_clusters(trials, cluster_key).values())
+    # clusters in key order: the same trials give the same interval whatever
+    # order they arrive in (2026-10-02 audit; dict insertion order differed
+    # between the replay tables and the figures)
+    cl = _clusters(trials, cluster_key)
+    groups = [cl[k] for k in sorted(cl)]
     num = np.array([sum(1 for t in g if indicator(t)) for g in groups], dtype=float)
     den = np.array([len(g) for g in groups], dtype=float)
     rng = np.random.default_rng(seed)
@@ -201,9 +205,10 @@ def main() -> None:
     ap.add_argument("--trials", type=Path, default=RESULTS_DIR / "eval_attacks" / "all_trials.csv")
     ap.add_argument("--out", type=Path, default=RESULTS_DIR / "eval_attacks" / "stats.csv")
     ap.add_argument("--B", type=int, default=10000)
-    ap.add_argument("--seed", type=int, default=20260919)
+    ap.add_argument("--seed", type=int, default=0)   # the paper's stated seed (Appendix: seed 0)
     args = ap.parse_args()
-    trials = load_trials(args.trials)
+    from analysis.generate_tables import _drop_siblings   # the 75 reported variants per domain
+    trials = _drop_siblings(load_trials(args.trials))
     rows = compute_stats(trials, B=args.B, seed=args.seed)
     if not rows:
         print("no measurable trials")

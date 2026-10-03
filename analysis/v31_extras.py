@@ -1,4 +1,5 @@
-"""Offline analyses of the v3.1 runs that the reviews asked for.
+"""Offline analyses of the reported runs that the reviews asked for (the
+reported composition: analysis.reported; module name kept from v3.1).
 
     python -m analysis.v31_extras      # -> results/v31_extras.json, .md
 
@@ -15,10 +16,10 @@
    trials disagree. Between runs: FLAT and ACL of the v2.2 and v3.1 runs on
    the attack paths the audit fixes did not touch (all but AP-13 and AP-15),
    paired by variant.
-3. Paired comparisons at v3.1 per domain (FLAT vs JUDGEONLY, JUDGEONLY vs FULL,
+3. Paired comparisons of the reported runs per domain (FLAT vs JUDGEONLY, JUDGEONLY vs FULL,
    NOJUDGE vs FULL), 95% cluster-bootstrap intervals over variants.
 4. Judge transfer: each Local4 judge's approval of legitimate proposals per
-   domain, over every judged benign round of the v3.1 runs.
+   domain, over every judged benign round of the reported runs.
 """
 from __future__ import annotations
 
@@ -28,7 +29,8 @@ from collections import Counter, defaultdict
 
 from analysis.p3_eligibility import JUDGED_PATHS, _payload, trials
 from analysis.replay_panels import PANELS, asr, load_all_votes, outcomes
-from analysis.replay_v31 import GROUP, OUT, _keep
+from analysis.replay_reported import OUT, keep as _keep
+from analysis.reported import PREVIOUS, REPORTED as GROUP
 from attacks.effects import build_calls, evaluate_effects
 from config import BASE_DIR
 
@@ -74,7 +76,10 @@ def loss_class(domain: str, tool: str, args: dict, kind: str = "tool", tables=No
         v = (args or {}).get(k)
         vals += v if isinstance(v, list) else [v]
     levels = {crit.get(str(v).strip().lower()) for v in vals if isinstance(v, (str, int))}
-    action = str((args or {}).get("action") or "")
+    # v3.2 audit: single-action tools (F8 freeze, L8 file, L9 sign) carry no
+    # ``action`` argument; their implied action is what the impact table keys on
+    from host.tool_semantics import action_of
+    action = action_of(tool, args or {})
     if "critical" in levels or float(impacts.get(f"{tool}|{action}", 0) or 0) <= IRREVERSIBLE:
         return "Severe"
     if "high" in levels:
@@ -133,7 +138,7 @@ def impact_weighting() -> dict:
                     blocked_by_class[k] += c.denied
             # (b) attack success weighted by the intended effect's loss class
             if cfg in ("llm_judge", "agenticcyops"):
-                arm = "v31_full" if cfg == "agenticcyops" else "v31_judgeonly"
+                arm = "rep_full" if cfg == "agenticcyops" else "rep_judgeonly"
                 att = outcomes(arm, GROUP, cfg, (d,), "", "Local4", V, R[arm])["domains"][d]["attack"]
                 rows = [(t["ap"], t["variant"], t["outcome"] == "executed") for t in att]
             else:
@@ -191,14 +196,18 @@ def _by_variant(group: str, cfg: str, doms, local4: dict | None = None, aps_out=
     return d_
 
 
-def _paired(a: dict, b: dict, B: int = 4000) -> dict:
-    ks = [k for k in a if k in b]
-    rate = lambda d, ks: sum(sum(d[k]) for k in ks) / max(1, sum(len(d[k]) for k in ks))
-    rng = random.Random(0)
-    bs = sorted(rate(b, s) - rate(a, s) for s in ([rng.choice(ks) for _ in ks] for _ in range(B)))
-    return {"variants": len(ks), "a": pct(rate(a, ks)), "b": pct(rate(b, ks)),
-            "diff": pct(rate(b, ks) - rate(a, ks)),
-            "ci": [pct(bs[int(0.025 * B)]), pct(bs[int(0.975 * B)])]}
+def _paired(a: dict, b: dict) -> dict:
+    """b - a, paired by variant: the paper's procedure (statistical_tests.
+    paired_diff, 10,000 resamples, seed 0); before, a separate 4,000-draw
+    bootstrap with index percentiles."""
+    from analysis.statistical_tests import paired_diff
+    ks = sorted(k for k in a if k in b)
+    rows_a = [{"k": "|".join(k), "x": x} for k in ks for x in a[k]]
+    rows_b = [{"k": "|".join(k), "x": x} for k in ks for x in b[k]]
+    r = paired_diff(rows_b, rows_a, lambda t: bool(t["x"]), lambda t: t["k"])
+    rate = lambda d: sum(sum(d[k]) for k in ks) / max(1, sum(len(d[k]) for k in ks))
+    return {"variants": len(ks), "a": pct(rate(a)), "b": pct(rate(b)), "diff": pct(r["diff"]),
+            "ci": [pct(r["low"]), pct(r["high"])]}
 
 
 def variation_and_pairs() -> dict:
@@ -209,9 +218,9 @@ def variation_and_pairs() -> dict:
         R[r["arm"]].append(r)
     local4 = {}
     for d in D4:
-        for cfg, arm in (("agenticcyops", "v31_full"), ("llm_judge", "v31_judgeonly")):
+        for cfg, arm in (("agenticcyops", "rep_full"), ("llm_judge", "rep_judgeonly")):
             local4[(d, cfg)] = outcomes(arm, GROUP, cfg, (d,), "", "Local4", V, R[arm])["domains"][d]["attack"]
-    res: dict = {"within_run_disagreeing_variants": {}, "between_runs": {}, "paired_v31": {}}
+    res: dict = {"within_run_disagreeing_variants": {}, "between_runs": {}, "paired": {}}
     for label, cfg in CFGS.items():
         byv = _by_variant(GROUP, cfg, D4, local4)
         mixed = sum(1 for v in byv.values() if 0 < sum(v) < len(v))
@@ -220,11 +229,11 @@ def variation_and_pairs() -> dict:
     for label, cfg in (("FLAT", "flat"), ("ACL", "acl_hardened")):
         for doms, name in [((d,), d) for d in D4] + [(D4, "all four")]:
             a = _by_variant("q235_div4", cfg, doms, aps_out=("ap13", "ap15"))
-            b = _by_variant(GROUP, cfg, doms, aps_out=("ap13", "ap15"))
+            b = _by_variant(PREVIOUS, cfg, doms, aps_out=("ap13", "ap15"))   # the two runs of the same code
             res["between_runs"][f"{label} {name}"] = _paired(a, b)
     for doms, name in [((d,), d) for d in D4] + [(D4[1:], "transfer")]:
         v = {lab: _by_variant(GROUP, cfg, doms, local4) for lab, cfg in CFGS.items()}
-        res["paired_v31"][name] = {"FLAT->JUDGEONLY": _paired(v["FLAT"], v["JUDGEONLY"]),
+        res["paired"][name] = {"FLAT->JUDGEONLY": _paired(v["FLAT"], v["JUDGEONLY"]),
                                    "JUDGEONLY->FULL": _paired(v["JUDGEONLY"], v["FULL"]),
                                    "NOJUDGE->FULL": _paired(v["NOJUDGE"], v["FULL"])}
     return res
@@ -236,7 +245,7 @@ def judge_transfer() -> dict:
     c = defaultdict(Counter)
     for ln in open(OUT / "rounds.jsonl"):
         r = json.loads(ln)
-        if r["arm"] not in ("v31_full", "v31_judgeonly") or r["role"] != "benign" \
+        if r["arm"] not in ("rep_full", "rep_judgeonly") or r["role"] != "benign" \
                 or r["path"] not in JUDGED_PATHS:
             continue
         for m in members:
@@ -251,7 +260,7 @@ def main() -> None:
     res = {"impact_weighting": impact_weighting(), **variation_and_pairs(),
            "judge_approval_of_legitimate_proposals": judge_transfer()}
     (BASE_DIR / "results" / "v31_extras.json").write_text(json.dumps(res, indent=1))
-    L = ["# Additional analyses of the v3.1 runs", "",
+    L = ["# Additional analyses of the reported runs", "",
          "Generated by `python -m analysis.v31_extras` (cached votes and logs only).", "",
          "## Impact weighting (attack-incident tool calls, four domains)", "",
          "| Config | Calls | Blocked % | Blocked %, weighted (S=5/7/9) | ASR %, effect-weighted (S=5/7/9) |",
@@ -260,7 +269,7 @@ def main() -> None:
         L.append(f"| {lab} | {r['calls']} | {r['blocked_unweighted']} | "
                  f"{r['blocked_weighted_S5']} / {r['blocked_weighted_S7']} / {r['blocked_weighted_S9']} | "
                  f"{r['asr_weighted_S5']} / {r['asr_weighted_S7']} / {r['asr_weighted_S9']} |")
-    L += ["", "## Run-to-run variation", "", "Variants whose three trials disagree (v3.1, four domains):", ""]
+    L += ["", "## Run-to-run variation", "", "Variants whose three trials disagree (reported runs, four domains):", ""]
     for lab, r in res["within_run_disagreeing_variants"].items():
         L.append(f"- {lab}: {r['mixed']} of {r['variants']} ({r['pct']}%)")
     L += ["", "Two independent runs (v2.2 and v3.1) of FLAT and ACL, attack paths the fixes did not touch "
@@ -268,12 +277,12 @@ def main() -> None:
           "|---|---|---|---|"]
     for k, r in res["between_runs"].items():
         L.append(f"| {k} | {r['a']} | {r['b']} | {r['diff']} [{r['ci'][0]}, {r['ci'][1]}] |")
-    L += ["", "## Paired comparisons at v3.1", "", "| Domain | Comparison | From | To | Difference [95% CI] |",
+    L += ["", "## Paired comparisons (reported runs)", "", "| Domain | Comparison | From | To | Difference [95% CI] |",
           "|---|---|---|---|---|"]
-    for dom, cmp_ in res["paired_v31"].items():
+    for dom, cmp_ in res["paired"].items():
         for k, r in cmp_.items():
             L.append(f"| {dom} | {k} | {r['a']} | {r['b']} | {r['diff']} [{r['ci'][0]}, {r['ci'][1]}] |")
-    L += ["", "## Judge approval of legitimate proposals (v3.1, judged benign rounds)", "",
+    L += ["", "## Judge approval of legitimate proposals (reported runs, judged benign rounds)", "",
           "| Judge | " + " | ".join(D4) + " |", "|---|" + "---|" * len(D4)]
     for m, r in res["judge_approval_of_legitimate_proposals"].items():
         L.append(f"| {m} | " + " | ".join(str(r[d]) for d in D4) + " |")

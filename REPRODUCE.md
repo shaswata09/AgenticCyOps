@@ -22,7 +22,9 @@ table and PDF is rebuilt from those logs with no LLM calls.
 | `defense-freeze-v3.1` | `3c9cfdb` | **The reported configuration.** v2.9's decision code (the v3.0 panel-input wiring reverted) plus the fixes of a code audit: harness faults deep-copied per incident (AP-15 faults fired in trial 1 only); P3-L0 validates the handoff into the current phase; implied actions and targets for single-action tools, so time policy, change conflict and impacts apply outside CyberOps; change-log tool and reversal pairs; intent-chain thresholds from config; "24/7" policies end at 24; early exit on the deciding mechanism; no config-integrity check in JUDGEONLY; P5-L3 receives the incident text; hoisted fields sanitized; case-insensitive votes; bulk cap counts executed actions; case-insensitive critical-asset match; AP-13 transfer payloads and benign schema values fixed; oracle fixes (handoff canaries are not leaks, post-execution rejections are executions, AP-6 replay needs the same call). Runs: `q235_local2_v31`. |
 | `defense-freeze-v3.1.1` | `0242ceb` | v3.1 plus one oracle fix: a denial at interception step 6 counts as executed only with a `p1l2_reason` (the JUDGEONLY panel denial is also logged at step 6). **Scoring only; no decision changed.** The freeze guard's default. |
 | `defense-freeze-v3.1.2` | tagged on the logger commit | v3.1.1 plus one logging change: the logger writes paths inside the checkout repo-relative (`./...`), so no log carries the absolute path of the machine that ran it (before, a config-integrity event's `changed_files` did). **Logging only; no decision changed.** |
-| `defense-freeze-v3.1.3` | tagged on the rename commit | v3.1.2 with the project renamed from AgenticCyOps to DEFER in docstrings, help text, and one config file's comment and description, which no code reads. **Naming only; no decision, log field, or identifier changed** (the `agenticcyops` configuration label and the `AGENTICCYOPS_HMAC_KEY` variable keep their names). The freeze guard's default. |
+| `defense-freeze-v3.1.3` | tagged on the rename commit | v3.1.2 with the project renamed from AgenticCyOps to DEFER in docstrings, help text, and one config file's comment and description, which no code reads. **Naming only; no decision, log field, or identifier changed** (the `agenticcyops` configuration label and the `AGENTICCYOPS_HMAC_KEY` variable keep their names). |
+| `defense-freeze-v3.1.4` | `23b7b4c` | v3.1.3 plus the harness and scoring fixes of the second audit (2026-10-02), **no defense check changed**: the AP-9 handoff fields are rendered into the next agent's handoff summary (before, only P3-L0 read them; no model or judge saw AP-9); tool hiding follows P2 (JUDGEONLY and a run without P2 see every tool); the oracle reads a single-action tool's implied action as its operation, needs a distinct call per step of an unordered chain, attributes a NOJUDGE block to the call's own layer, and scores an unanswered memory operation as an error; 31 auto-derived effect specs repaired (`scripts/fix_effect_specs.py`). Used for the AP-9 and JUDGEONLY re-runs outside CyberOps (`q235_local2_v314`). |
+| `defense-freeze-v3.2` | `dc0c2c6` | **Decision change.** v3.1.4 plus the high-severity defense fixes of the second audit: the handoff deflation check reads the phase's claims (not tool results or earlier phases) as whole, non-negated words, with the severity under every field name; parameter rules follow the tool schemas (T8 `reset`, T10 `push`, short reason codes); the wildcard check reads scoping arguments only and the criticality check state-changing tools only; one target and action map for the validator, the ledger and the hoist (`host/tool_semantics.py`); nested and multi-incident triggers name their incident ids. Used for every CyberOps run reported (`*_v32`). The freeze guard's default. |
 
 ### What changed between `defense-freeze-v2.1` and `defense-freeze-v2.2`
 
@@ -122,6 +124,29 @@ Afterwards (no model calls except the Local4 votes):
 python -m analysis.replay_v31 build                  # rounds -> cache/replay_v31
 python -m analysis.replay_run query --validator L1_mistral --url ... --replay-dir cache/replay_v31   # x4 judges
 make replay-v31 primaries-v31 v31-mechanisms figures
+```
+
+## The reported runs after the second audit (2026-10-02)
+
+`scripts/run_v32.sh` (phases A-C, tmux) runs from two clean worktrees:
+
+| Freeze tag | Groups | What |
+|---|---|---|
+| `defense-freeze-v3.2` | `q235_local2_v32` | CyberOps boundary, five configurations, all paths (with the E2 siblings) and benign |
+| | `q235_local2_disabled_P{1..5}_v32` | leave-one-out, CyberOps |
+| | `llama8b_local2_v32`, `oss120_local2_v32` | the other two primaries, CyberOps |
+| `defense-freeze-v3.1.4` | `q235_local2_v314` | healthcare, finance, legal: JUDGEONLY on every path and benign, AP-9 under the other four configurations |
+
+The reported boundary is the virtual group `q235_local2_rep` (`analysis/reported.py`):
+CyberOps from v3.2, the other domains from v3.1 with their AP-9 and JUDGEONLY cells
+from v3.1.4. Persistent state stays at v3.1. Afterwards:
+
+```
+make parse                                   # every run re-scored with the current oracle
+python -m analysis.replay_v31 build          # the v3.1 rounds, rebuilt as the v3.1 host built them
+python -m analysis.replay_reported build     # the reported rounds -> cache/replay_rep
+python -m analysis.replay_run query --replay-dir cache/replay_rep --validator L1_mistral --url ...   # x4, and replay_v31
+make replay-tables replay-v31 reported primaries-v32 v31-mechanisms tamas-tables figures
 ```
 
 ## Tables and reports

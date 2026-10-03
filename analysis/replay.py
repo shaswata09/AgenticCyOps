@@ -72,10 +72,13 @@ def message(proposal: dict, incident: dict, host_config: str, sanitize: bool,
     }, default=str)
 
 
-def _proposal(call) -> dict:
+def _proposal(call, live: bool = False) -> dict:
     """``to_proposal`` order (tool_id, arguments, justification), then phase,
-    then the hoisted fields: key order matters to ``json.dumps``."""
-    base = p3_proposal(call, call.phase)
+    then the hoisted fields: key order matters to ``json.dumps``. ``live``: the
+    v3.1+ host's hoist (implied actions, fallback targets); the v3.1 replay was
+    built without it, so 5,979 of its messages differed from what the judges
+    saw (2026-10-02 audit)."""
+    base = p3_proposal(call, call.phase, live)
     p = {"tool_id": base["tool_id"], "arguments": base["arguments"],
          "justification": call.justification if hasattr(call, "justification") else ""}
     for k, v in base.items():
@@ -144,8 +147,10 @@ def _full_justification(logged: str, call, domain: str, trial_id: str) -> str:
 
 def rounds(group: str, config: str, domains=DOMAINS, suffix: str = "",
            include_unjudged: bool = False) -> list[Round]:
+    from analysis.reported import hoists_live
     host_config = "llm_judge" if config == "llm_judge" else "agenticcyops"
     sanitize = config != "llm_judge"
+    live = hoists_live(group)
     out: list[Round] = []
     for d in domains:
         commits = trial_commits(group, d, config, suffix)
@@ -165,7 +170,7 @@ def rounds(group: str, config: str, domains=DOMAINS, suffix: str = "",
                 if not (judged or (include_unjudged and path == "allowed_no_p3")):
                     continue
                 c.justification = _full_justification(just.get(c.call_id, ""), c, d, tid)
-                msg = message(_proposal(c), incident, host_config, sanitize, tid)
+                msg = message(_proposal(c, live), incident, host_config, sanitize, tid)
                 votes, toks = {}, {}
                 if judged:
                     end = c.decision_seq if c.decision_seq >= 0 else len(events)

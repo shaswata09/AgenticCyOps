@@ -26,9 +26,9 @@
   "error": 5
  },
  "flat|impersonation": {
-  "not_attempted": 121,
-  "error": 1,
-  "executed": 28
+  "executed": 45,
+  "not_attempted": 104,
+  "error": 1
  },
  "full|DPI": {
   "blocked": 53,
@@ -57,8 +57,8 @@
   "error": 5
  },
  "full|impersonation": {
-  "not_attempted": 128,
-  "blocked": 18,
+  "not_attempted": 114,
+  "blocked": 32,
   "executed": 4
  }
 }

@@ -6,7 +6,8 @@ deterministic P3 layers went to the panel. Those are exactly the proposals a
 working gate would have seen. The gate is deterministic and its inputs are
 reproducible from the log: scope from the proposal's targets, reversibility
 from the static table, proportionality from both (P3's context carries no
-severity or asset count, so the scorer's defaults apply). This module
+severity or asset count before v3.1, so the scorer's defaults apply; the
+v3.1+ host adds severity and the hoisted implied action). This module
 re-scores each of them with the shipped ``ProposalScorer`` and ``AutoGates``
 and reports what the gate would have done: in-sample on the CyberOps
 development domain, out of sample on the three transfer domains.
@@ -28,19 +29,42 @@ _HOIST = ("action", "target", "target_user", "target_hosts", "target_users",
           "account_id", "patient_id", "case_id")
 
 
-def p3_proposal(call, phase: str) -> dict:
-    """The proposal dict P3 builds (orchestrator: to_proposal + phase + hoisted fields)."""
+def p3_proposal(call, phase: str, live: bool = False) -> dict:
+    """The proposal dict P3 builds (orchestrator: to_proposal + phase + hoisted
+    fields). ``live``: the v3.1+ host's hoist, which also sets single-action
+    tools' implied action and a fallback target (analysis.reported.hoists_live);
+    without it a v3.1 proposal is rebuilt without fields the run had."""
     args = dict(call.arguments or {})
     p = {"tool_id": call.target, "arguments": args, "phase": phase}
+    if live:
+        from host.orchestrator import _hoist
+        return _hoist(p)
     for f in _HOIST:
         if f in args and f not in p:
             p[f] = args[f]
     return p
 
 
+_SCORE_KEYS = ("alignment", "scope", "reversibility", "precedent", "proportionality")
+
+
+def logged_scores(call, events: list[dict]) -> dict | None:
+    """The five risk scores the run computed for this call (logged from
+    defense-freeze-v2.6 on, ``P3_L1_scores`` / ``P3_L2_scores``), or ``None``.
+    From v3.1 the live scorer also had the incident's severity and the hoisted
+    implied action, which an offline re-score without that context misses."""
+    end = call.decision_seq if call.decision_seq >= 0 else len(events)
+    for e in events[call.seq:end + 1]:
+        if e.get("action") in ("P3_L1_scores", "P3_L2_scores") and all(k in e for k in _SCORE_KEYS):
+            return {k: float(e[k]) for k in _SCORE_KEYS}
+    return None
+
+
 def evaluate(group: str = "q235_div4", config: str = "agenticcyops", mode: str = "permissive",
              domains=DOMAINS, suffix: str = "") -> dict:
+    from analysis.reported import hoists_live
     gate = AutoGates(mode=mode)
+    live = hoists_live(group)
     out: dict = defaultdict(Counter)
     flagged: list[dict] = []
     for d in domains:
@@ -57,7 +81,7 @@ def evaluate(group: str = "q235_div4", config: str = "agenticcyops", mode: str =
                 path = call_path(c, events)
                 if path not in JUDGED_PATHS:
                     continue                  # never reached the gate
-                scores = scorer.score(p3_proposal(c, c.phase), {})
+                scores = logged_scores(c, events) or scorer.score(p3_proposal(c, c.phase, live), {})
                 decided, reason, det = gate.evaluate(scores)
                 approve = decided and det.get("approved")
                 role = "benign" if benign else ("attack_effect" if c.call_id in attack_ids else "attack_other")
@@ -102,7 +126,9 @@ def simulate(mode: str = "permissive", fixed_scorer: bool = False, group: str = 
     a ledger of the approvals made earlier in the same trial for precedent.
     """
     import copy
+    from analysis.reported import hoists_live
     gate = AutoGates(mode=mode)
+    live = hoists_live(group)
     out: dict = {}
     for d in domains:
         scorer = ProposalScorer(domain=d, embedding_model=embedding_model if fixed_scorer else None)
@@ -117,9 +143,10 @@ def simulate(mode: str = "permissive", fixed_scorer: bool = False, group: str = 
                 path = call_path(c, events)
                 if path not in JUDGED_PATHS:
                     continue
-                prop = p3_proposal(c, c.phase)
+                prop = p3_proposal(c, c.phase, live)
                 scorer._ledger = ledger if fixed_scorer else None
-                scores = scorer.score(prop, {"incident_evidence": evidence} if fixed_scorer else {})
+                scores = ((None if fixed_scorer else logged_scores(c, events))
+                          or scorer.score(prop, {"incident_evidence": evidence} if fixed_scorer else {}))
                 decided, _reason, det = gate.evaluate(scores)
                 approved = path == "p3_panel_approved"
                 if decided:

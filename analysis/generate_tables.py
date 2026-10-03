@@ -81,7 +81,7 @@ def _md(headers: list[str], rows: list[list]) -> str:
 # --------------------------------------------------------------------- #
 
 
-TAGGED = ("_smoke", "_debug", "_persistent")
+TAGGED = ("_smoke", "_debug", "_persistent", "persist")   # v3.1: ..._v31persist(2)
 # the main run of each primary model; the pooled channel table uses only these
 # (the E2/E9/E16 arms and the outage run measure other things)
 PRIMARY_GROUPS = ("q235_div4", "scout_div4", "mistral_div3p", "llama8b_div4")
@@ -405,7 +405,7 @@ def _p5_benign_cost(results_dir: Path, group: str) -> dict:
 
 def build(results_dir: Path, main_group: str) -> str:
     base = results_dir / "eval_attacks"
-    trials = _read(base / "all_trials.csv")
+    trials = _drop_siblings(_read(base / "all_trials.csv"))
     stats = _read(base / "stats.csv")
     runs = _read(base / "runs.csv")
     groups = sorted({t["group"] for t in trials if not _is_tagged(t["group"])})
@@ -663,6 +663,18 @@ def t14_p3_decisions(group: str) -> str:
     auto = sum(v for c in by.values() for (lay, _m, _d), v in c.items() if "panel" not in lay)
     rows.append(["**all configs**", "**deterministic auto-decisions (P3.7 + P3.9)**", "", "", "", f"**{auto}**"])
     return _md(["Config", "Layer", "Mechanism", "Tier", "Decision", "Count"], rows)
+
+
+def _drop_siblings(trials: list[dict]) -> list[dict]:
+    """The runs from v3.1 on also carry the E2 rule-evading siblings; the
+    tables count only the 75 reported variants per domain (the variants of the
+    original runs, group q235_div4)."""
+    from analysis.reported import carries_siblings
+    orig = {(t["domain"], t["ap"], str(t["variant"])) for t in trials
+            if t["group"] == "q235_div4" and t["ap"] != "benign" and not t.get("suffix")
+            and t["config"] == "agenticcyops"}
+    return [t for t in trials if not carries_siblings(t["group"]) or t["ap"] == "benign"
+            or (t["domain"], t["ap"], str(t["variant"])) in orig]
 
 
 def main() -> None:

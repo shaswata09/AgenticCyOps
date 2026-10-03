@@ -12,9 +12,11 @@ no other mapping exists. The four tiers:
   LLM panel                 the validators.
 
 P2.2 (target not in evidence) has two branches, a substring match and a cosine
-match, and the committed logs do not record which one denied. It is classified
-as content-dependent here; from defense-freeze-v2.9 the logs carry
-``deny_branch`` and :func:`tier_of` uses it.
+match. The substring branch can only allow, so a denial is the cosine
+threshold's whenever an embedding model is loaded, as in every reported run:
+the label maps to the similarity tier (the paper's rule, "the tier of the rule
+that actually denied"). A log whose ``deny_branch`` says "substring" (a run
+without an embedding model) is mapped back to a content-dependent rule.
 
 A mechanism that is not listed maps to ``None``. Callers that count
 interceptions must treat ``None`` as an error rather than a tier
@@ -60,8 +62,7 @@ _CHECKS: dict[str, tuple[str, tuple[str, ...]]] = {
     "P4 write replay": ("content_independent", ("P4_write_replay",)),
     "P5 access control": ("content_independent", ("P5_access_control", "P5_field_filtering")),
     # content-dependent rule
-    "P2 target not in evidence (substring branch)": ("content_dependent", (
-        "P2_target_not_in_evidence", "P2_p2_target_not_in_evidence")),
+
     "P2 parameter rule violation": ("content_dependent", ("P2_parameter_rule_violation",)),
     "P2 wildcard parameter": ("content_dependent", ("P2_wildcard_parameter",)),
     "P2 output classifier (pattern branch)": ("content_dependent", ("P2_sensitive_pattern_detected",)),
@@ -79,6 +80,13 @@ _CHECKS: dict[str, tuple[str, tuple[str, ...]]] = {
     "P5 broad query block": ("content_dependent", ("P5_broad_query_block", "P5_query_scope")),
     "P5 injection sanitization": ("content_dependent", ("P5_injection_sanitization",)),
     # similarity threshold
+    # P2.2's target-in-evidence test: the substring branch can only allow, so
+    # with an embedding model loaded (every reported run, ASB included) a
+    # denial is the cosine threshold's (2026-10-02 audit; the v2.9+ logs carry
+    # deny_branch "cosine" on all 409 of them). A run without an embedding model
+    # logs deny_branch "substring", which tier_of maps back to a rule.
+    "P2 target not in evidence (cosine branch)": ("similarity", (
+        "P2_target_not_in_evidence", "P2_p2_target_not_in_evidence")),
     "P4 similarity reject": ("similarity", ("P4_similarity_reject",)),
     "P4 drift outlier": ("similarity", ("P4_drift_outlier",)),
     "P4 centroid shift": ("similarity", ("P4_centroid_shift",)),
